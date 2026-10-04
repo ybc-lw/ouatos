@@ -1,0 +1,5 @@
+c9db76c97d5c3467ee3ac7b0ef0fad92  usr/lib/dracut/dracut-install
+2167f788e8afbd5ecb48dc2f2f067884  usr/share/doc/dracut-install/NEWS.Debian.gz
+10ccde74285458d30f6def1b0e8d7a80  usr/share/doc/dracut-install/changelog.Debian.gz
+5521c71ea6c50b358884152e17f25d06  usr/share/doc/dracut-install/copyright
+0aae5ce236d1f95c53cca5685cd14576  usr/share/lintian/overrides/dracut-install

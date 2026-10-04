@@ -1,0 +1,8 @@
+1ef6d3a20f437b39e3d04e095f62fa79  usr/sbin/update-initramfs
+047d36dfbebe0adf201443a38804f0f5  usr/share/bash-completion/completions/update-initramfs
+2157f9c6f5fe96d5b65ef68f7884d7c5  usr/share/bug/initramfs-tools/script
+adb652e999f8884ae56dfd11067b3e5b  usr/share/doc/initramfs-tools/TODO
+e690a7af5c96b233a54dcce3381e5c07  usr/share/doc/initramfs-tools/changelog.gz
+e55a2a32242cc00998ca3901aea7d09d  usr/share/doc/initramfs-tools/copyright
+3573fe4668a5fd6a31facb69062781cc  usr/share/man/man5/update-initramfs.conf.5.gz
+6ccf3eeedcde02940d720eb7e736474e  usr/share/man/man8/update-initramfs.8.gz

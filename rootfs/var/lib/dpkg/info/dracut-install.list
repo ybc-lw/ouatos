@@ -1,0 +1,14 @@
+/.
+/usr
+/usr/lib
+/usr/lib/dracut
+/usr/lib/dracut/dracut-install
+/usr/share
+/usr/share/doc
+/usr/share/doc/dracut-install
+/usr/share/doc/dracut-install/NEWS.Debian.gz
+/usr/share/doc/dracut-install/changelog.Debian.gz
+/usr/share/doc/dracut-install/copyright
+/usr/share/lintian
+/usr/share/lintian/overrides
+/usr/share/lintian/overrides/dracut-install
