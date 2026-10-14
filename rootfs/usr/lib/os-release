@@ -1,0 +1,7 @@
+PRETTY_NAME="ouatos GNU/Linux"
+NAME="ouatos GNU/Linux"
+VERSION_ID="1"
+ID=ouatos
+HOME_URL="https://github.com/ybc-lw/ouatos"
+SUPPORT_URL="https://github.com/ybc-lw/ouatos/issues"
+BUG_REPORT_URL="https://github.com/ybc-lw/ouatos/issues"

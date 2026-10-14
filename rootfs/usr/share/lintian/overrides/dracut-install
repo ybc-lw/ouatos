@@ -1,0 +1,2 @@
+# one single directory for modules is needed, see https://github.com/dracutdevs/dracut/issues/2485
+dracut-install: executable-in-usr-lib [usr/lib/dracut/*]

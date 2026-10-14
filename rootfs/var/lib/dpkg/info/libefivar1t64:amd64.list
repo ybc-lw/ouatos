@@ -1,0 +1,15 @@
+/.
+/usr
+/usr/lib
+/usr/lib/x86_64-linux-gnu
+/usr/lib/x86_64-linux-gnu/libefivar.so.1.38
+/usr/share
+/usr/share/doc
+/usr/share/doc/libefivar1t64
+/usr/share/doc/libefivar1t64/changelog.Debian.amd64.gz
+/usr/share/doc/libefivar1t64/changelog.Debian.gz
+/usr/share/doc/libefivar1t64/copyright
+/usr/share/lintian
+/usr/share/lintian/overrides
+/usr/share/lintian/overrides/libefivar1t64
+/usr/lib/x86_64-linux-gnu/libefivar.so.1

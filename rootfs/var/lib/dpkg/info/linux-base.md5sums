@@ -1,0 +1,15 @@
+180fa2fab82edfd6e2389688e81e081d  usr/bin/linux-check-removal
+4692a3824c5ce028ec6802f75bc4f438  usr/bin/linux-run-hooks
+79a1bc41d3497e22ac8ae4fe026c9831  usr/bin/linux-update-symlinks
+d120afedb6c5484191d0380fd30c57e1  usr/bin/linux-version
+b2f0659eec8f7b50d27b66107c977c5e  usr/share/doc/linux-base/changelog.gz
+c7eed6009f18e49867371d8872b491d4  usr/share/doc/linux-base/copyright
+2ee605ffb61c0885642c225b10000f01  usr/share/lintian/overrides/linux-base
+af138c79c1691899bacd6419cf4d1982  usr/share/man/de/man5/kernel-img.conf.5.gz
+9297b613f8ddc8f9564dedd9928e06d2  usr/share/man/fr/man5/kernel-img.conf.5.gz
+58f19c6a7fa1a748c9af7f478a8538e8  usr/share/man/man1/linux-check-removal.1.gz
+d0fc6ee7405c90117948b155a2e5c7c2  usr/share/man/man1/linux-run-hooks.1.gz
+74d294a3a924292327281ce45111888d  usr/share/man/man1/linux-update-symlinks.1.gz
+249bf5863cf6d2144cef20f5200e0cce  usr/share/man/man1/linux-version.1.gz
+49e36c32239e22e12d8039d8b9f3a0e1  usr/share/man/man5/kernel-img.conf.5.gz
+930b7f1cfbcabcd11e1dedd2ac90c0fc  usr/share/perl5/DebianLinux.pm
