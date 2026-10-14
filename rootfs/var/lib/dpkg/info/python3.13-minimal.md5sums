@@ -1,0 +1,8 @@
+f34b20990fc442b25341ea11df13a569  usr/bin/python3.13
+233586e8feac70512932a3d05470aee5  usr/lib/binfmt.d/python3.13.conf
+5f434d5d9dfa6a9bb0544e07de21c863  usr/share/binfmts/python3.13
+45468b269ceca66e8858078fd0b5b53e  usr/share/doc/python3.13-minimal/README.Debian.gz
+f43b396deb0451046eeb432a6ed51745  usr/share/doc/python3.13-minimal/changelog.Debian.gz
+d8c47e21fcd8f5a22f90828d568b0084  usr/share/doc/python3.13-minimal/copyright
+4c31632cbbcc47b59e88eb138c7b696b  usr/share/lintian/overrides/python3.13-minimal
+41d0212ca7923eb6e03b512788893d96  usr/share/man/man1/python3.13.1.gz

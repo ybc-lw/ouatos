@@ -1,0 +1,8 @@
+9c4bba6e64a098fcdaca8e82dec45120  usr/lib/x86_64-linux-gnu/libmagic.so.1.0.0
+8ef93f51cd6f0f15b49d64a0f0f8d551  usr/share/bug/libmagic1t64/control
+4fe55994cb5027e6406ec313e3de7ea6  usr/share/bug/libmagic1t64/presubj
+6b7cd48a343da37c94ae1229a14203a9  usr/share/doc/libmagic1t64/changelog.Debian.gz
+64038b40c7849b8d23ebcd95e848a093  usr/share/doc/libmagic1t64/changelog.gz
+73e2c8777b0affa1cb5aa0767f7759d8  usr/share/doc/libmagic1t64/copyright
+f61aeeeb0096572b2a0ca1740a448dff  usr/share/lintian/overrides/libmagic1t64
+788348c485a0998f006112a18f209057  usr/share/man/man5/magic.5.gz

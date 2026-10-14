@@ -1,0 +1,2 @@
+# These aren't Windows executables, and these features wouldn't be very useful. echo grub-efi-amd64-unsigned: portable-executable-missing-security-features [*.efi ASLR DEP/NX
+# These aren't Windows executables, and these features wouldn't be very useful. echo grub-efi-amd64-unsigned: portable-executable-missing-security-features [*.efi ASLR DEP/NX

@@ -1,0 +1,4 @@
+f7a01886a46a1f52521c98faf45a2585  usr/bin/unmkinitramfs
+7e612b20ecc0c00f40439b104ae4289a  usr/share/doc/initramfs-tools-bin/changelog.gz
+e55a2a32242cc00998ca3901aea7d09d  usr/share/doc/initramfs-tools-bin/copyright
+7803e085611c2fec57709f13feeb38f4  usr/share/man/man8/unmkinitramfs.8.gz

@@ -1,0 +1,119 @@
+#!/usr/bin/perl
+
+# Copyright 2025 Ben Hutchings
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+use strict;
+use warnings;
+
+sub usage {
+    my $fh = shift;
+    print $fh (<< "EOT");
+Usage: $0 image MAINT-SCRIPT KERNEL-VER IMAGE-PATH -- MAINT-PARAMS ...
+       $0 headers MAINT-SCRIPT KERNEL-VER -- MAINT-PARAMS ...
+
+This command is intended to be called from the maintainer scripts of
+Linux kernel image and headers packages.  It executes hooks installed
+in the appropriate subdirectories of /etc/kernel and
+/usr/share/kernel.
+
+The MAINT-SCRIPT argument must be the name of the maintainer script:
+preinst, postinst, prerm, or postrm.
+
+The KERNEL-VER argument must be the kernel version string as shown by
+'uname -r' and used in filenames, not the package version.
+
+The IMAGE-PATH argument must be the absolute filename of the kernel
+image.
+
+The MAINT-PARAMS arguments must be the parameters received by the
+maintainer script.
+EOT
+}
+
+sub usage_error {
+    usage(*STDERR{IO});
+    exit 2;
+}
+
+sub run_hooks {
+    my ($type, $hook_args, $maint_params) = @_;
+    my @hook_dirs;
+
+    # run-parts handling of directory arguments differs between
+    # versions of debianutils:
+    #
+    # <= 5.20: must pass exactly 1 existing directory name
+    # == 5.21: must pass 1 or more existing directory names
+    # >= 5.22: must pass 1 or more directory names; warning
+    #          emitted for non-existent directories
+    #
+    # So, to be backward-compatible, we only pass directories that
+    # exist and do not run it at all if none exist.  We rely on
+    # packages not to install hooks under /usr/share/kernel without a
+    # dependency or other guarantee that debianutils is >= 5.21.
+    for my $dir ("/etc/kernel/$type.d",
+		 "/usr/share/kernel/$type.d") {
+	push @hook_dirs, $dir if -d $dir;
+    }
+    if (@hook_dirs == 0) {
+	exit 0;
+    }
+
+    $ENV{'DEB_MAINT_PARAMS'} = join(' ', @$maint_params);
+    exec 'run-parts', '--report', '--exit-on-error',
+	map({"--arg=$_"} @$hook_args),
+	@hook_dirs;
+
+    # run-parts could not be executed. exec already reported an error
+    # message, so just return failure.
+    exit 1;
+}
+
+if (@ARGV == 0) {
+    usage_error();
+}
+if ($ARGV[0] eq 'help' or grep({$_ eq '--help'} @ARGV)) {
+    usage(*STDOUT{IO});
+    exit 0;
+}
+
+my ($pkg_type, $script_type) = @ARGV;
+if (!defined($pkg_type)
+    or !defined($script_type)
+    or ($script_type !~ /^(?:pre|post)(?:inst|rm)$/)) {
+    usage_error();
+}
+my ($hook_type, $n_hook_args);
+if ($pkg_type eq 'image') {
+    $hook_type = $script_type;
+    $n_hook_args = 2;
+} elsif ($pkg_type eq 'headers') {
+    # For backward compatibility, hook directory names start with
+    # 'header_' not 'headers_'
+    $hook_type = "header_${script_type}";
+    $n_hook_args = 1;
+} else {
+    usage_error();
+}
+my ($arg_sep_index) = grep({ $ARGV[$_] eq '--' } 2..$#ARGV);
+if (!defined($arg_sep_index)
+    or $arg_sep_index != 2 + $n_hook_args) {
+    usage_error();
+}
+
+run_hooks($hook_type,
+	  [@ARGV[2 .. $arg_sep_index-1]],
+	  [@ARGV[$arg_sep_index+1 .. $#ARGV]]);

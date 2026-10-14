@@ -1,0 +1,12 @@
+/.
+/usr
+/usr/bin
+/usr/bin/unmkinitramfs
+/usr/share
+/usr/share/doc
+/usr/share/doc/initramfs-tools-bin
+/usr/share/doc/initramfs-tools-bin/changelog.gz
+/usr/share/doc/initramfs-tools-bin/copyright
+/usr/share/man
+/usr/share/man/man8
+/usr/share/man/man8/unmkinitramfs.8.gz

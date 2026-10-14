@@ -1,0 +1,276 @@
+Package: libkeyutils1
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libxtables12
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libgssapi-krb5-2
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libtirpc3t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libtirpc-common
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libunistring5
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libidn2-0
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libcap2-bin
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libkrb5support0
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libbpf1
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libmnl0
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libcom-err2
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libkrb5-3
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libk5crypto3
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libelf1t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libapparmor1
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libsystemd-shared
+Architecture: amd64
+Auto-Installed: 1
+
+Package: python3.13
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libffi8
+Architecture: amd64
+Auto-Installed: 1
+
+Package: netbase
+Architecture: amd64
+Auto-Installed: 1
+
+Package: readline-common
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libexpat1
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libpython3.13-stdlib
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libreadline8t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: python3
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libpython3.13-minimal
+Architecture: amd64
+Auto-Installed: 1
+
+Package: python3-wheel
+Architecture: amd64
+Auto-Installed: 1
+
+Package: python3-packaging
+Architecture: amd64
+Auto-Installed: 1
+
+Package: media-types
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libpython3-stdlib
+Architecture: amd64
+Auto-Installed: 1
+
+Package: python3.13-minimal
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libncursesw6
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libnghttp2-14
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libbrotli1
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libldap2
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libtasn1-6
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libpsl5t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libsasl2-2
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libp11-kit0
+Architecture: amd64
+Auto-Installed: 1
+
+Package: librtmp1
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libsasl2-modules-db
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libssh2-1t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libnghttp3-9
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libcurl4t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libgnutls30t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libmagic-mgc
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libmagic1t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: initramfs-tools-core
+Architecture: amd64
+Auto-Installed: 1
+
+Package: udev
+Architecture: amd64
+Auto-Installed: 1
+
+Package: initramfs-tools-bin
+Architecture: amd64
+Auto-Installed: 1
+
+Package: kmod
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libfreetype6
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libpopt0
+Architecture: amd64
+Auto-Installed: 1
+
+Package: dracut-install
+Architecture: amd64
+Auto-Installed: 1
+
+Package: grub-efi-amd64-unsigned
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libefivar1t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: gettext-base
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libfuse3-4
+Architecture: amd64
+Auto-Installed: 1
+
+Package: klibc-utils
+Architecture: amd64
+Auto-Installed: 1
+
+Package: linux-base
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libefiboot1t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libklibc
+Architecture: amd64
+Auto-Installed: 1
+
+Package: dmsetup
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libkmod2
+Architecture: amd64
+Auto-Installed: 1
+
+Package: cpio
+Architecture: amd64
+Auto-Installed: 1
+
+Package: logsave
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libpng16-16t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libdevmapper1.02.1
+Architecture: amd64
+Auto-Installed: 1
+
+Package: linux-image-6.12.107+deb13-amd64
+Architecture: amd64
+Auto-Installed: 1
+
