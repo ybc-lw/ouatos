@@ -116,7 +116,7 @@ jobs:
 
       - name: Live boot path (udev/kmod, /init finds the medium)
         working-directory: installer-sources
-        run: sudo bash tests/test_boot_path.sh "$ISO" /tmp/ouatos-build
+        run: sudo env OUATOS_TEXT=1 bash tests/test_boot_path.sh "$ISO" /tmp/ouatos-build
 
       # Partitions and installs onto loop-backed disks, BIOS and UEFI.
       # Non-blocking for now: it is the most environment-sensitive test.

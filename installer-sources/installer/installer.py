@@ -745,27 +745,40 @@ def run_gui(env, info, fbdev='/dev/fb0'):
         set_vt_graphics(False)
 
 
+
 def main(argv):
     args = dict(a.split('=', 1) if '=' in a else (a, '1') for a in argv[1:])
     import media as _media
+
     if '--media' in args:
         mediasrc = _media.MountedMedia(args['--media'])
     elif '--media-dev' in args:
         mediasrc = _media.RawMedia(args['--media-dev'])
     else:
         mediasrc = _media.open_media()
+
     env = Env(media=mediasrc, target=args.get('--target', '/mnt/target'))
     engine.log('installation medium: %s' % mediasrc.describe())
     print('Using installation medium: %s' % mediasrc.describe(), flush=True)
+
     info = engine.load_media_info(mediasrc)
-    text = '--text' in args or 'ouatos.text=1' in cmdline()
+
+    text = (
+        '--text' in args
+        or 'ouatos.text=1' in cmdline()
+        or os.environ.get('OUATOS_TEXT') == '1'
+    )
+
     if not text:
         try:
             run_gui(env, info, args.get('--fb', '/dev/fb0'))
             return 0
         except OSError as e:
             engine.log('graphical mode unavailable (%s); using text mode' % e)
-            print('Graphical mode is unavailable (%s); continuing in text mode.' % e)
+            print(
+                'Graphical mode is unavailable (%s); continuing in text mode.' % e
+            )
+
     rc = TextFrontend(env, info).run()
     if rc == 0:
         engine.power('reboot')
