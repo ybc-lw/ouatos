@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      upload_iso:
+        description: "Upload the built installer ISO as a workflow artifact (3 days)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Fast checks: no ISO build, no rootfs unpacking. A few minutes.
+  # ---------------------------------------------------------------------------
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: installer-sources
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pillow
+        run: sudo apt-get update && sudo apt-get install -y python3-pil
+
+      - name: Syntax check (Python + shell)
+        run: |
+          python3 -m compileall -q .
+          bash -n tests/test_boot_path.sh
+
+      - name: FAT writer
+        run: |
+          python3 tests/test_fat.py | tee /tmp/test_fat.log
+          ! grep -q "BUG" /tmp/test_fat.log
+
+      - name: Input handling
+        run: python3 tests/test_input.py
+
+      # test_cursor / test_gui read os-release from /tmp/fakemedia/ouatos/.
+      # Use the real file from the OS image so the checks match what ships.
+      - name: Prepare fake installation medium
+        run: |
+          mkdir -p /tmp/fakemedia/ouatos
+          cp ../rootfs/usr/lib/os-release /tmp/fakemedia/ouatos/os_release
+
+      - name: Pointer / cursor
+        run: python3 tests/test_cursor.py
+
+      - name: GUI wizard (virtual screen)
+        run: python3 tests/test_gui.py
+
+      - name: Ownership / permission policy (needs root)
+        run: sudo python3 tests/test_policy.py
+
+      - name: Upload GUI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-screenshots
+          path: /tmp/shots
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Slow checks: pack rootfs/, build the ISO, validate it, try a real install.
+  # Needs root, chroot and loop devices (all available on GitHub-hosted runners).
+  # ---------------------------------------------------------------------------
+  build-iso:
+    name: Build ISO and validate it
+    needs: unit-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      TAR: /tmp/ouatos-rootfs.tar.xz
+      ISO: /tmp/ouatos-installer.iso
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true          # rootfs/usr/local/bin/node is stored in Git LFS
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-pil fonts-dejavu-core e2fsprogs xz-utils
+
+      - name: Pack rootfs/ into rootfs.tar.xz
+        run: |
+          tar --numeric-owner --owner=0 --group=0 -C rootfs -cf - . | xz -T0 -6 > "$TAR"
+          ls -lh "$TAR"
+
+      - name: Build the installer ISO
+        working-directory: installer-sources
+        run: |
+          sudo python3 build_iso.py "$TAR" "$ISO" 2>&1 | tee /tmp/build_iso.log
+          # build_iso.py only warns about Git LFS stubs; treat that as an error here
+          ! grep -q "Git LFS pointer" /tmp/build_iso.log
+          ls -lh "$ISO"
+
+      - name: Validate ISO 9660 / Rock Ridge / El Torito / payload hash
+        working-directory: installer-sources
+        run: sudo python3 tests/test_iso.py "$ISO" "$TAR"
+
+      - name: Raw medium access (find by label, read payload without mounting)
+        working-directory: installer-sources
+        run: sudo python3 tests/test_media.py "$ISO" "$TAR"
+
+      - name: Live boot path (udev/kmod, /init finds the medium)
+        working-directory: installer-sources
+        run: sudo bash tests/test_boot_path.sh "$ISO" /tmp/ouatos-build
+
+      # Partitions and installs onto loop-backed disks, BIOS and UEFI.
+      # Non-blocking for now: it is the most environment-sensitive test.
+      - name: End-to-end install onto a loop disk (experimental)
+        continue-on-error: true
+        working-directory: installer-sources
+        run: |
+          sudo OUATOS_TEST_TAR="$TAR" OUATOS_TEST_ISO="$ISO" OUATOS_TEST_MKE2FS=/usr/sbin/mke2fs \
+            python3 tests/test_engine.py
+
+      - name: Upload ISO
+        if: ${{ inputs.upload_iso == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ouatos-installer-iso
+          path: ${{ env.ISO }}
+          retention-days: 3
