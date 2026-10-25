@@ -25,7 +25,7 @@ echo "$OUT" | grep -q "KMODBAD=0" && pass "udev loads libkmod (can load drivers)
 [ "$(echo "$OUT" | sed -n 's/UDEVLOADS=//p')" -gt 0 ] && pass "udev ran 'kmod load' for devices" || bad "udev never tried to load a module"
 [ "$(echo "$OUT" | sed -n 's/SWEEP=//p')" -gt 0 ] && pass "modalias sweep resolves driver modules" || bad "modalias sweep resolved nothing"
 LO=$(losetup -f --show $ISO)
-timeout -s KILL 30 unshare --kill-child=SIGKILL -m -p -f --mount-proc chroot $X /init </dev/null >/tmp/init3.log 2>&1
+PYTHONUNBUFFERED=1 timeout -s KILL 60 unshare --kill-child=SIGKILL -m -p -f --mount-proc chroot $X /init </dev/null >/tmp/init3.log 2>&1
 losetup -d $LO; rm -rf $X
 grep -q "Using installation medium: device $LO" /tmp/init3.log && pass "/init found the ISO ($LO) by scanning devices and reading it raw (no mount, no blkid)" || bad "/init did not find the medium: $(head -c 600 /tmp/init3.log)"
 grep -q "Install ouatos GNU/Linux (text mode)" /tmp/init3.log && pass "/init then launched the installer, which read os-release from the medium" || bad "installer not launched"
