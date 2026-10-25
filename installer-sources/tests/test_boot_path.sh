@@ -28,5 +28,5 @@ LO=$(losetup -f --show $ISO)
 PYTHONUNBUFFERED=1 timeout -s KILL 60 unshare --kill-child=SIGKILL -m -p -f --mount-proc chroot $X /init </dev/null >/tmp/init3.log 2>&1
 losetup -d $LO; rm -rf $X
 grep -q "Using installation medium: device $LO" /tmp/init3.log && pass "/init found the ISO ($LO) by scanning devices and reading it raw (no mount, no blkid)" || bad "/init did not find the medium: $(head -c 600 /tmp/init3.log)"
-grep -q "Install ouatos GNU/Linux (text mode)" /tmp/init3.log && pass "/init then launched the installer, which read os-release from the medium" || bad "installer not launched"
+grep -q "Install ouatos GNU/Linux (text mode)" /tmp/init3.log && pass "/init then launched the installer, which read os-release from the medium" || { bad "installer not launched"; echo "----- tail of /tmp/init3.log -----"; tail -n 200 /tmp/init3.log; echo "----- end -----"; }
 exit $fail
