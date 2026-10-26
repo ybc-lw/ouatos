@@ -113,11 +113,11 @@ class Wizard:
                 return True
             self.goto('account')
         elif p == 'account':
-            e = (check_username(self.user.text, self.info.get('system_users', [])) or
+            e = (check_username(self.user.text, self.info.get('system_users', []), self.info.get('system_groups', [])) or
                  check_password(self.pw.text, self.pw2.text))
             if e:
                 self.err = e
-                self.ui.focus = 'user' if check_username(self.user.text, self.info.get('system_users', [])) else (
+                self.ui.focus = 'user' if check_username(self.user.text, self.info.get('system_users', []), self.info.get('system_groups', [])) else (
                     'pw' if not self.pw.text else 'pw2')
                 return True
             self.goto('review')
@@ -629,7 +629,10 @@ class TextFrontend:
             print('  %d) %-40s %s  %s' % (i, d.title(), d.path, d.size_text()))
         while True:
             try:
-                disk = disks[int(self.ask('Install on which disk? (number)')) - 1]
+                number = int(self.ask('Install on which disk? (number)'))
+                if not 1 <= number <= len(disks):
+                    raise ValueError('disk number out of range')
+                disk = disks[number - 1]
                 break
             except (ValueError, IndexError):
                 print('Please enter one of the numbers above.')
@@ -642,7 +645,7 @@ class TextFrontend:
             print(e)
         while True:
             user = self.ask('Username')
-            e = check_username(user, self.info.get('system_users', []))
+            e = check_username(user, self.info.get('system_users', []), self.info.get('system_groups', []))
             if not e:
                 break
             print(e)

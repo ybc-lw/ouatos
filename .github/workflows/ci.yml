@@ -45,6 +45,9 @@ jobs:
           python3 tests/test_fat.py | tee /tmp/test_fat.log
           ! grep -q "BUG" /tmp/test_fat.log
 
+      - name: Installer safety regressions
+        run: python3 tests/test_safety.py
+
       - name: Input handling
         run: python3 tests/test_input.py
 
