@@ -151,7 +151,7 @@ def verify(inst, disk, scanner, disk_dev, uefi):
         check('GRUB_DISTRIBUTOR="ouatos"' in default, 'GRUB_DISTRIBUTOR="ouatos" (lowercase)')
         cfg = rd('boot/grub/grub.cfg')
         check('menuentry' in cfg and 'root=UUID=%s' % root.fs_uuid in cfg, 'grub.cfg has a menu entry booting root=UUID')
-        title = [l for l in cfg.splitlines() if 'menuentry' in l][0]
+        title = next((line for line in cfg.splitlines() if re.match(r'\s*menuentry\s+', line)), '')
         check('ouatos' in title and 'Ouatos' not in cfg and 'OUATOS' not in cfg, 'menu title lowercase: ' + title.strip()[:70])
         check(os.path.exists(VER + '/boot/grub/i386-pc/normal.mod' if not uefi else VER + '/boot/grub/x86_64-efi/normal.mod'), 'grub modules copied')
         check(not os.path.exists(VER + '/tmp/ouatos-early.cfg'), 'temporary files removed')
