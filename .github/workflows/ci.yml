@@ -122,9 +122,7 @@ jobs:
         run: sudo env OUATOS_TEXT=1 bash tests/test_boot_path.sh "$ISO" /tmp/ouatos-build
 
       # Partitions and installs onto loop-backed disks, BIOS and UEFI.
-      # Non-blocking for now: it is the most environment-sensitive test.
-      - name: End-to-end install onto a loop disk (experimental)
-        continue-on-error: true
+      - name: End-to-end install onto a loop disk
         working-directory: installer-sources
         run: |
           sudo OUATOS_TEST_TAR="$TAR" OUATOS_TEST_ISO="$ISO" OUATOS_TEST_MKE2FS=/usr/sbin/mke2fs \
