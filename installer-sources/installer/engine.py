@@ -154,12 +154,12 @@ def check_hostname(h):
     return ''
 
 
-def check_username(u, reserved=()):
+def check_username(u, reserved=(), reserved_groups=()):
     if not u:
         return 'Please enter a username.'
     if not re.fullmatch(r'[a-z_][a-z0-9_-]{0,31}', u):
         return 'Start with a lowercase letter; then letters, digits, "-" or "_" (32 characters at most).'
-    if u in set(reserved) or u in ('root', 'nobody', 'daemon', 'sudo'):
+    if u in set(reserved) | set(reserved_groups) or u in ('root', 'nobody', 'daemon', 'sudo'):
         return 'That name is reserved by the system. Please choose another.'
     return ''
 
@@ -405,6 +405,8 @@ class KernelPartitions:
                     if e.errno != errno.EBUSY:
                         raise InstallError('The kernel could not re-read the new partition table.', str(e))
                     time.sleep(0.2)
+            else:
+                raise InstallError('The disk is still busy; the new partition table could not be loaded.')
         finally:
             os.close(fd)
         for p in parts:
@@ -521,6 +523,9 @@ class Installer:
         log('=== ouatos install started: %s -> %s (%s) ===' % (
             system_name(self.osr), self.cfg.disk.path, 'UEFI' if self.env.uefi else 'BIOS'))
         try:
+            error = check_username(self.cfg.username, self.info['system_users'], self.info['system_groups'])
+            if error:
+                raise InstallError(error)
             self.step_prepare_disk()
             self.step_make_filesystems()
             self.step_extract()
