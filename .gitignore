@@ -9,7 +9,10 @@ rootfs/dev
 rootfs/proc
 rootfs/sys
 rootfs/run
-rootfs/var/cache/apt/
+rootfs/tmp
+rootfs/var/tmp
+rootfs/var/lib/apt/lists
+rootfs/var/cache
 rootfs/etc/.resolv.conf.systemd-resolved.bak
 rootfs/etc/ld.so.cache
 rootfs/var/cache/ldconfig/aux-cache
