@@ -64,15 +64,16 @@ sys.path.insert(0, '/opt/ouatos-installer')
 import engine
 from engine import sh
 mode = sys.argv[1]
-img = '/tmp/%s.img' % mode
+work = sys.argv[2]
+img = '%s/%s.img' % (work, mode)
 class LoopScanner:
     def __init__(self): self.loops = {}
     def rescan(self, disk, parts):
         for p in parts:
-            self.loops[p.number] = sh(['losetup', '-f', '--show', '-o', str(p.first*disk.lbs), '--sizelimit', str(p.bytes(disk.lbs)), disk.path]).output.strip()
+            self.loops[p.number] = sh(['losetup', '-f', '--show', '-o', str(p.first*disk.lbs), '--sizelimit', str(p.bytes(disk.lbs)), img]).output.strip()
     def path(self, disk, part): return self.loops[part.number]
 dev = sh(['losetup', '-f', '--show', img]).output.strip()
-open('/tmp/devname-%s' % mode, 'w').write(dev)
+open('%s/devname-%s' % (work, mode), 'w').write(dev)
 disk = engine.Disk('loopx', os.path.getsize(img), 512, 'Virtual disk', '', False, path=dev)
 sc = LoopScanner()
 env = engine.Env(media='/run/iso', target='/mnt/target', scanner=sc, uefi=(mode == 'uefi'))
@@ -104,6 +105,12 @@ def main():
 
 def run_installs(medium):
     os.makedirs(os.path.join(LIVE, 'tmp'), exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='ouatos-test-', dir=os.path.join(LIVE, 'tmp')) as work:
+        _run_installs(medium, work)
+
+
+def _run_installs(medium, work):
+    inner_work = '/tmp/' + os.path.basename(work)
     for d in ('dev', 'proc', 'sys', 'run/iso', 'mnt/target', 'mnt/user-data/uploads'):
         os.makedirs(os.path.join(LIVE, d), exist_ok=True)
     mounts = []
@@ -116,21 +123,21 @@ def run_installs(medium):
         bind('proc', 'proc', '-t', 'proc')
         bind('/sys', 'sys', '--rbind')
         bind(medium, 'run/iso', '--bind')
-        open(LIVE + '/tmp/inner.py', 'w').write(INNER)
+        open(work + '/inner.py', 'w').write(INNER)
         for mode in ('bios', 'uefi'):
-            img = '%s/tmp/%s.img' % (LIVE, mode)
+            img = '%s/%s.img' % (work, mode)
             if os.path.exists(img):
                 os.unlink(img)
             open(img, 'wb').truncate(6 << 30)
             print('\n================ LIVE-TREE %s install ================' % mode.upper())
-            r = subprocess.run(['chroot', LIVE, '/usr/bin/python3', '/tmp/inner.py', mode], capture_output=True, text=True)
+            r = subprocess.run(['chroot', LIVE, '/usr/bin/python3', inner_work + '/inner.py', mode, inner_work], capture_output=True, text=True)
             print(r.stdout[-1800:])
             if r.returncode != 0:
                 print(r.stderr[-1500:])
             check(r.returncode == 0 and 'INSTALL-OK' in r.stdout, '%s install completed using only the live tree\'s tools' % mode.upper())
             if r.returncode != 0:
                 continue
-            dev = open('%s/tmp/devname-%s' % (LIVE, mode)).read().strip()
+            dev = open('%s/devname-%s' % (work, mode)).read().strip()
             with open(dev, 'rb') as f:
                 parts = gptcheck.read_gpt(f)
             check(len(parts) == (3 if mode == 'uefi' else 2), 'GPT valid with %d partitions: %s' % (len(parts), [p['name'] for p in parts]))
@@ -168,13 +175,14 @@ def run_installs(medium):
             if subprocess.run(['umount', '-R', os.path.join(LIVE, d)]).returncode:
                 subprocess.run(['umount', '-R', '-l', os.path.join(LIVE, d)])
         for m in ('bios', 'uefi'):
-            devfile = '%s/tmp/devname-%s' % (LIVE, m)
-            if os.path.exists(devfile):
-                subprocess.run(['losetup', '-d', open(devfile).read().strip()])
-                os.unlink(devfile)
-            p = '%s/tmp/%s.img' % (LIVE, m)
-            if os.path.exists(p):
-                os.unlink(p)
+            image = os.path.join(work, m + '.img')
+            if os.path.exists(image):
+                # Query current backing files, never trust a saved device number.
+                listing = subprocess.run(['losetup', '-j', image], check=True,
+                                         capture_output=True, text=True).stdout
+                for line in listing.splitlines():
+                    device = line.split(':', 1)[0]
+                    subprocess.run(['losetup', '-d', device], check=True)
     print('\nRESULT:', 'LIVE-TREE INSTALL TESTS PASSED' if all(results) else 'FAILURES')
     sys.exit(0 if all(results) else 1)
 
