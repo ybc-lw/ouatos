@@ -55,6 +55,7 @@ jobs:
           python3 tests/test_audit.py
           python3 tests/test_live_fixture.py
           python3 tests/test_integrity.py
+          python3 tests/test_boot_config.py
 
       - name: Input handling
         run: python3 tests/test_input.py
