@@ -83,7 +83,7 @@ class Iso:
             ids.append(ident)
             full = (path.rstrip('/') + '/' + name)
             isdir = bool(flags & 2)
-            if isdir != bool(mode & 0o040000 == 0o040000) and mode is not None and (mode & 0o170000) not in (0o040000, 0o100000):
+            if mode is None or (mode & 0o170000) != (0o040000 if isdir else 0o100000):
                 raise IsoError('mode/type mismatch for ' + full)
             if not isdir and not ident.endswith(b';1'): raise IsoError('file id without ;1: %r' % ident)
             if isdir and b'.' in ident: raise IsoError('dir id has dot')

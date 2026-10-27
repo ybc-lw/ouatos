@@ -13,7 +13,7 @@ def make_rootfs_info(tar_path):
             data = None
             if m.isreg():
                 total += m.size
-                if m.size < 400 or n in ('etc/passwd', 'etc/group'):
+                if m.size < 400 or n in ('etc/passwd', 'etc/group', 'usr/lib/os-release'):
                     data = tf.extractfile(m).read()          # a streaming tar can only be read once: keep the bytes
                 if data is not None and 0 < m.size < 400 and data.startswith(b'version https://git-lfs.github.com/spec/v1'):
                     mm = re.search(rb'size (\d+)', data)
