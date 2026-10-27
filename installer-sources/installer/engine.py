@@ -125,15 +125,20 @@ def load_media_info(media):
     try:
         raw = media.read_small(_media.INFO_NAMES)
         if raw:
-            info = json.loads(raw.decode())
+            parsed = json.loads(raw.decode())
+            if not isinstance(parsed, dict):
+                raise ValueError('image metadata must be an object')
+            info = parsed
     except (OSError, ValueError, _media.MediaError):
         pass
     osr = info.get('os_release')
+    if not isinstance(osr, dict) or any(not isinstance(v, str) for v in osr.values()):
+        osr = None
     if not osr:
         try:
             raw = media.read_small(_media.OSREL_NAMES)
             osr = parse_os_release(raw.decode()) if raw else {}
-        except (OSError, _media.MediaError):
+        except (OSError, ValueError, _media.MediaError):
             osr = {}
     info['os_release'] = osr
     info.setdefault('installed_bytes', 1 * GiB)
@@ -545,6 +550,11 @@ class Installer:
             error = check_username(self.cfg.username, self.info['system_users'], self.info['system_groups'])
             if error:
                 raise InstallError(error)
+            error = check_hostname(self.cfg.hostname) or check_password(self.cfg.password)
+            if self.cfg.root_password is not None:
+                error = error or check_password(self.cfg.root_password)
+            if error:
+                raise InstallError(error)
             if not self.env.media.exists():
                 raise InstallError('The system image could not be found on the installation medium.')
             self.step_prepare_disk()
@@ -642,25 +652,18 @@ class Installer:
         log('$ ' + ' '.join(cmd) + '   (fed by an xz decoder)')
         errf = open('/tmp/ouatos-tar.err', 'wb')
         tp = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=errf)
-        dec = lzma.LZMADecompressor()
         last = 0.0
         try:
-            with src.open_payload() as f:
+            with src.open_payload() as f, lzma.LZMAFile(f) as decoded:
                 while True:
-                    chunk = f.read(1 << 20)
+                    chunk = decoded.read(1 << 20)
                     if not chunk:
                         break
-                    while True:
-                        tp.stdin.write(dec.decompress(chunk, max_length=1 << 20))
-                        chunk = b''
-                        if dec.eof or dec.needs_input:
-                            break
+                    tp.stdin.write(chunk)
                     now = time.time()
                     if now - last > 0.25:
                         last = now
                         self.progress(2, f.tell() / total, 'Copying files')
-            if not dec.eof:
-                raise InstallError('The system image is damaged (unexpected end of data).')
             tp.stdin.close()
         except Exception as e:
             tp.kill()
@@ -740,7 +743,8 @@ class Installer:
         log('machine-id initialised (%s...)' % mid[:8])
         # accounts
         self.progress(3, 0.4, 'Creating the user account')
-        self.ch = Chroot(tgt).__enter__()
+        self.ch = Chroot(tgt)
+        self.ch.__enter__()
         try:
             existing = {l.split(':')[0] for l in open(os.path.join(tgt, 'etc/group'))}
         except OSError:

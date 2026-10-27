@@ -1,5 +1,5 @@
 """Reads the OS image once at build time and records what the installer needs to know."""
-import os, re, sys, tarfile
+import os, re, sys, tarfile, lzma
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'installer'))
 from engine import parse_os_release
 
@@ -7,7 +7,7 @@ from engine import parse_os_release
 def make_rootfs_info(tar_path):
     users, groups, total, osr, kernel = [], [], 0, None, None
     lfs = []                                    # Git LFS pointer stubs: a sign the image was built without `git lfs pull`
-    with tarfile.open(tar_path, 'r|xz') as tf:
+    with lzma.open(tar_path, 'rb') as decoded, tarfile.open(fileobj=decoded, mode='r|') as tf:
         for m in tf:
             n = m.name[2:] if m.name.startswith('./') else m.name
             data = None
@@ -18,6 +18,8 @@ def make_rootfs_info(tar_path):
                 if data is not None and 0 < m.size < 400 and data.startswith(b'version https://git-lfs.github.com/spec/v1'):
                     mm = re.search(rb'size (\d+)', data)
                     lfs.append(dict(path='/' + n, expected_bytes=int(mm.group(1)) if mm else None))
+            if not m.isreg():
+                continue
             if n == 'usr/lib/os-release':
                 osr = parse_os_release(data.decode())
             elif n == 'etc/passwd':
@@ -26,6 +28,9 @@ def make_rootfs_info(tar_path):
                 groups = [l.split(':')[0] for l in data.decode().splitlines() if l.strip()]
             elif n.startswith('boot/vmlinuz-'):
                 kernel = n[len('boot/vmlinuz-'):]
+        # Consume the remaining compressed data to validate every stream/footer.
+        while decoded.read(1 << 20):
+            pass
     if not osr:
         raise SystemExit('rootfs has no /usr/lib/os-release')
     return dict(os_release=osr, system_users=users, system_groups=groups,
