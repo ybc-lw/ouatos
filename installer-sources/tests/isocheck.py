@@ -135,7 +135,9 @@ class Iso:
     def sha(self, path):
         t = self.tree[path]; h = hashlib.sha256(); self.f.seek(t['lba'] * S); left = t['size']
         while left:
-            b = self.f.read(min(left, 1 << 20)); h.update(b); left -= len(b)
+            b = self.f.read(min(left, 1 << 20))
+            if not b: raise IsoError('Truncated media payload')
+            h.update(b); left -= len(b)
         return h.hexdigest()
 
     def el_torito(self):

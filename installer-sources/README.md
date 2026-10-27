@@ -21,7 +21,7 @@ Welcome → Disk → Partitions → Computer name (default `ouatos`) → Account
 * Every displayed name comes from the OS's own `os-release` (`engine.system_name`), and "ouatos" is forced to lowercase.
 
 ## Layout
-* `build_iso.py`       – orchestrator (`sudo python3 build_iso.py rootfs.tar.xz out.iso`; needs root, xz, Pillow, mke2fs)
+* `build_iso.py`       – orchestrator (`sudo python3 build_iso.py rootfs.tar.xz out.iso`; needs root, xz, Pillow, mke2fs and lsinitramfs from initramfs-tools-core)
 * `build/isowriter.py` – ISO 9660 + Rock Ridge + El Torito (BIOS+UEFI) + hybrid MBR writer (no xorriso needed)
 * `build/mklive.py`    – builds the live initramfs from the OS image's own python/util-linux/kmod/udev + kernel modules
 * `build/gen_font.py`  – pre-renders the glyph atlas used by the framebuffer GUI
