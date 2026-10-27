@@ -11,6 +11,7 @@ import json
 import lzma
 import math
 import os
+from pathlib import Path
 import re
 import shutil
 import struct
@@ -188,6 +189,7 @@ class Disk:
         self.name, self.size, self.lbs = name, size, lbs
         self.model, self.transport, self.removable = model, transport, removable
         self.path = path or '/dev/' + name
+        self.identity = _rd('/sys/class/block/' + name + '/diskseq')
         self.reason = reason            # non-empty => cannot be selected
 
     @property
@@ -233,6 +235,24 @@ def mounted_sources():
     return src
 
 
+def disk_in_use(name, mounted):
+    nodes = ['/dev/' + name]
+    nodes += ['/dev/' + os.path.basename(os.path.dirname(p))
+              for p in glob.glob('/sys/block/' + name + '/*/partition')]
+    swaps = set()
+    for line in _rd('/proc/swaps').splitlines()[1:]:
+        swaps.add(os.path.realpath(line.split()[0]))
+    return any(node in mounted or node in swaps or
+               glob.glob('/sys/class/block/' + os.path.basename(node) + '/holders/*') for node in nodes)
+
+
+def validate_disk(disk, media):
+    current = next((d for d in list_disks(media) if d.path == disk.path), None)
+    if (current is None or not current.usable or not disk.identity or
+            current.identity != disk.identity or (current.size, current.lbs) != (disk.size, disk.lbs)):
+        raise InstallError('The selected disk changed or is in use. Select the disk again.')
+
+
 def list_disks(media=None, allow_loop=False, min_size=4 * GiB):
     skip_name = as_media(media).parent_disk() if media else None
     mounted = mounted_sources()
@@ -271,9 +291,8 @@ def list_disks(media=None, allow_loop=False, min_size=4 * GiB):
         elif size < min_size:
             reason = 'Too small (at least %s needed)' % fmt_size(min_size)
         else:
-            parts = [p for p in mounted if re.fullmatch(re.escape('/dev/' + name) + r'p?\d+', p)]
-            if parts or ('/dev/' + name) in mounted:
-                reason = 'In use (mounted)'
+            if disk_in_use(name, mounted):
+                reason = 'In use (mounted, swap, or storage mapping)'
         disks.append(Disk(name, size, lbs, model, tran, _rd(base + '/removable') == '1', reason=reason))
     return disks
 
@@ -526,6 +545,8 @@ class Installer:
             error = check_username(self.cfg.username, self.info['system_users'], self.info['system_groups'])
             if error:
                 raise InstallError(error)
+            if not self.env.media.exists():
+                raise InstallError('The system image could not be found on the installation medium.')
             self.step_prepare_disk()
             self.step_make_filesystems()
             self.step_extract()
@@ -559,7 +580,15 @@ class Installer:
         if root.bytes(d.lbs) < need:
             raise InstallError('The disk is too small: %s are needed for the system.' % fmt_size(need))
         log('layout: ' + ', '.join('p%d %s %d-%d' % (p.number, p.kind, p.first, p.last) for p in self.parts))
+        if isinstance(self.env.scanner, KernelPartitions):
+            validate_disk(d, self.env.media)
         with open(d.path, 'r+b', buffering=0) as f:
+            if isinstance(self.env.scanner, KernelPartitions):
+                # Linux disk sequence identifies a device across path reuse after hotplug.
+                seq = struct.unpack('Q', fcntl.ioctl(f.fileno(), 0x80081280, bytes(8)))[0]
+                if str(seq) != d.identity:
+                    raise InstallError('The selected disk was replaced. Select the disk again.')
+                validate_disk(d, self.env.media)
             zero = bytes(MiB)
             for off in (0, d.size - MiB):                     # old partition tables / signatures
                 f.seek(off)
@@ -621,7 +650,11 @@ class Installer:
                     chunk = f.read(1 << 20)
                     if not chunk:
                         break
-                    tp.stdin.write(dec.decompress(chunk))
+                    while True:
+                        tp.stdin.write(dec.decompress(chunk, max_length=1 << 20))
+                        chunk = b''
+                        if dec.eof or dec.needs_input:
+                            break
                     now = time.time()
                     if now - last > 0.25:
                         last = now
@@ -629,16 +662,22 @@ class Installer:
             if not dec.eof:
                 raise InstallError('The system image is damaged (unexpected end of data).')
             tp.stdin.close()
-        except (BrokenPipeError, lzma.LZMAError) as e:
+        except Exception as e:
             tp.kill()
-            err = open('/tmp/ouatos-tar.err', 'rb').read()[-800:].decode('utf-8', 'replace')
+            tp.wait()
+            try:
+                tp.stdin.close()
+            except OSError:
+                pass
+            errf.close()
+            err = Path('/tmp/ouatos-tar.err').read_bytes()[-800:].decode('utf-8', 'replace')
             raise InstallError('Copying the system failed.', '%s\n%s' % (e, err))
         rc = tp.wait()
         errf.close()
-        err = open('/tmp/ouatos-tar.err', 'rb').read().decode('utf-8', 'replace')
+        err = Path('/tmp/ouatos-tar.err').read_bytes().decode('utf-8', 'replace')
         if err.strip():
             log('tar: ' + err[-1500:])
-        if rc > 1:
+        if rc != 0:
             raise InstallError('Copying the system failed (tar exit status %d).' % rc, err[-1500:])
         if not glob.glob(os.path.join(tgt, 'boot', 'vmlinuz-*')) or not os.path.exists(os.path.join(tgt, 'usr/bin/bash')):
             raise InstallError('The copied system looks incomplete.')

@@ -3,8 +3,8 @@
 
 usage: build_iso.py ROOTFS.tar.xz OUTPUT.iso [--work DIR]
 
-Needs root (chroot/mount), Python 3 with Pillow (font atlas), mke2fs (bundled into the installer), and
-nothing else: ISO 9660, El Torito, FAT and cpio are written by the code in build/.
+Needs root (chroot/mount), Python 3 with Pillow (font atlas), mke2fs (bundled into the installer), lsinitramfs (initramfs-tools-core), and
+no external ISO authoring tools: ISO 9660, El Torito, FAT and cpio are written by the code in build/.
 """
 import json
 import os

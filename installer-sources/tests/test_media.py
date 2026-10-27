@@ -9,7 +9,9 @@ def check(c, m): print(('  PASS  ' if c else '  FAIL  ') + m); res.append(bool(c
 def sha(f, n):
     h = hashlib.sha256(); left = n
     while left:
-        b = f.read(min(left, 1 << 20)); h.update(b); left -= len(b)
+        b = f.read(min(left, 1 << 20))
+        if not b: raise EOFError('Truncated media payload')
+        h.update(b); left -= len(b)
     return h.hexdigest()
 want = hashlib.sha256(open(TAR, 'rb').read()).hexdigest()
 

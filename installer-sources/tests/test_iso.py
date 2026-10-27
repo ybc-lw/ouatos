@@ -16,7 +16,6 @@ for need in ('/boot/vmlinuz', '/boot/initrd.img', '/boot/grub/grub.cfg', '/boot/
              '/boot/grub/i386-pc/eltorito.img', '/boot/grub/i386-pc/normal.mod', '/boot/grub/x86_64-efi/normal.mod',
              '/EFI/BOOT/BOOTX64.EFI', '/ouatos/rootfs.txz', '/ouatos/os_release', '/ouatos/rootfsinfo.json', '/ouatos/README.txt'):
     check(need in iso.tree, 'has %s (lowercase RR name)' % need)
-check(all(n == n.lower() or p.startswith('/EFI') for p, n in [(p, p.rsplit('/', 1)[1]) for p in iso.tree if '/EFI' not in p]) or True, 'names preserved')
 iso.check_overlaps(); check(True, 'no overlapping extents; everything inside the volume')
 check(iso.check_path_tables() == len(iso.dirs), 'L and M path tables match the %d directories' % len(iso.dirs))
 # payload integrity
