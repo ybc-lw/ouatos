@@ -6,22 +6,53 @@ Results are then verified from the host side with independent checkers.
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path[:0] = [os.path.join(HERE, '..', 'installer'), HERE]
+sys.path[:0] = [os.path.join(HERE, '..', 'installer'), HERE, os.path.join(HERE, '..', 'build')]
 import fatcheck
 import gptcheck
+import media as installer_media
+from rootfs_info import make_rootfs_info
 
 LIVE = os.environ.get('OUATOS_TEST_LIVE', '/tmp/ouatos-build/live')
 MEDIA = '/tmp/fakemedia'
+TAR = os.environ.get('OUATOS_TEST_TAR', '/tmp/ouatos-rootfs.tar.xz')
+ISO = os.environ.get('OUATOS_TEST_ISO')
 results = []
 
 
 def check(c, m):
     print(('  PASS  ' if c else '  FAIL  ') + m)
     results.append(bool(c))
+
+
+def prepare_media():
+    """Build a self-contained test medium with a payload accessible inside chroot."""
+    if not os.path.isfile(TAR):
+        raise RuntimeError('rootfs archive not found: %s' % TAR)
+
+    outdir = os.path.join(MEDIA, 'ouatos')
+    os.makedirs(outdir, exist_ok=True)
+    payload = os.path.join(outdir, 'rootfs.txz')
+    if os.path.lexists(payload):
+        os.unlink(payload)
+    # Absolute symlink is intentional: the test places the archive at this path
+    # inside LIVE, so the same path resolves correctly after chroot.
+    os.symlink('/tmp/ouatos-rootfs.tar.xz', payload)
+
+    info = None
+    if ISO and os.path.isfile(ISO):
+        try:
+            info = installer_media.RawMedia(ISO).read_small(installer_media.INFO_NAMES)
+        except (OSError, installer_media.MediaError):
+            info = None
+    if info is None:
+        info = json.dumps(make_rootfs_info(TAR)).encode('utf-8')
+    with open(os.path.join(outdir, 'rootfsinfo.json'), 'wb') as f:
+        f.write(info)
 
 
 INNER = r'''
@@ -64,6 +95,17 @@ def sh(cmd, **kw):
 
 
 def main():
+    prepare_media()
+    os.makedirs(os.path.join(LIVE, 'tmp'), exist_ok=True)
+    archive_target = os.path.join(LIVE, 'tmp', 'ouatos-rootfs.tar.xz')
+    if os.path.lexists(archive_target):
+        os.unlink(archive_target)
+    try:
+        os.link(os.path.abspath(TAR), archive_target)
+    except OSError:
+        # The build tree may be on a different filesystem; copying is the safe fallback.
+        shutil.copy2(TAR, archive_target)
+
     for d in ('dev', 'proc', 'sys', 'run/iso', 'mnt/target', 'mnt/user-data/uploads'):
         os.makedirs(os.path.join(LIVE, d), exist_ok=True)
     mounts = []
@@ -135,6 +177,8 @@ def main():
             p = '%s/tmp/%s.img' % (LIVE, m)
             if os.path.exists(p):
                 os.unlink(p)
+        if os.path.lexists(archive_target):
+            os.unlink(archive_target)
     print('\nRESULT:', 'LIVE-TREE INSTALL TESTS PASSED' if all(results) else 'FAILURES')
     sys.exit(0 if all(results) else 1)
 
