@@ -758,7 +758,7 @@ class UI:
         if focused and int(time.time() * 2) % 2 == 0:
             cx = x + pad + f.width(shown[start:st.cur])
             self.scr.fill(cx, ty, max(1, self.S(2)), f.height, TEXT)
-        self.reg(wid, (x, y + used, w, h), 'field', True, (st, password), x + pad - 0)
+        self.reg(wid, (x, y + used, w, h), 'field', True, (st, password), x + pad - f.width(shown[:start]))
         return used + h
 
     def checkbox(self, wid, x, y, label, checked, enabled=True, bg=CARD):
