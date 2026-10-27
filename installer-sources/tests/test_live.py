@@ -7,6 +7,8 @@ Results are then verified from the host side with independent checkers.
 import json
 import os
 import shutil
+import tempfile
+from contextlib import contextmanager
 import subprocess
 import sys
 
@@ -18,7 +20,6 @@ import media as installer_media
 from rootfs_info import make_rootfs_info
 
 LIVE = os.environ.get('OUATOS_TEST_LIVE', '/tmp/ouatos-build/live')
-MEDIA = '/tmp/fakemedia'
 TAR = os.environ.get('OUATOS_TEST_TAR', '/tmp/ouatos-rootfs.tar.xz')
 ISO = os.environ.get('OUATOS_TEST_ISO')
 results = []
@@ -29,30 +30,32 @@ def check(c, m):
     results.append(bool(c))
 
 
+@contextmanager
 def prepare_media():
-    """Build a self-contained test medium with a payload accessible inside chroot."""
-    if not os.path.isfile(TAR):
+    """Create a private medium whose payload resolves identically inside chroot."""
+    source = os.path.realpath(TAR)
+    if not os.path.isfile(source):
         raise RuntimeError('rootfs archive not found: %s' % TAR)
-
-    outdir = os.path.join(MEDIA, 'ouatos')
-    os.makedirs(outdir, exist_ok=True)
-    payload = os.path.join(outdir, 'rootfs.txz')
-    if os.path.lexists(payload):
-        os.unlink(payload)
-    # Absolute symlink is intentional: the test places the archive at this path
-    # inside LIVE, so the same path resolves correctly after chroot.
-    os.symlink('/tmp/ouatos-rootfs.tar.xz', payload)
-
-    info = None
-    if ISO and os.path.isfile(ISO):
+    with tempfile.TemporaryDirectory(prefix='ouatos-live-media-') as medium:
+        outdir = os.path.join(medium, 'ouatos')
+        os.makedirs(outdir)
+        payload = os.path.join(outdir, 'rootfs.txz')
         try:
-            info = installer_media.RawMedia(ISO).read_small(installer_media.INFO_NAMES)
-        except (OSError, installer_media.MediaError):
-            info = None
-    if info is None:
-        info = json.dumps(make_rootfs_info(TAR)).encode('utf-8')
-    with open(os.path.join(outdir, 'rootfsinfo.json'), 'wb') as f:
-        f.write(info)
+            os.link(source, payload)
+        except OSError:
+            # The temporary medium may reside on a different filesystem.
+            shutil.copy2(source, payload)
+        info = None
+        if ISO and os.path.isfile(ISO):
+            try:
+                info = installer_media.RawMedia(ISO).read_small(installer_media.INFO_NAMES)
+            except (OSError, installer_media.MediaError):
+                info = None
+        if info is None:
+            info = json.dumps(make_rootfs_info(source)).encode('utf-8')
+        with open(os.path.join(outdir, 'rootfsinfo.json'), 'wb') as f:
+            f.write(info)
+        yield medium
 
 
 INNER = r'''
@@ -95,17 +98,12 @@ def sh(cmd, **kw):
 
 
 def main():
-    prepare_media()
-    os.makedirs(os.path.join(LIVE, 'tmp'), exist_ok=True)
-    archive_target = os.path.join(LIVE, 'tmp', 'ouatos-rootfs.tar.xz')
-    if os.path.lexists(archive_target):
-        os.unlink(archive_target)
-    try:
-        os.link(os.path.abspath(TAR), archive_target)
-    except OSError:
-        # The build tree may be on a different filesystem; copying is the safe fallback.
-        shutil.copy2(TAR, archive_target)
+    with prepare_media() as medium:
+        run_installs(medium)
 
+
+def run_installs(medium):
+    os.makedirs(os.path.join(LIVE, 'tmp'), exist_ok=True)
     for d in ('dev', 'proc', 'sys', 'run/iso', 'mnt/target', 'mnt/user-data/uploads'):
         os.makedirs(os.path.join(LIVE, d), exist_ok=True)
     mounts = []
@@ -117,7 +115,7 @@ def main():
         bind('/dev', 'dev', '--rbind')
         bind('proc', 'proc', '-t', 'proc')
         bind('/sys', 'sys', '--rbind')
-        bind(MEDIA, 'run/iso', '--bind')
+        bind(medium, 'run/iso', '--bind')
         open(LIVE + '/tmp/inner.py', 'w').write(INNER)
         for mode in ('bios', 'uefi'):
             img = '%s/tmp/%s.img' % (LIVE, mode)
@@ -177,8 +175,6 @@ def main():
             p = '%s/tmp/%s.img' % (LIVE, m)
             if os.path.exists(p):
                 os.unlink(p)
-        if os.path.lexists(archive_target):
-            os.unlink(archive_target)
     print('\nRESULT:', 'LIVE-TREE INSTALL TESTS PASSED' if all(results) else 'FAILURES')
     sys.exit(0 if all(results) else 1)
 
