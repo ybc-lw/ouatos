@@ -18,6 +18,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   # ---------------------------------------------------------------------------
   # Fast checks: no ISO build, no rootfs unpacking. A few minutes.
@@ -33,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Pillow
-        run: sudo apt-get update && sudo apt-get install -y python3-pil
+        run: sudo apt-get update && sudo apt-get install -y python3-pil initramfs-tools-core
 
       - name: Syntax check (Python + shell)
         run: |
@@ -46,7 +50,9 @@ jobs:
           ! grep -q "BUG" /tmp/test_fat.log
 
       - name: Installer safety regressions
-        run: python3 tests/test_safety.py
+        run: |
+          python3 tests/test_safety.py
+          python3 tests/test_audit.py
 
       - name: Input handling
         run: python3 tests/test_input.py
@@ -94,7 +100,7 @@ jobs:
           lfs: true          # rootfs/usr/local/bin/node is stored in Git LFS
 
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y python3-pil fonts-dejavu-core e2fsprogs xz-utils
+        run: sudo apt-get update && sudo apt-get install -y python3-pil fonts-dejavu-core e2fsprogs xz-utils initramfs-tools-core zstd
 
       - name: Pack rootfs/ into rootfs.tar.xz
         run: |
@@ -127,6 +133,10 @@ jobs:
         run: |
           sudo OUATOS_TEST_TAR="$TAR" OUATOS_TEST_ISO="$ISO" OUATOS_TEST_MKE2FS=/usr/sbin/mke2fs \
             python3 tests/test_engine.py
+
+      - name: Install using only live initramfs tools
+        working-directory: installer-sources
+        run: sudo python3 tests/test_live.py
 
       - name: Upload ISO
         if: ${{ inputs.upload_iso == true }}
