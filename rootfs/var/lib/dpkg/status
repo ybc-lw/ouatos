@@ -240,6 +240,154 @@ Description: POSIX-compliant shell
  failures), it is used as the default system shell on Debian systems.
 Homepage: http://gondor.apana.org.au/~herbert/dash/
 
+Package: dbus
+Status: install ok installed
+Priority: standard
+Section: admin
+Installed-Size: 154
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: foreign
+Version: 1.16.2-2
+Provides: dbus-system-bus (= 1.16.2-2), default-dbus-system-bus
+Depends: dbus-bin (= 1.16.2-2), dbus-daemon (= 1.16.2-2), dbus-system-bus-common (>= 1.16.2-2), base-files (>= 13.4~), libc6 (>= 2.34), libdbus-1-3 (= 1.16.2-2), libexpat1 (>= 2.1~beta3), libsystemd0
+Pre-Depends: init-system-helpers (>= 1.54~)
+Suggests: default-dbus-session-bus | dbus-session-bus
+Conffiles:
+ /etc/default/dbus 0d0f25a2f993509c857eb262f6e22015
+ /etc/init.d/dbus d78b20b35de983cf6f1475dcf8cb21a1
+Description: simple interprocess messaging system (system message bus)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ D-Bus supports broadcast messages, asynchronous messages (thus
+ decreasing latency), authentication, and more. It is designed to be
+ low-overhead; messages are sent using a binary protocol, not using
+ XML. D-Bus also supports a method call mapping for its messages, but
+ it is not required; this makes using the system quite simple.
+ .
+ It comes with several bindings, including GLib, Python, Qt and Java.
+ .
+ This package provides a fully-functional D-Bus system bus with activation
+ support, used for communication between system services, and depends on
+ most of the other components of the reference implementation of D-Bus.
+ .
+ To provide a complete D-Bus session bus, install one of the packages
+ that implement the dbus-session-bus virtual package, such as
+ dbus-user-session. The recommended implementation is indicated by
+ the default-dbus-session-bus virtual package.
+Homepage: https://dbus.freedesktop.org/
+
+Package: dbus-bin
+Status: install ok installed
+Priority: optional
+Section: admin
+Installed-Size: 190
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: foreign
+Source: dbus
+Version: 1.16.2-2
+Replaces: dbus (<< 1.13.18-2~)
+Depends: libc6 (>= 2.38), libdbus-1-3 (= 1.16.2-2)
+Breaks: dbus (<< 1.13.18-2~)
+Description: simple interprocess messaging system (command line utilities)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ This package contains the D-Bus command-line utilities such as dbus-send
+ and dbus-monitor.
+Homepage: https://dbus.freedesktop.org/
+
+Package: dbus-daemon
+Status: install ok installed
+Priority: optional
+Section: admin
+Installed-Size: 352
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: foreign
+Source: dbus
+Version: 1.16.2-2
+Replaces: dbus (<< 1.13.18-2~)
+Depends: dbus-bin (= 1.16.2-2), dbus-session-bus-common (>= 1.16.2-2), libapparmor1 (>= 2.8.94), libaudit1 (>= 1:2.2.1), libc6 (>= 2.34), libcap-ng0 (>= 0.7.9), libdbus-1-3 (= 1.16.2-2), libexpat1 (>= 2.1~beta3), libselinux1 (>= 3.1~), libsystemd0
+Breaks: dbus (<< 1.13.18-2~)
+Description: simple interprocess messaging system (reference message bus)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ This package contains dbus-daemon, the reference implementation of a
+ D-Bus message bus, and dbus-run-session, a utility to start a temporary
+ session dbus-daemon in a constrained environment or for automated tests.
+ .
+ To provide a complete D-Bus session bus, install one of the packages
+ that implement the dbus-session-bus virtual package, such as
+ dbus-user-session. The recommended implementation is indicated by
+ the default-dbus-session-bus virtual package.
+Homepage: https://dbus.freedesktop.org/
+
+Package: dbus-session-bus-common
+Status: install ok installed
+Priority: optional
+Section: admin
+Installed-Size: 80
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: all
+Multi-Arch: foreign
+Source: dbus
+Version: 1.16.2-2
+Replaces: dbus (<< 1.13.18-2~)
+Breaks: dbus (<< 1.13.18-2~)
+Description: simple interprocess messaging system (session bus configuration)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ This package contains the configuration files defining the behaviour of
+ the D-Bus session bus, used for applications and per-user services.
+ These are used by the reference implementation in the dbus package,
+ and by the reimplementation in the dbus-broker package.
+ .
+ To provide a complete D-Bus session bus, install one of the packages
+ that implement the dbus-session-bus virtual package, such as
+ dbus-user-session. The recommended implementation is indicated by
+ the default-dbus-session-bus virtual package.
+Homepage: https://dbus.freedesktop.org/
+
+Package: dbus-system-bus-common
+Status: install ok installed
+Priority: optional
+Section: admin
+Installed-Size: 91
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: all
+Multi-Arch: foreign
+Source: dbus
+Version: 1.16.2-2
+Replaces: dbus (<< 1.13.18-2~)
+Depends: adduser (>= 3.130) | systemd-sysusers
+Breaks: dbus (<< 1.13.18-2~)
+Description: simple interprocess messaging system (system bus configuration)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ This package contains the configuration files defining the behaviour of
+ the D-Bus system bus, used for system services such as networking and
+ storage management services. It is also responsible for creating the
+ 'messagebus' system user account used to run the system bus.
+ These are used by the reference implementation in the dbus package,
+ and by the reimplementation in the dbus-broker package.
+ .
+ To provide a complete D-Bus system bus, install one of the packages
+ that implement the dbus-system-bus virtual package, such as dbus.
+ The recommended implementation is indicated by the default-dbus-system-bus
+ virtual package.
+Homepage: https://dbus.freedesktop.org/
+
 Package: debconf
 Status: install ok installed
 Priority: required
@@ -1288,6 +1436,34 @@ Description: Berkeley v5.3 Database Libraries [runtime]
  database library.
 Homepage: http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/overview/index.html
 
+Package: libdbus-1-3
+Status: install ok installed
+Priority: optional
+Section: libs
+Installed-Size: 445
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: dbus
+Version: 1.16.2-2
+Depends: libc6 (>= 2.38), libsystemd0
+Recommends: dbus
+Description: simple interprocess messaging system (library)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ D-Bus supports broadcast messages, asynchronous messages (thus
+ decreasing latency), authentication, and more. It is designed to be
+ low-overhead; messages are sent using a binary protocol, not using
+ XML. D-Bus also supports a method call mapping for its messages, but
+ it is not required; this makes using the system quite simple.
+ .
+ It comes with several bindings, including GLib, Python, Qt and Java.
+ .
+ The message bus daemon can be found in the dbus-daemon package.
+Homepage: https://dbus.freedesktop.org/
+
 Package: libdebconfclient0
 Status: install ok installed
 Priority: optional
@@ -2040,6 +2216,50 @@ Description: HTTP/3 library with QUIC and QPACK (library)
  .
  This package contains the shared library.
 Homepage: https://github.com/ngtcp2/nghttp3
+
+Package: libnss-myhostname
+Status: install ok installed
+Priority: optional
+Section: admin
+Installed-Size: 258
+Maintainer: Debian systemd Maintainers <pkg-systemd-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: systemd
+Version: 257.13-1~deb13u1
+Depends: libc6 (>= 2.38), libcap2 (>= 1:2.10)
+Description: nss module providing fallback resolution for the current hostname
+ This package contains a plugin for the Name Service Switch, providing host
+ name resolution for the locally configured system hostname as returned by
+ gethostname(2). It returns all locally configured public IP addresses or -- if
+ none are configured, the IPv4 address 127.0.0.2 (which is on the local
+ loopback) and the IPv6 address ::1 (which is the local host).
+ .
+ A lot of software relies on that the local host name is resolvable. This
+ package provides an alternative to the fragile and error-prone manual editing
+ of /etc/hosts.
+ .
+ Installing this package automatically adds myhostname to /etc/nsswitch.conf.
+Homepage: https://systemd.io
+
+Package: libnss-resolve
+Status: install ok installed
+Priority: optional
+Section: admin
+Installed-Size: 282
+Maintainer: Debian systemd Maintainers <pkg-systemd-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: systemd
+Version: 257.13-1~deb13u1
+Depends: libc6 (>= 2.39), libcap2 (>= 1:2.10), systemd-resolved (= 257.13-1~deb13u1)
+Description: nss module to resolve names via systemd-resolved
+ nss-resolve is a plugin for the GNU Name Service Switch (NSS) functionality
+ of the GNU C Library (glibc) providing DNS and LLMNR resolution to programs via
+ the systemd-resolved daemon (provided in the systemd-resolved package).
+ .
+ Installing this package automatically adds resolve to /etc/nsswitch.conf.
+Homepage: https://systemd.io
 
 Package: libp11-kit0
 Status: install ok installed
@@ -3597,6 +3817,32 @@ Description: system and service manager
  .
  Installing the systemd package will not switch your init system unless you
  boot with init=/lib/systemd/systemd or install systemd-sysv in addition.
+Homepage: https://systemd.io
+
+Package: systemd-resolved
+Status: install ok installed
+Priority: optional
+Section: admin
+Installed-Size: 916
+Maintainer: Debian systemd Maintainers <pkg-systemd-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: foreign
+Source: systemd
+Version: 257.13-1~deb13u1
+Replaces: resolvconf
+Provides: resolvconf
+Depends: libc6 (>= 2.39), libssl3t64 (>= 3.0.0), libsystemd-shared (= 257.13-1~deb13u1), systemd (= 257.13-1~deb13u1), default-dbus-system-bus | dbus-system-bus
+Recommends: libnss-myhostname, libnss-resolve, libidn2-0
+Suggests: polkitd
+Conflicts: resolvconf, systemd (<< 257.4-4~)
+Conffiles:
+ /etc/systemd/resolved.conf c056212e9cddc090a567d691d727502d
+Description: systemd DNS resolver
+ This package provides systemd's DNS resolver and the command line tool to
+ manage it.
+ .
+ Installing this package automatically overwrites /etc/resolv.conf and switches
+ it to be managed by systemd-resolved.
 Homepage: https://systemd.io
 
 Package: systemd-sysv

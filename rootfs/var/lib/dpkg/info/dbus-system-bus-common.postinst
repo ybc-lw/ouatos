@@ -1,0 +1,27 @@
+#!/bin/sh
+# Copyright © 2003 Colin Walters <walters@debian.org>
+# Copyright © 2006 Sjoerd Simons <sjoerd@debian.org>
+
+set -e
+
+MESSAGEUSER=messagebus
+
+in_sysroot () {
+    if [ -z "${DPKG_ROOT:-}" ]; then
+        "$@"
+    else
+        chroot "${DPKG_ROOT}" "$@"
+    fi
+}
+
+case "$1" in
+    (configure | abort-upgrade | abort-deconfigure | abort-remove)
+        if command -v systemd-sysusers >/dev/null; then
+            systemd-sysusers ${DPKG_ROOT:+--root="$DPKG_ROOT"} dbus.conf
+        else
+            in_sysroot adduser --system --quiet --group "$MESSAGEUSER"
+        fi
+        ;;
+esac
+
+
