@@ -1,0 +1,7 @@
+b64279d83119ecfbf867a8a0ee9d96fa  usr/share/dbus-1/session.conf
+650ea885a6ae020cf479705368fd4e68  usr/share/doc/dbus-session-bus-common/AUTHORS.gz
+8bcde8ff553fd57f87bf5111d460e00f  usr/share/doc/dbus-session-bus-common/NEWS.gz
+6f69a6226da1615d2a99910f1175f26a  usr/share/doc/dbus-session-bus-common/README.gz
+416d32325b4571f05463eb1f6abf7548  usr/share/doc/dbus-session-bus-common/changelog.Debian.gz
+79b2079e7065cfdf074c8584e4755878  usr/share/doc/dbus-session-bus-common/copyright
+54e0e30643f8022a4198dfc150ca2c39  usr/share/lintian/overrides/dbus-session-bus-common

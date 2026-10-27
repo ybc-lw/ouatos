@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+# Automatically added by dh_installnss/1.7
+if [ "$1" = "configure" ] && [ -f "${DPKG_ROOT}/etc/nsswitch.conf.nss.${DPKG_MAINTSCRIPT_PACKAGE}-will-install" ] && [ -e "${DPKG_ROOT}/etc/nsswitch.conf" ] ; then
+	if ! grep -q -E  -e '^hosts:[^#]*\s(myhostname)(\s|#|$)' "${DPKG_ROOT}/etc/nsswitch.conf" ; then
+		# Installing hosts/myhostname from libnss-myhostname in position after=files
+		sed -E -i "${DPKG_ROOT}/etc/nsswitch.conf" -e '/^hosts:\s[^#]*$/ s/(\s)(files(\s+\[[^]]+\])?)(\s|$)/\1\2 myhostname /' -e '/^hosts:\s.*#/ s/(\s)(files(\s+\[[^]]+\])?)(\s|#)/\1\2 myhostname \3/' -e 's/ $//'
+	fi
+	rm "${DPKG_ROOT}/etc/nsswitch.conf.nss.${DPKG_MAINTSCRIPT_PACKAGE}-will-install"
+fi
+# End automatically added section

@@ -38,3 +38,9 @@ users:*::
 nogroup:*::
 systemd-journal:!*::
 systemd-network:!*::
+input:!*::
+sgx:!*::
+clock:!*::
+kvm:!*::
+render:!*::
+messagebus:!*::

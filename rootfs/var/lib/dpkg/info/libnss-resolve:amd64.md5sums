@@ -1,0 +1,6 @@
+c0256b0481741fa43dac778c1dc4239f  usr/lib/x86_64-linux-gnu/libnss_resolve.so.2
+00d159afa7df88fea88b6f7e18caee1a  usr/share/doc/libnss-resolve/NEWS.Debian.gz
+f88cda3996fa3f5f0055f3fb8486271b  usr/share/doc/libnss-resolve/changelog.Debian.gz
+26ad924032ac9d520f57275eba26291d  usr/share/doc/libnss-resolve/copyright
+14ab854315d7e836a7abb3cee772095e  usr/share/lintian/overrides/libnss-resolve
+6dbe1d2f5391c19118db85340a42b9ec  usr/share/man/man8/nss-resolve.8.gz
