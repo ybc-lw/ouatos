@@ -26,8 +26,9 @@ BIOS_MODS = ['biosdisk', 'iso9660', 'part_msdos', 'part_gpt', 'search', 'search_
              'configfile', 'linux', 'boot', 'echo', 'test', 'gzio']
 EFI_MODS = ['iso9660', 'fat', 'part_msdos', 'part_gpt', 'search', 'search_label', 'search_fs_file', 'normal',
             'configfile', 'linux', 'boot', 'echo', 'test', 'gzio', 'efi_gop', 'all_video']
-EARLY_CFG = ('# find the installation medium by its volume label, wherever firmware put us\n'
-             'if search --no-floppy --label --set=root %s; then\n  set prefix=($root)/boot/grub\nfi\n')
+# Embedded configs are read by GRUB's rescue parser: use simple commands only.
+EARLY_CFG = ('search --no-floppy --label --set=root %s\n'
+             'set prefix=($root)/boot/grub\n')
 
 
 def step(msg):

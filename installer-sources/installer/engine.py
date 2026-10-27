@@ -520,6 +520,12 @@ STEPS = [
     ('Finishing up', 4),
 ]
 
+def grub_early_config(root_uuid):
+    """Early configs use GRUB's rescue parser, before normal shell syntax exists."""
+    return ('search --no-floppy --fs-uuid --set=root %s\n'
+            'set prefix=($root)/boot/grub\n') % root_uuid
+
+
 GRUB_BIOS_MODS = ['biosdisk', 'part_gpt', 'part_msdos', 'ext2', 'search', 'search_fs_uuid', 'search_fs_file',
                   'normal', 'configfile', 'linux', 'boot', 'echo', 'test', 'gzio']
 GRUB_EFI_MODS = ['part_gpt', 'part_msdos', 'fat', 'ext2', 'search', 'search_fs_uuid', 'search_fs_file',
@@ -793,9 +799,7 @@ class Installer:
                     'GRUB_DEFAULT=0\nGRUB_TIMEOUT=5\nGRUB_DISTRIBUTOR="%s"\n'
                     'GRUB_CMDLINE_LINUX_DEFAULT="quiet"\nGRUB_CMDLINE_LINUX=""\nGRUB_DISABLE_OS_PROBER=true\n'
                     % (BRAND, brand))
-        self._write('tmp/ouatos-early.cfg',
-                    'if search --no-floppy --fs-uuid --set=root %s; then\n  set prefix=($root)/boot/grub\nfi\n'
-                    % root.fs_uuid)
+        self._write('tmp/ouatos-early.cfg', grub_early_config(root.fs_uuid))
         ch = self.ch
         plat = 'x86_64-efi' if self.env.uefi else 'i386-pc'
         ch.run(['mkdir', '-p', '/boot/grub/' + plat])
