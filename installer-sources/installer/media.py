@@ -45,15 +45,23 @@ class IsoReader:
         return self.f.read(n)
 
     def _entries(self, lba, length):
+        if length > 16 * 1024 * 1024 or lba * SECTOR + length > self.nsectors * SECTOR:
+            raise MediaError('invalid directory extent')
         raw = self.read(lba * SECTOR, length)
+        if len(raw) != length:
+            raise MediaError('truncated directory')
         off = 0
         while off < len(raw):
             ln = raw[off]
             if ln == 0:
                 off = (off // SECTOR + 1) * SECTOR
                 continue
+            if ln < 34 or off + ln > len(raw) or off % SECTOR + ln > SECTOR:
+                raise MediaError('invalid directory record length')
             rec, off = raw[off:off + ln], off + ln
             idl = rec[32]
+            if not idl or 33 + idl > ln:
+                raise MediaError('invalid file identifier length')
             ident = rec[33:33 + idl]
             if ident in (b'\x00', b'\x01'):
                 continue
@@ -61,8 +69,10 @@ class IsoReader:
             rr, i = b'', 0
             while i + 4 <= len(su):                      # Rock Ridge alternate name, if present
                 sig, sl = su[i:i + 2], su[i + 2]
-                if sl < 4:
-                    break
+                if sl < 4 or i + sl > len(su):
+                    raise MediaError('invalid Rock Ridge record length')
+                if sig == b'NM' and sl < 5:
+                    raise MediaError('truncated Rock Ridge name')
                 if sig == b'NM' and not su[i + 4] & 6:
                     rr += su[i + 5:i + sl]
                 i += sl
@@ -80,6 +90,8 @@ class IsoReader:
             for name, isdir, elba, esize in self._entries(lba, length):
                 if name.lower() == part.lower():
                     if n == len(parts) - 1:
+                        if isdir or elba * SECTOR + esize > self.nsectors * SECTOR:
+                            raise MediaError('invalid file extent')
                         return elba, esize
                     if isdir:
                         lba, length = elba, esize
@@ -108,6 +120,8 @@ class ExtentReader(io.RawIOBase):
             return b''
         self.f.seek(self.offset + self.pos)
         data = self.f.read(n)
+        if not data and left:
+            raise MediaError('truncated payload')
         self.pos += len(data)
         return data
 
@@ -154,7 +168,13 @@ class MountedMedia:
 
     def read_small(self, names):
         p = self._find(names)
-        return open(p, 'rb').read() if p else None
+        if not p:
+            return None
+        with open(p, 'rb') as f:
+            data = f.read(4 * 1024 * 1024 + 1)
+        if len(data) > 4 * 1024 * 1024:
+            raise MediaError('metadata is too large')
+        return data
 
     def parent_disk(self):
         try:
@@ -179,9 +199,6 @@ class RawMedia:
         self._loc = {}
 
     def _locate(self, names):
-        for n in names:
-            if n in self._loc:
-                return self._loc[n]
         with open(self.device, 'rb', buffering=0) as f:
             iso = IsoReader(f)
             for n in names:
@@ -209,9 +226,14 @@ class RawMedia:
         loc = self._locate(names)
         if not loc:
             return None
+        if loc[1] > 4 * 1024 * 1024:
+            raise MediaError('metadata is too large')
         with open(self.device, 'rb', buffering=0) as f:
             f.seek(loc[0] * SECTOR)
-            return f.read(loc[1])
+            data = f.read(loc[1])
+            if len(data) != loc[1]:
+                raise MediaError('truncated metadata')
+            return data
 
     def parent_disk(self):
         return _parent_disk(os.path.basename(os.path.realpath(self.device)))

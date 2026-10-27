@@ -33,11 +33,34 @@ def log(*a):
 
 
 # ---------------------------------------------------------------------------------- file helpers
+def _resolve(rootfs, rel):
+    """Resolve symlinks using the image root, never the build host's root."""
+    pending, resolved, links = rel.split('/'), [], 0
+    while pending:
+        part = pending.pop(0)
+        if part in ('', '.'):
+            continue
+        if part == '..':
+            if resolved:
+                resolved.pop()
+            continue
+        path = os.path.join(rootfs, *resolved, part)
+        if os.path.islink(path):
+            links += 1
+            if links > 40:
+                raise OSError('too many image symlinks: ' + rel)
+            target = os.readlink(path)
+            if target.startswith('/'):
+                resolved = []
+            pending = target.split('/') + pending
+        else:
+            resolved.append(part)
+    return '/'.join(resolved)
+
+
 def _resolve_parent(rootfs, rel):
-    """Canonicalise the directory part of rel (so lib/... and usr/lib/... map to the same place)."""
     d, b = os.path.split(rel)
-    real = os.path.realpath(os.path.join(rootfs, d))
-    return os.path.join(os.path.relpath(real, os.path.realpath(rootfs)), b)
+    return os.path.join(_resolve(rootfs, d), b)
 
 
 def install_path(rootfs, live, rel, seen=None):
@@ -87,7 +110,7 @@ def ldd(rootfs, rel):
 
 def install_elf(rootfs, live, rel, seen):
     real = install_path(rootfs, live, rel, seen)
-    full = os.path.join(rootfs, real)
+    full = os.path.join(rootfs, _resolve(rootfs, real))
     if is_elf(full):
         for d in ldd(rootfs, real):
             install_path(rootfs, live, d, seen)
