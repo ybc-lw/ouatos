@@ -1,0 +1,8 @@
+# yes we do want to ship these
+package-contains-empty-directory [usr/share/dbus-1/system-services/]
+# we're careful to say D-Bus for the protocol and dbus for the implementation
+capitalization-error-in-description dbus D-Bus
+# since adduser 3.122, the default is --home /nonexistent (and since 3.130, that implies --no-create-home)
+maintainer-script-lacks-home-in-adduser *
+# we only call adduser conditionally now, if systemd-sysusers is not available
+maintainer-script-needs-depends-on-adduser * [postinst:*]
