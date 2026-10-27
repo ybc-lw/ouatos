@@ -14,7 +14,7 @@ sys.path[:0] = [os.path.join(HERE, '..', 'installer'), HERE]
 import fatcheck
 import gptcheck
 
-LIVE = '/tmp/live'
+LIVE = os.environ.get('OUATOS_TEST_LIVE', '/tmp/ouatos-build/live')
 MEDIA = '/tmp/fakemedia'
 results = []
 
@@ -48,7 +48,11 @@ last = [None]
 def prog(s, f, m):
     if (s, m) != last[0]:
         last[0] = (s, m); print('   [%d] %s - %s' % (s, engine.STEPS[s][0], m), flush=True)
-engine.Installer(cfg, env, prog).run()
+try:
+    engine.Installer(cfg, env, prog).run()
+finally:
+    for partdev in sc.loops.values():
+        sh(['losetup', '-d', partdev], check=False)
 import json
 json.dump({p.number: [p.kind, p.first, p.last, p.fs_uuid] for p in sc.loops and [] or []}, open('/dev/null', 'w'))
 print('INSTALL-OK', mode)
@@ -69,10 +73,9 @@ def main():
         mounts.append(dst)
     try:
         bind('/dev', 'dev', '--rbind')
-        bind('proc', 'proc', '-t')
+        bind('proc', 'proc', '-t', 'proc')
         bind('/sys', 'sys', '--rbind')
         bind(MEDIA, 'run/iso', '--bind')
-        bind('/mnt/user-data/uploads', 'mnt/user-data/uploads', '--bind')
         open(LIVE + '/tmp/inner.py', 'w').write(INNER)
         for mode in ('bios', 'uefi'):
             img = '%s/tmp/%s.img' % (LIVE, mode)
@@ -120,12 +123,15 @@ def main():
                     mbr = f.read(512)
                 import struct
                 check(mbr[510:512] == b'\x55\xaa' and struct.unpack_from('<Q', mbr, 0x5C)[0] == parts[0]['first'], 'GRUB boot sector points at embedded core.img')
-            subprocess.run(['losetup', '-d', dev])
     finally:
         for d in reversed(mounts):
             if subprocess.run(['umount', '-R', os.path.join(LIVE, d)]).returncode:
                 subprocess.run(['umount', '-R', '-l', os.path.join(LIVE, d)])
         for m in ('bios', 'uefi'):
+            devfile = '%s/tmp/devname-%s' % (LIVE, m)
+            if os.path.exists(devfile):
+                subprocess.run(['losetup', '-d', open(devfile).read().strip()])
+                os.unlink(devfile)
             p = '%s/tmp/%s.img' % (LIVE, m)
             if os.path.exists(p):
                 os.unlink(p)

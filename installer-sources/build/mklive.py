@@ -103,23 +103,11 @@ def find_bin(rootfs, name):
 # ---------------------------------------------------------------------------------- modules
 def initrd_modules(rootfs, kver):
     """Module paths (relative to the module dir) that the shipped initrd carries."""
-    data = open(os.path.join(rootfs, 'boot/initrd.img-' + kver), 'rb').read()
-    off, mods = 0, []
-    while True:
-        h = data[off:off + 110]
-        if h[:6] not in (b'070701', b'070702'):
-            break
-        f = [int(h[6 + 8 * i:14 + 8 * i], 16) for i in range(13)]
-        fs, ns = f[6], f[11]
-        name = data[off + 110:off + 110 + ns - 1].decode('latin1')
-        off = ((off + 110 + ns + 3) & ~3)
-        off = (off + fs + 3) & ~3
-        if name == 'TRAILER!!!':
-            break
-        m = re.match(r'usr/lib/modules/[^/]+/(kernel/.*\.ko(\.\w+)?)$', name)
-        if m:
-            mods.append(m.group(1))
-    return mods
+    listing = subprocess.run(['lsinitramfs', os.path.join(rootfs, 'boot/initrd.img-' + kver)],
+                             check=True, capture_output=True, text=True).stdout
+    pattern = r'(?:usr/)?lib/modules/' + re.escape(kver) + r'/(kernel/.*\.ko(?:\.\w+)?)$'
+    return sorted({m.group(1) for line in listing.splitlines()
+                   if (m := re.fullmatch(pattern, line.removeprefix('./')))})
 
 
 def module_closure(rootfs, kver, wanted_paths, extra_names):
@@ -270,10 +258,11 @@ until find_media; do
     load_modules
     sleep 1
 done
-if [ ! -s /run/media.dev ]; then
+while [ ! -s /run/media.dev ]; do
     diagnose >/dev/tty1 2>&1
     emergency "The installation medium was not found (looked for an ISO 9660 volume labelled ouatos_install)."
-fi
+    find_media || true
+done
 
 while :; do
     python3 /opt/ouatos-installer/installer.py

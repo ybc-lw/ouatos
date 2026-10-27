@@ -100,17 +100,21 @@ class Screen:
     @classmethod
     def open_fb(cls, path='/dev/fb0'):
         fd = os.open(path, os.O_RDWR)
-        var = fcntl.ioctl(fd, FBIOGET_VSCREENINFO, bytes(160))
-        fix = fcntl.ioctl(fd, FBIOGET_FSCREENINFO, bytes(128))
-        xres, yres, _xv, _yv, _xo, _yo, bpp, _gray = struct.unpack_from('<8I', var, 0)
-        ro, rl, _ = struct.unpack_from('<3I', var, 32)
-        go, gl, _ = struct.unpack_from('<3I', var, 44)
-        bo, bl, _ = struct.unpack_from('<3I', var, 56)
-        line = struct.unpack_from('<I', fix, 48)[0]
-        if bpp not in (16, 24, 32) or line < xres * bpp // 8:
-            raise OSError('unsupported framebuffer: %dx%d %dbpp stride %d' % (xres, yres, bpp, line))
-        mm = mmap.mmap(fd, line * yres, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE)
-        return cls(xres, yres, bpp, line, ((ro, rl), (go, gl), (bo, bl)), sink=mm)
+        try:
+            var = fcntl.ioctl(fd, FBIOGET_VSCREENINFO, bytes(160))
+            fix = fcntl.ioctl(fd, FBIOGET_FSCREENINFO, bytes(128))
+            xres, yres, _xv, _yv, _xo, _yo, bpp, _gray = struct.unpack_from('<8I', var, 0)
+            ro, rl, _ = struct.unpack_from('<3I', var, 32)
+            go, gl, _ = struct.unpack_from('<3I', var, 44)
+            bo, bl, _ = struct.unpack_from('<3I', var, 56)
+            line = struct.unpack_from('<I', fix, 48)[0]
+            if (bpp not in (16, 24, 32) or line < xres * bpp // 8 or _xo or _yo or
+                    any(bits < 1 or offset + bits > bpp for offset, bits in ((ro,rl),(go,gl),(bo,bl)))):
+                raise OSError('unsupported framebuffer: %dx%d %dbpp stride %d' % (xres, yres, bpp, line))
+            mm = mmap.mmap(fd, line * yres, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE)
+            return cls(xres, yres, bpp, line, ((ro, rl), (go, gl), (bo, bl)), sink=mm)
+        finally:
+            os.close(fd)
 
     @classmethod
     def virtual(cls, w, h):
@@ -120,8 +124,8 @@ class Screen:
     def pix(self, c):
         b = self._pix.get(c)
         if b is None:
-            v = (((c[0] >> (8 - self.rl)) << self.ro) | ((c[1] >> (8 - self.gl)) << self.go) |
-                 ((c[2] >> (8 - self.bl)) << self.bo))
+            v = sum(((channel * ((1 << bits) - 1) + 127) // 255) << offset
+                    for channel, offset, bits in zip(c, (self.ro, self.go, self.bo), (self.rl, self.gl, self.bl)))
             b = self._pix[c] = v.to_bytes(self.bpp, 'little')
         return b
 
@@ -336,9 +340,8 @@ class Screen:
             row = self.buf[y * self.stride:y * self.stride + self.w * self.bpp]
             for x in range(self.w):
                 v = int.from_bytes(row[x * self.bpp:(x + 1) * self.bpp], 'little')
-                out += bytes((((v >> self.ro) & ((1 << self.rl) - 1)) << (8 - self.rl),
-                              ((v >> self.go) & ((1 << self.gl) - 1)) << (8 - self.gl),
-                              ((v >> self.bo) & ((1 << self.bl) - 1)) << (8 - self.bl)))
+                out += bytes(((v >> offset) & ((1 << bits) - 1)) * 255 // ((1 << bits) - 1)
+                             for offset, bits in ((self.ro,self.rl), (self.go,self.gl), (self.bo,self.bl)))
         return bytes(out)
 
 
@@ -488,8 +491,18 @@ class EvdevInput:
     def _parse(self, d, data):
         out, dx, dy = [], 0.0, 0.0
         moved = False
+        def flush_motion():
+            nonlocal dx, dy, moved
+            if moved:
+                self.x = int(min(max(self.x + dx * self.accel, 0), self.w - 1))
+                self.y = int(min(max(self.y + dy * self.accel, 0), self.h - 1))
+                out.append(('move', self.x, self.y))
+                dx = dy = 0.0
+                moved = False
         for i in range(0, len(data) - _EV.size + 1, _EV.size):
             _s, _u, typ, code, val = _EV.unpack_from(data, i)
+            if typ in (0, 1) or (typ == 2 and code == 8):
+                flush_motion()
             if typ == 1:                                                   # ---- EV_KEY
                 if code in SHIFTS:
                     self.shift = val != 0
