@@ -179,7 +179,7 @@ Description: GNU core utilities
 Homepage: https://gnu.org/software/coreutils
 
 Package: cpio
-Status: install ok unpacked
+Status: install ok installed
 Priority: important
 Section: utils
 Installed-Size: 1197
@@ -239,6 +239,154 @@ Description: POSIX-compliant shell
  dependencies (making it more robust against software or hardware
  failures), it is used as the default system shell on Debian systems.
 Homepage: http://gondor.apana.org.au/~herbert/dash/
+
+Package: dbus
+Status: install ok unpacked
+Priority: standard
+Section: admin
+Installed-Size: 154
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: foreign
+Version: 1.16.2-2
+Provides: dbus-system-bus (= 1.16.2-2), default-dbus-system-bus
+Depends: dbus-bin (= 1.16.2-2), dbus-daemon (= 1.16.2-2), dbus-system-bus-common (>= 1.16.2-2), base-files (>= 13.4~), libc6 (>= 2.34), libdbus-1-3 (= 1.16.2-2), libexpat1 (>= 2.1~beta3), libsystemd0
+Pre-Depends: init-system-helpers (>= 1.54~)
+Suggests: default-dbus-session-bus | dbus-session-bus
+Conffiles:
+ /etc/default/dbus newconffile
+ /etc/init.d/dbus newconffile
+Description: simple interprocess messaging system (system message bus)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ D-Bus supports broadcast messages, asynchronous messages (thus
+ decreasing latency), authentication, and more. It is designed to be
+ low-overhead; messages are sent using a binary protocol, not using
+ XML. D-Bus also supports a method call mapping for its messages, but
+ it is not required; this makes using the system quite simple.
+ .
+ It comes with several bindings, including GLib, Python, Qt and Java.
+ .
+ This package provides a fully-functional D-Bus system bus with activation
+ support, used for communication between system services, and depends on
+ most of the other components of the reference implementation of D-Bus.
+ .
+ To provide a complete D-Bus session bus, install one of the packages
+ that implement the dbus-session-bus virtual package, such as
+ dbus-user-session. The recommended implementation is indicated by
+ the default-dbus-session-bus virtual package.
+Homepage: https://dbus.freedesktop.org/
+
+Package: dbus-bin
+Status: install ok unpacked
+Priority: optional
+Section: admin
+Installed-Size: 190
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: foreign
+Source: dbus
+Version: 1.16.2-2
+Replaces: dbus (<< 1.13.18-2~)
+Depends: libc6 (>= 2.38), libdbus-1-3 (= 1.16.2-2)
+Breaks: dbus (<< 1.13.18-2~)
+Description: simple interprocess messaging system (command line utilities)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ This package contains the D-Bus command-line utilities such as dbus-send
+ and dbus-monitor.
+Homepage: https://dbus.freedesktop.org/
+
+Package: dbus-daemon
+Status: install ok unpacked
+Priority: optional
+Section: admin
+Installed-Size: 352
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: foreign
+Source: dbus
+Version: 1.16.2-2
+Replaces: dbus (<< 1.13.18-2~)
+Depends: dbus-bin (= 1.16.2-2), dbus-session-bus-common (>= 1.16.2-2), libapparmor1 (>= 2.8.94), libaudit1 (>= 1:2.2.1), libc6 (>= 2.34), libcap-ng0 (>= 0.7.9), libdbus-1-3 (= 1.16.2-2), libexpat1 (>= 2.1~beta3), libselinux1 (>= 3.1~), libsystemd0
+Breaks: dbus (<< 1.13.18-2~)
+Description: simple interprocess messaging system (reference message bus)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ This package contains dbus-daemon, the reference implementation of a
+ D-Bus message bus, and dbus-run-session, a utility to start a temporary
+ session dbus-daemon in a constrained environment or for automated tests.
+ .
+ To provide a complete D-Bus session bus, install one of the packages
+ that implement the dbus-session-bus virtual package, such as
+ dbus-user-session. The recommended implementation is indicated by
+ the default-dbus-session-bus virtual package.
+Homepage: https://dbus.freedesktop.org/
+
+Package: dbus-session-bus-common
+Status: install ok unpacked
+Priority: optional
+Section: admin
+Installed-Size: 80
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: all
+Multi-Arch: foreign
+Source: dbus
+Version: 1.16.2-2
+Replaces: dbus (<< 1.13.18-2~)
+Breaks: dbus (<< 1.13.18-2~)
+Description: simple interprocess messaging system (session bus configuration)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ This package contains the configuration files defining the behaviour of
+ the D-Bus session bus, used for applications and per-user services.
+ These are used by the reference implementation in the dbus package,
+ and by the reimplementation in the dbus-broker package.
+ .
+ To provide a complete D-Bus session bus, install one of the packages
+ that implement the dbus-session-bus virtual package, such as
+ dbus-user-session. The recommended implementation is indicated by
+ the default-dbus-session-bus virtual package.
+Homepage: https://dbus.freedesktop.org/
+
+Package: dbus-system-bus-common
+Status: install ok unpacked
+Priority: optional
+Section: admin
+Installed-Size: 91
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: all
+Multi-Arch: foreign
+Source: dbus
+Version: 1.16.2-2
+Replaces: dbus (<< 1.13.18-2~)
+Depends: adduser (>= 3.130) | systemd-sysusers
+Breaks: dbus (<< 1.13.18-2~)
+Description: simple interprocess messaging system (system bus configuration)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ This package contains the configuration files defining the behaviour of
+ the D-Bus system bus, used for system services such as networking and
+ storage management services. It is also responsible for creating the
+ 'messagebus' system user account used to run the system bus.
+ These are used by the reference implementation in the dbus package,
+ and by the reimplementation in the dbus-broker package.
+ .
+ To provide a complete D-Bus system bus, install one of the packages
+ that implement the dbus-system-bus virtual package, such as dbus.
+ The recommended implementation is indicated by the default-dbus-system-bus
+ virtual package.
+Homepage: https://dbus.freedesktop.org/
 
 Package: debconf
 Status: install ok installed
@@ -334,7 +482,7 @@ Description: File comparison utilities
 Homepage: https://www.gnu.org/software/diffutils/
 
 Package: dmsetup
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 243
@@ -382,7 +530,7 @@ Description: Debian package management system
 Homepage: https://wiki.debian.org/Teams/Dpkg
 
 Package: dracut-install
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: utils
 Installed-Size: 100
@@ -399,7 +547,7 @@ Description: dracut is an event driven initramfs infrastructure (dracut-install)
 Homepage: https://github.com/dracut-ng/dracut-ng/wiki
 
 Package: efibootmgr
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 93
@@ -474,7 +622,7 @@ Description: GCC, the GNU Compiler Collection (base package)
 Homepage: http://gcc.gnu.org/
 
 Package: gettext-base
-Status: install ok unpacked
+Status: install ok installed
 Priority: standard
 Section: utils
 Installed-Size: 740
@@ -518,7 +666,7 @@ Description: GNU grep, egrep and fgrep
 Homepage: https://www.gnu.org/software/grep/
 
 Package: grub-common
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 17639
@@ -534,16 +682,16 @@ Suggests: multiboot-doc, grub-emu, mtools, xorriso (>= 0.5.6.pl00), desktop-base
 Breaks: apport (<< 2.1.1), friendly-recovery (<< 0.2.13), grub-efi-amd64-signed (<< 1+2.12~rc1), grub-efi-arm64-signed (<< 1+2.12~rc1), grub-efi-ia32-signed (<< 1+2.12~rc1), lupin-support (<< 0.55), mdadm (<< 2.6.7-2)
 Conflicts: init-select
 Conffiles:
- /etc/grub.d/00_header newconffile
- /etc/grub.d/05_debian_theme newconffile
- /etc/grub.d/10_linux newconffile
- /etc/grub.d/20_linux_xen newconffile
- /etc/grub.d/25_bli newconffile
- /etc/grub.d/30_os-prober newconffile
- /etc/grub.d/30_uefi-firmware newconffile
- /etc/grub.d/40_custom newconffile
- /etc/grub.d/41_custom newconffile
- /etc/grub.d/README newconffile
+ /etc/grub.d/00_header 033e1905144dec9fd7d73b4d223f20cd
+ /etc/grub.d/05_debian_theme fe5f9d6282150de338d13b2867af0390
+ /etc/grub.d/10_linux 276ce7766b5c0f524b40c0b9c5592d93
+ /etc/grub.d/20_linux_xen 3f307089941f675beb576783669ac9e1
+ /etc/grub.d/25_bli e071d24e35e554a6e6446068f59715f6
+ /etc/grub.d/30_os-prober 9e7e433ed21c635b0d102a06da4ae5e2
+ /etc/grub.d/30_uefi-firmware 2d918e14d15f40c01398a7534702870d
+ /etc/grub.d/40_custom babe7de352fe18de5a238569cf4b8a11
+ /etc/grub.d/41_custom 1d876baff8ca3841aa6ba057e881a2e4
+ /etc/grub.d/README be58f42dfe74feb6eeb98c6a843c743f
 Description: GRand Unified Bootloader (common files)
  This package contains common files shared by the distinct flavours of GRUB.
  It is shared between GRUB Legacy and GRUB 2, although a number of files
@@ -555,7 +703,7 @@ Built-Using: lzo2 (= 2.10-3)
 Homepage: https://www.gnu.org/software/grub/
 
 Package: grub-efi-amd64-bin
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 3304
@@ -588,7 +736,7 @@ Homepage: https://www.gnu.org/software/grub/
 Efi-Vendor: debian
 
 Package: grub-efi-amd64-unsigned
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 9487
@@ -620,7 +768,7 @@ Homepage: https://www.gnu.org/software/grub/
 Efi-Vendor: debian
 
 Package: grub-pc-bin
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 3171
@@ -713,7 +861,7 @@ Description: helper tools for all init systems
  include their helpers in this package.
 
 Package: initramfs-tools
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: utils
 Installed-Size: 52
@@ -726,16 +874,16 @@ Depends: initramfs-tools-core (= 0.148.4), linux-base
 Suggests: bash-completion
 Conflicts: linux-initramfs-tool
 Conffiles:
- /etc/initramfs-tools/update-initramfs.conf newconffile
- /etc/kernel/postinst.d/initramfs-tools newconffile
- /etc/kernel/postrm.d/initramfs-tools newconffile
+ /etc/initramfs-tools/update-initramfs.conf e2026d4603e7161efaccca519aeb1297
+ /etc/kernel/postinst.d/initramfs-tools acdcb03834b59261f917ae04ddc3fe6e
+ /etc/kernel/postrm.d/initramfs-tools 90fb918898fffccddcbdaef13bf13b2a
 Description: generic modular initramfs generator (automation)
  This package builds a bootable initramfs for Linux kernel packages.  The
  initramfs is loaded along with the kernel and is responsible for
  mounting the root filesystem and starting the main init system.
 
 Package: initramfs-tools-bin
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: utils
 Installed-Size: 44
@@ -752,7 +900,7 @@ Description: generic modular initramfs generator (binary tools)
  unpack an initramfs image.
 
 Package: initramfs-tools-core
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: utils
 Installed-Size: 166
@@ -766,7 +914,7 @@ Recommends: zstd, busybox | busybox-static
 Suggests: bash-completion
 Breaks: miniramfs (<< 1.0.3~)
 Conffiles:
- /etc/initramfs-tools/initramfs.conf newconffile
+ /etc/initramfs-tools/initramfs.conf 7cd32817dcb81991da2e2a928a32fdb0
 Description: generic modular initramfs generator (core tools)
  This package contains the mkinitramfs program that can be used to
  create a bootable initramfs for a Linux kernel.  The initramfs should
@@ -819,7 +967,7 @@ Description: Tools to test the reachability of network hosts
 Homepage: https://github.com/iputils/iputils/
 
 Package: klibc-utils
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: libs
 Installed-Size: 479
@@ -838,7 +986,7 @@ Description: small utilities built with klibc for early boot
 Homepage: https://git.kernel.org/cgit/libs/klibc/klibc.git
 
 Package: kmod
-Status: install ok unpacked
+Status: install ok installed
 Priority: important
 Section: admin
 Installed-Size: 255
@@ -1289,6 +1437,34 @@ Description: Berkeley v5.3 Database Libraries [runtime]
  database library.
 Homepage: http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/overview/index.html
 
+Package: libdbus-1-3
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 445
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: dbus
+Version: 1.16.2-2
+Depends: libc6 (>= 2.38), libsystemd0
+Recommends: dbus
+Description: simple interprocess messaging system (library)
+ D-Bus is a message bus, used for sending messages between applications.
+ Conceptually, it fits somewhere in between raw sockets and CORBA in
+ terms of complexity.
+ .
+ D-Bus supports broadcast messages, asynchronous messages (thus
+ decreasing latency), authentication, and more. It is designed to be
+ low-overhead; messages are sent using a binary protocol, not using
+ XML. D-Bus also supports a method call mapping for its messages, but
+ it is not required; this makes using the system quite simple.
+ .
+ It comes with several bindings, including GLib, Python, Qt and Java.
+ .
+ The message bus daemon can be found in the dbus-daemon package.
+Homepage: https://dbus.freedesktop.org/
+
 Package: libdebconfclient0
 Status: install ok installed
 Priority: optional
@@ -1308,7 +1484,7 @@ Description: Debian Configuration Management System (C-implementation library)
  This library allows C programs to interface with cdebconf.
 
 Package: libdevmapper1.02.1
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: libs
 Installed-Size: 481
@@ -1331,7 +1507,7 @@ Description: Linux Kernel Device Mapper userspace library
 Homepage: https://sourceware.org/lvm2/
 
 Package: libefiboot1t64
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: libs
 Installed-Size: 138
@@ -1349,7 +1525,7 @@ Description: Library to manage UEFI variables
 Homepage: https://github.com/rhinstaller/efivar
 
 Package: libefivar1t64
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: libs
 Installed-Size: 227
@@ -1428,7 +1604,7 @@ Description: Foreign Function Interface library runtime
 Homepage: https://sourceware.org/libffi/
 
 Package: libfreetype6
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: libs
 Installed-Size: 963
@@ -1468,7 +1644,7 @@ Description: FreeType 2 font engine, shared library files
 Homepage: https://freetype.org
 
 Package: libfuse3-4
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: libs
 Installed-Size: 325
@@ -1683,7 +1859,7 @@ Description: Linux Key Management Utilities (library)
 Homepage: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git
 
 Package: libklibc
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: libs
 Installed-Size: 98
@@ -1700,7 +1876,7 @@ Description: minimal libc subset for use with initramfs
 Homepage: https://git.kernel.org/cgit/libs/klibc/klibc.git
 
 Package: libkmod2
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: libs
 Installed-Size: 144
@@ -2042,6 +2218,50 @@ Description: HTTP/3 library with QUIC and QPACK (library)
  This package contains the shared library.
 Homepage: https://github.com/ngtcp2/nghttp3
 
+Package: libnss-myhostname
+Status: install ok unpacked
+Priority: optional
+Section: admin
+Installed-Size: 258
+Maintainer: Debian systemd Maintainers <pkg-systemd-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: systemd
+Version: 257.13-1~deb13u1
+Depends: libc6 (>= 2.38), libcap2 (>= 1:2.10)
+Description: nss module providing fallback resolution for the current hostname
+ This package contains a plugin for the Name Service Switch, providing host
+ name resolution for the locally configured system hostname as returned by
+ gethostname(2). It returns all locally configured public IP addresses or -- if
+ none are configured, the IPv4 address 127.0.0.2 (which is on the local
+ loopback) and the IPv6 address ::1 (which is the local host).
+ .
+ A lot of software relies on that the local host name is resolvable. This
+ package provides an alternative to the fragile and error-prone manual editing
+ of /etc/hosts.
+ .
+ Installing this package automatically adds myhostname to /etc/nsswitch.conf.
+Homepage: https://systemd.io
+
+Package: libnss-resolve
+Status: install ok unpacked
+Priority: optional
+Section: admin
+Installed-Size: 282
+Maintainer: Debian systemd Maintainers <pkg-systemd-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: systemd
+Version: 257.13-1~deb13u1
+Depends: libc6 (>= 2.39), libcap2 (>= 1:2.10), systemd-resolved (= 257.13-1~deb13u1)
+Description: nss module to resolve names via systemd-resolved
+ nss-resolve is a plugin for the GNU Name Service Switch (NSS) functionality
+ of the GNU C Library (glibc) providing DNS and LLMNR resolution to programs via
+ the systemd-resolved daemon (provided in the systemd-resolved package).
+ .
+ Installing this package automatically adds resolve to /etc/nsswitch.conf.
+Homepage: https://systemd.io
+
 Package: libp11-kit0
 Status: install ok installed
 Priority: optional
@@ -2179,7 +2399,7 @@ Description: New Perl Compatible Regular Expression Library- 8 bit runtime files
 Homepage: https://github.com/PCRE2Project/pcre2
 
 Package: libpng16-16t64
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: libs
 Installed-Size: 444
@@ -2201,7 +2421,7 @@ Description: PNG library - runtime (version 1.6)
 Homepage: http://libpng.org/pub/png/libpng.html
 
 Package: libpopt0
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: libs
 Installed-Size: 245
@@ -2901,7 +3121,7 @@ Description: Linux image base package
  images.
 
 Package: linux-image-6.12.107+deb13-amd64
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: kernel
 Installed-Size: 108326
@@ -2925,7 +3145,7 @@ Built-Using: linux (= 6.12.107-1)
 Homepage: https://www.kernel.org/
 
 Package: linux-image-amd64
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: kernel
 Installed-Size: 13
@@ -2982,7 +3202,7 @@ Description: system user management configuration
 Homepage: https://github.com/shadow-maint/shadow
 
 Package: logsave
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 59
@@ -3535,7 +3755,7 @@ Static-Built-Using: rust-aho-corasick (= 1.1.3-1), rust-anstream (= 0.6.15-1), r
 Homepage: https://sequoia-pgp.org/
 
 Package: sudo
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 6705
@@ -3548,13 +3768,13 @@ Depends: libapparmor1 (>= 2.7.0~beta1+bzr1772), libaudit1 (>= 1:2.2.1), libc6 (>
 Pre-Depends: init-system-helpers (>= 1.54~)
 Conflicts: sudo-ldap
 Conffiles:
- /etc/init.d/sudo newconffile
- /etc/pam.d/sudo newconffile
- /etc/pam.d/sudo-i newconffile
- /etc/sudo.conf newconffile
- /etc/sudo_logsrvd.conf newconffile
- /etc/sudoers newconffile
- /etc/sudoers.d/README newconffile
+ /etc/init.d/sudo 4fd40c92739a3bb2242df7cc6af126df
+ /etc/pam.d/sudo 7fa5090826481c517f23faa1e21c77a8
+ /etc/pam.d/sudo-i 95199b1f3d5a60bcf98058d9f8b70e70
+ /etc/sudo.conf b802577e70ce0df065aa94feb3d0566f
+ /etc/sudo_logsrvd.conf ad0ba586da300ae3ba46312ad744a6e2
+ /etc/sudoers da8bee36494c904ba767f0dd58920878
+ /etc/sudoers.d/README bb1eba13940f331e91cfb9294d86a04f
 Description: Provide limited super user privileges to specific users
  Sudo is a program designed to allow a sysadmin to give limited root
  privileges to users and log root activity.  The basic philosophy is to give
@@ -3598,6 +3818,32 @@ Description: system and service manager
  .
  Installing the systemd package will not switch your init system unless you
  boot with init=/lib/systemd/systemd or install systemd-sysv in addition.
+Homepage: https://systemd.io
+
+Package: systemd-resolved
+Status: install ok unpacked
+Priority: optional
+Section: admin
+Installed-Size: 916
+Maintainer: Debian systemd Maintainers <pkg-systemd-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: foreign
+Source: systemd
+Version: 257.13-1~deb13u1
+Replaces: resolvconf
+Provides: resolvconf
+Depends: libc6 (>= 2.39), libssl3t64 (>= 3.0.0), libsystemd-shared (= 257.13-1~deb13u1), systemd (= 257.13-1~deb13u1), default-dbus-system-bus | dbus-system-bus
+Recommends: libnss-myhostname, libnss-resolve, libidn2-0
+Suggests: polkitd
+Conflicts: resolvconf, systemd (<< 257.4-4~)
+Conffiles:
+ /etc/systemd/resolved.conf newconffile
+Description: systemd DNS resolver
+ This package provides systemd's DNS resolver and the command line tool to
+ manage it.
+ .
+ Installing this package automatically overwrites /etc/resolv.conf and switches
+ it to be managed by systemd-resolved.
 Homepage: https://systemd.io
 
 Package: systemd-sysv
@@ -3693,7 +3939,7 @@ Description: time zone and daylight-saving time data
 Homepage: https://www.iana.org/time-zones
 
 Package: udev
-Status: install ok unpacked
+Status: install ok installed
 Priority: important
 Section: admin
 Installed-Size: 10236
@@ -3707,8 +3953,8 @@ Depends: libblkid1 (>= 2.37.2), libc6 (>= 2.38), libsystemd-shared (= 257.13-1~d
 Breaks: systemd (<< 257.13-1~deb13u1)
 Conflicts: systemd (<< 255~rc1-4~)
 Conffiles:
- /etc/udev/iocost.conf newconffile
- /etc/udev/udev.conf newconffile
+ /etc/udev/iocost.conf fad2a2c4c34d796b6802bc62c19cc4ae
+ /etc/udev/udev.conf bf60be80a4cc51271a1618edf5a6d66f
 Description: /dev/ and hotplug management daemon
  udev is a daemon which dynamically creates and removes device nodes from
  /dev/, handles hotplug events and loads drivers at boot time.
