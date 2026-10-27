@@ -46,7 +46,7 @@ def unmount_under(path):
     path = os.path.realpath(path)
     mounts = [l.split()[1] for l in open('/proc/mounts') if l.split()[1].startswith(path + '/')]
     for m in sorted(mounts, key=len, reverse=True):
-        subprocess.run(['umount', '-l', m])
+        subprocess.run(['umount', '-l', m], check=True)
 
 
 def grub_cfg(sysname, label):
