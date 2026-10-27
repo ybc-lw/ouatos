@@ -52,6 +52,7 @@ jobs:
       - name: Installer safety regressions
         run: |
           python3 tests/test_safety.py
+          python3 tests/test_text_confirmation.py
           python3 tests/test_audit.py
           python3 tests/test_live_fixture.py
           python3 tests/test_integrity.py

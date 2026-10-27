@@ -618,6 +618,13 @@ class TextFrontend:
         return s or default
 
     def run(self):
+        while True:
+            result = self._run_once()
+            if result is not None:
+                return result
+
+    def _run_once(self):
+        """Return None to restart option selection without touching the disk."""
         import getpass
         name = system_name(self.osr)
         print('\n=== Install %s (text mode) ===\n' % name)
@@ -664,8 +671,8 @@ class TextFrontend:
             print(e)
         print('\nThis will ERASE %s (%s) and install %s.' % (disk.path, disk.size_text(), name))
         if self.ask('Type YES to continue').strip() != 'YES':
-            print('Cancelled.')
-            return 1
+            print('Installation not confirmed. Returning to installation options.')
+            return None
         last = [None]
 
         def cb(step, frac, msg):
