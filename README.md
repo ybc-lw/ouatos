@@ -27,13 +27,8 @@ The installation image performs the following setup tasks:
 - Initializes `/etc/machine-id`
 - Sets a password for the root user
 - Creates a regular user with administrative privileges via `sudo`
+- Creates required system directories that are not tracked by Git
 - **Configures appropriate ownership and permissions for system files and directories**
-
-### Filesystem Ownership and Permissions
-
-- The root directory (`/`) and all system directories and files under it are owned by `root:root` by default, unless otherwise specified below.
-- The `/tmp` and `/var/tmp` directories are owned by `root:root` and have permissions set to `1777`, allowing all users to create, read, and write files as permitted by file ownership and individual file permissions. The sticky bit prevents users from deleting or renaming files owned by other users.
-- Each user's home directory under `/home` is owned by that user and their primary group (e.g., `/home/<username>` is owned by `<username>:<username>`).
 
 ## License
 
