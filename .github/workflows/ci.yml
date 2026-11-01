@@ -166,12 +166,14 @@ jobs:
         working-directory: installer-sources
         run: python3 tests/test_vm.py "$ISO" --firmware uefi --workdir /tmp/vmtest-uefi
 
-      - name: Upload VM serial logs
+      - name: Upload VM serial logs and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vm-serial-logs
-          path: /tmp/vmtest-*/*.log
+          name: vm-debug
+          path: |
+            /tmp/vmtest-*/*.log
+            /tmp/vmtest-*/*.png
           if-no-files-found: ignore
           retention-days: 7
 
