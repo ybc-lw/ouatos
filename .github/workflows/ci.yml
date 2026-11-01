@@ -94,7 +94,7 @@ jobs:
     name: Build ISO and validate it
     needs: unit-tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       TAR: /tmp/ouatos-rootfs.tar.xz
       ISO: /tmp/ouatos-installer.iso
@@ -141,6 +141,39 @@ jobs:
       - name: Install using only live initramfs tools
         working-directory: installer-sources
         run: sudo python3 tests/test_live.py
+
+      # -----------------------------------------------------------------------
+      # Full VM test: boot the ISO in QEMU, run the installer, then reboot from
+      # the installed disk (no ISO) and check that the system comes up.
+      # -----------------------------------------------------------------------
+      - name: Install QEMU and OVMF
+        run: sudo apt-get install -y qemu-system-x86 qemu-utils ovmf
+
+      # Hosted Linux runners expose /dev/kvm but it is root-only by default.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || echo "no /dev/kvm, falling back to TCG (slow)"
+
+      - name: VM install + boot (BIOS)
+        working-directory: installer-sources
+        run: python3 tests/test_vm.py "$ISO" --firmware bios --workdir /tmp/vmtest-bios
+
+      - name: VM install + boot (UEFI)
+        working-directory: installer-sources
+        run: python3 tests/test_vm.py "$ISO" --firmware uefi --workdir /tmp/vmtest-uefi
+
+      - name: Upload VM serial logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-serial-logs
+          path: /tmp/vmtest-*/*.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload ISO
         if: ${{ inputs.upload_iso == true }}
