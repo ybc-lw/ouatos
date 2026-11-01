@@ -160,11 +160,11 @@ jobs:
 
       - name: VM install + boot (BIOS)
         working-directory: installer-sources
-        run: python3 tests/test_vm.py "$ISO" --firmware bios --workdir /tmp/vmtest-bios
+        run: sudo python3 tests/test_vm.py "$ISO" --firmware bios --workdir /tmp/vmtest-bios --build-dir /tmp/ouatos-build
 
       - name: VM install + boot (UEFI)
         working-directory: installer-sources
-        run: python3 tests/test_vm.py "$ISO" --firmware uefi --workdir /tmp/vmtest-uefi
+        run: sudo python3 tests/test_vm.py "$ISO" --firmware uefi --workdir /tmp/vmtest-uefi --build-dir /tmp/ouatos-build
 
       - name: Upload VM serial logs and screenshots
         if: always()
