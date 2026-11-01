@@ -44,7 +44,8 @@ ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\r")
 class Console:
     """QEMU process with the guest's serial port on stdin/stdout."""
 
-    def __init__(self, cmd, log_path):
+    def __init__(self, cmd, log_path, mon=None):
+        self.mon = mon
         self.log = open(log_path, "wb")
         self.p = subprocess.Popen(cmd, stdin=subprocess.PIPE,
                                   stdout=subprocess.PIPE,
@@ -87,6 +88,26 @@ class Console:
         self.p.stdin.write(text.encode())
         self.p.stdin.flush()
 
+    def screenshot(self, out_png):
+        """Dump the VM's screen to a PNG (for debugging when serial is silent)."""
+        if not self.mon or self.p.poll() is not None:
+            return
+        ppm = out_png[:-4] + ".ppm"
+        try:
+            import socket
+            s = socket.socket(socket.AF_UNIX)
+            s.settimeout(5)
+            s.connect(self.mon)
+            s.sendall(f"screendump {ppm}\n".encode())
+            time.sleep(1.5)
+            s.close()
+            from PIL import Image
+            Image.open(ppm).save(out_png)
+            os.remove(ppm)
+            print(f"screenshot saved: {out_png}")
+        except Exception as e:  # debugging aid only
+            print(f"screenshot failed: {e}")
+
     def stop(self):
         if self.p.poll() is None:
             self.p.terminate()
@@ -98,9 +119,10 @@ class Console:
         self.log.close()
 
 
-def qemu_cmd(firmware, disk, iso, vars_path, kvm):
+def qemu_cmd(firmware, disk, iso, vars_path, kvm, mon):
     cmd = ["qemu-system-x86_64", "-machine", "q35", "-m", "2048", "-smp", "2",
-           "-display", "none", "-serial", "stdio", "-monitor", "none",
+           "-display", "none", "-serial", "stdio",
+           "-monitor", f"unix:{mon},server,nowait",
            "-no-reboot", "-nic", "user,model=virtio-net-pci"]
     cmd += ["-enable-kvm", "-cpu", "host"] if kvm else ["-cpu", "max"]
     if firmware == "uefi":
@@ -146,7 +168,9 @@ def main():
 
     # ---- phase 1: install from ISO
     print(f"[{args.firmware}] phase 1: install from ISO")
-    con = Console(qemu_cmd(args.firmware, disk, args.iso, vars_path, kvm), install_log)
+    mon = os.path.join(args.workdir, "mon.sock")
+    con = Console(qemu_cmd(args.firmware, disk, args.iso, vars_path, kvm, mon),
+                  install_log, mon)
     try:
         for pattern, reply, timeout in INSTALL_STEPS:
             con.expect(pattern, timeout * scale)
@@ -155,6 +179,7 @@ def main():
         con.expect(INSTALL_DONE, INSTALL_DONE_TIMEOUT * scale)
     except (TimeoutError, EOFError) as e:
         print(f"FAIL install: {e}\n--- last serial output ---\n{tail(install_log)}")
+        con.screenshot(os.path.join(args.workdir, "install.png"))
         return 1
     finally:
         con.stop()
@@ -167,11 +192,13 @@ def main():
 
     # ---- phase 2: boot the installed system (no ISO attached)
     print(f"[{args.firmware}] phase 2: boot installed disk")
-    con = Console(qemu_cmd(args.firmware, disk, None, vars_path, kvm), boot_log)
+    con = Console(qemu_cmd(args.firmware, disk, None, vars_path, kvm, mon),
+                  boot_log, mon)
     try:
         con.expect(BOOT_OK, BOOT_TIMEOUT * scale)
     except (TimeoutError, EOFError) as e:
         print(f"FAIL boot: {e}\n--- last serial output ---\n{tail(boot_log)}")
+        con.screenshot(os.path.join(args.workdir, "boot.png"))
         return 1
     finally:
         con.stop()
