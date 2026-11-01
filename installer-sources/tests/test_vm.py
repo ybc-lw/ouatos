@@ -1,40 +1,40 @@
 #!/usr/bin/env python3
-"""Install the ISO inside a QEMU VM, then boot the installed disk.
+"""Install the ouatos ISO inside a QEMU VM, then boot the installed disk.
 
-Phase 1: boot the ISO with an empty disk attached, drive the installer over the
-         serial console until it reports success.
-Phase 2: boot from the installed disk only (no ISO) and wait for a boot marker.
+usage: test_vm.py ISO [--firmware bios|uefi] [--workdir DIR] [--build-dir DIR]
 
-usage: test_vm.py ISO [--firmware bios|uefi] [--workdir DIR] [--disk-size 8G]
+Phase 1  QEMU boots the kernel + initramfs that build_iso.py put on the ISO
+         (BUILD_DIR/iso/boot/{vmlinuz,initrd.img}) with
+         `ouatos.text=1 console=ttyS0`, with the ISO attached as CD-ROM and an
+         empty disk.  The installer's text frontend is driven over the serial
+         console until it reports success.
+         (The default GRUB entry starts the framebuffer GUI, which nothing can
+         drive over a serial line; the live /init also prints only to tty1.)
+Phase 2  The installed disk is patched so its GRUB entries log to ttyS0
+         (CI only; the installer itself is not changed), then QEMU boots from
+         that disk alone (BIOS or UEFI firmware, real GRUB) and we wait for a
+         login prompt on the serial console.
 
-Everything between the "ADAPT" markers depends on the installer's actual
-console output and must match what it prints. Serial logs are written to
-<workdir>/install.log and <workdir>/boot.log so CI can upload them.
+Needs root (loop-mounts the installed disk), qemu-system-x86, ovmf, Pillow.
+Serial logs land in WORKDIR/{install,boot}.log; on failure the VM screen is
+saved to WORKDIR/{install,boot}.png.
 """
 import argparse
+import glob
 import os
 import queue
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
-# ---------------------------------------------------------------- ADAPT ----
-# (regex to wait for, text to send afterwards or None, timeout in seconds)
-INSTALL_STEPS = [
-    (r"Install(er)? .*(ready|started)", "\n", 300),   # live system up, installer prompt
-    # (r"Select (target )?disk.*:", "1\n", 60),
-    # (r"Type .* to confirm.*:", "yes\n", 60),
-]
-INSTALL_DONE = r"Installation (complete|finished|succeeded)"
-INSTALL_DONE_TIMEOUT = 900
-
-# Printed on the serial console once the *installed* system is up.
-BOOT_OK = r"login:"
+USERNAME, USER_PW, ROOT_PW = "tester", "tester-pw-1", "root-pw-1"
+CONSOLE_ARGS = "console=tty0 console=ttyS0,115200n8"   # last console= becomes /dev/console
+BOOT_OK = r"(login:)|(Kernel panic[^\n]*)|(VFS: Unable to mount root[^\n]*)"
 BOOT_TIMEOUT = 300
-# ------------------------------------------------------------------------
 
 OVMF_CODE = "/usr/share/OVMF/OVMF_CODE_4M.fd"
 OVMF_VARS = "/usr/share/OVMF/OVMF_VARS_4M.fd"
@@ -89,7 +89,7 @@ class Console:
         self.p.stdin.flush()
 
     def screenshot(self, out_png):
-        """Dump the VM's screen to a PNG (for debugging when serial is silent)."""
+        """Dump the VM screen to a PNG (debugging aid)."""
         if not self.mon or self.p.poll() is not None:
             return
         ppm = out_png[:-4] + ".ppm"
@@ -105,10 +105,15 @@ class Console:
             Image.open(ppm).save(out_png)
             os.remove(ppm)
             print(f"screenshot saved: {out_png}")
-        except Exception as e:  # debugging aid only
+        except Exception as e:
             print(f"screenshot failed: {e}")
 
-    def stop(self):
+    def stop(self, grace=0):
+        if grace and self.p.poll() is None:
+            try:
+                self.p.wait(grace)
+            except subprocess.TimeoutExpired:
+                pass
         if self.p.poll() is None:
             self.p.terminate()
             try:
@@ -119,7 +124,7 @@ class Console:
         self.log.close()
 
 
-def qemu_cmd(firmware, disk, iso, vars_path, kvm, mon):
+def qemu_cmd(firmware, disk, iso, vars_path, kvm, mon, direct=None):
     cmd = ["qemu-system-x86_64", "-machine", "q35", "-m", "2048", "-smp", "2",
            "-display", "none", "-serial", "stdio",
            "-monitor", f"unix:{mon},server,nowait",
@@ -130,9 +135,77 @@ def qemu_cmd(firmware, disk, iso, vars_path, kvm, mon):
                 "-drive", f"if=pflash,format=raw,file={vars_path}"]
     cmd += ["-drive", f"file={disk},format=raw,if=ide,index=0"]
     if iso:
-        cmd += ["-drive", f"file={iso},media=cdrom,format=raw,if=ide,index=1",
-                "-boot", "order=d"]
+        cmd += ["-drive", f"file={iso},media=cdrom,format=raw,if=ide,index=1"]
+    if direct:
+        kernel, initrd, append = direct
+        cmd += ["-kernel", kernel, "-initrd", initrd, "-append", append]
     return cmd
+
+
+def drive_install(con, scale=1):
+    """Answer the installer's text frontend (installer/installer.py: TextFrontend)."""
+    m = con.expect(r"(\d+)\) [^\n]*?/dev/((?:sd|vd|nvme)[a-z0-9]+)", 300 * scale)
+    print(f"installer is up; target disk /dev/{m.group(2)} (menu entry {m.group(1)})")
+    con.expect(r"Install on which disk\? \(number\): ", 30)
+    con.send(m.group(1) + "\n")
+    for prompt, reply in [
+        (r"Computer name \[[^\]\n]*\]: ", "\n"),
+        (r"Username: ", USERNAME + "\n"),
+        (r"Root password: ", ROOT_PW + "\n"),
+        (r"Confirm root password: ", ROOT_PW + "\n"),
+        (r"Your name \(optional\): ", "\n"),
+        (r"Password: ", USER_PW + "\n"),
+        (r"Confirm password: ", USER_PW + "\n"),
+        (r"Type YES to continue: ", "YES\n"),
+    ]:
+        con.expect(prompt, 60 * scale)
+        con.send(reply)
+    m = con.expect(r"(is installed\. Remove the installation medium)|(Installation failed:[^\n]*)",
+                   900 * scale)
+    if m.group(2):
+        raise RuntimeError(m.group(2))
+
+
+def patch_installed_disk(disk):
+    """Make the installed GRUB entries log to the serial port (CI only)."""
+    loop = subprocess.check_output(["losetup", "-P", "--find", "--show", disk], text=True).strip()
+    mnt = tempfile.mkdtemp(prefix="vmroot-")
+    mounted = False
+    try:
+        subprocess.run(["udevadm", "settle", "--timeout=10"], check=False)
+        root = None
+        for _ in range(20):
+            for part in sorted(glob.glob(loop + "p*")):
+                fs = subprocess.run(["blkid", "-o", "value", "-s", "TYPE", part],
+                                    capture_output=True, text=True).stdout.strip()
+                if fs == "ext4":
+                    root = part
+                    break
+            if root:
+                break
+            time.sleep(0.5)
+        if not root:
+            raise RuntimeError(f"no ext4 root partition found on {loop}")
+        subprocess.check_call(["mount", root, mnt])
+        mounted = True
+        cfg_path = os.path.join(mnt, "boot/grub/grub.cfg")
+        text = open(cfg_path).read()
+        n = [0]
+
+        def fix(m):
+            n[0] += 1
+            return re.sub(r"\s+quiet\b", "", m.group(1)).rstrip() + " " + CONSOLE_ARGS
+
+        new = re.sub(r"^(\s*linux(?:efi)?\s.*)$", fix, text, flags=re.M)
+        if not n[0]:
+            raise RuntimeError("no linux line found in the installed grub.cfg")
+        open(cfg_path, "w").write(new)
+        print(f"patched {n[0]} linux line(s) in the installed grub.cfg")
+    finally:
+        if mounted:
+            subprocess.run(["umount", mnt], check=False)
+        subprocess.run(["losetup", "-d", loop], check=False)
+        shutil.rmtree(mnt, ignore_errors=True)
 
 
 def tail(path, n=40):
@@ -148,41 +221,60 @@ def main():
     ap.add_argument("iso")
     ap.add_argument("--firmware", choices=["bios", "uefi"], default="bios")
     ap.add_argument("--workdir", default="/tmp/vmtest")
-    ap.add_argument("--disk-size", default="8G")
+    ap.add_argument("--build-dir", default="/tmp/ouatos-build",
+                    help="build_iso.py work dir (holds iso/boot/vmlinuz and initrd.img)")
+    ap.add_argument("--disk-size-gb", type=int, default=8)
     args = ap.parse_args()
+
+    kernel = os.path.join(args.build_dir, "iso/boot/vmlinuz")
+    initrd = os.path.join(args.build_dir, "iso/boot/initrd.img")
+    for f in (kernel, initrd):
+        if not os.path.exists(f):
+            print(f"missing {f} (run build_iso.py first, or pass --build-dir)")
+            return 1
 
     os.makedirs(args.workdir, exist_ok=True)
     disk = os.path.join(args.workdir, "disk.img")
     vars_path = os.path.join(args.workdir, "OVMF_VARS.fd")
+    mon = os.path.join(args.workdir, "mon.sock")
     install_log = os.path.join(args.workdir, "install.log")
     boot_log = os.path.join(args.workdir, "boot.log")
 
     with open(disk, "wb") as f:
-        f.truncate({"G": 1 << 30, "M": 1 << 20}[args.disk_size[-1]] * int(args.disk_size[:-1]))
+        f.truncate(args.disk_size_gb << 30)
     if args.firmware == "uefi":
         shutil.copy(OVMF_VARS, vars_path)
 
     kvm = os.access("/dev/kvm", os.R_OK | os.W_OK)
     scale = 1 if kvm else 5
     print(f"[{args.firmware}] KVM {'on' if kvm else 'OFF (TCG, timeouts x5)'}")
+    try:
+        return run(args, disk, vars_path, mon, install_log, boot_log, kernel, initrd, kvm, scale)
+    finally:
+        try:
+            os.remove(disk)
+        except OSError:
+            pass
 
-    # ---- phase 1: install from ISO
-    print(f"[{args.firmware}] phase 1: install from ISO")
-    mon = os.path.join(args.workdir, "mon.sock")
-    con = Console(qemu_cmd(args.firmware, disk, args.iso, vars_path, kvm, mon),
+
+def run(args, disk, vars_path, mon, install_log, boot_log, kernel, initrd, kvm, scale):
+    fw = args.firmware
+
+    # ---- phase 1: install (text frontend over serial)
+    print(f"[{fw}] phase 1: install")
+    append = f"quiet loglevel=3 ouatos.text=1 {CONSOLE_ARGS}"
+    if os.path.exists(mon):
+        os.unlink(mon)
+    con = Console(qemu_cmd(fw, disk, args.iso, vars_path, kvm, mon, (kernel, initrd, append)),
                   install_log, mon)
     try:
-        for pattern, reply, timeout in INSTALL_STEPS:
-            con.expect(pattern, timeout * scale)
-            if reply:
-                con.send(reply)
-        con.expect(INSTALL_DONE, INSTALL_DONE_TIMEOUT * scale)
-    except (TimeoutError, EOFError) as e:
+        drive_install(con, scale)
+    except (TimeoutError, EOFError, RuntimeError) as e:
         print(f"FAIL install: {e}\n--- last serial output ---\n{tail(install_log)}")
         con.screenshot(os.path.join(args.workdir, "install.png"))
-        return 1
-    finally:
         con.stop()
+        return 1
+    con.stop(grace=60)       # the installer reboots; -no-reboot makes QEMU exit
 
     with open(disk, "rb") as f:
         sig = f.read(512)[510:512]
@@ -190,20 +282,27 @@ def main():
         print("FAIL install: disk has no MBR/protective-MBR signature after install")
         return 1
 
-    # ---- phase 2: boot the installed system (no ISO attached)
-    print(f"[{args.firmware}] phase 2: boot installed disk")
-    con = Console(qemu_cmd(args.firmware, disk, None, vars_path, kvm, mon),
-                  boot_log, mon)
+    # ---- phase 2: boot the installed system alone
     try:
-        con.expect(BOOT_OK, BOOT_TIMEOUT * scale)
-    except (TimeoutError, EOFError) as e:
+        patch_installed_disk(disk)
+    except Exception as e:
+        print(f"FAIL: could not prepare the installed disk: {e}")
+        return 1
+    print(f"[{fw}] phase 2: boot installed disk")
+    if os.path.exists(mon):
+        os.unlink(mon)
+    con = Console(qemu_cmd(fw, disk, None, vars_path, kvm, mon), boot_log, mon)
+    try:
+        m = con.expect(BOOT_OK, BOOT_TIMEOUT * scale)
+        if m.group(2) or m.group(3):
+            raise RuntimeError(m.group(2) or m.group(3))
+    except (TimeoutError, EOFError, RuntimeError) as e:
         print(f"FAIL boot: {e}\n--- last serial output ---\n{tail(boot_log)}")
         con.screenshot(os.path.join(args.workdir, "boot.png"))
-        return 1
-    finally:
         con.stop()
-
-    print(f"[{args.firmware}] OK: installed system booted")
+        return 1
+    con.stop()
+    print(f"[{fw}] OK: installed system booted to a login prompt")
     return 0
 
 
