@@ -11,7 +11,7 @@ The current system image includes the following software and components:
 - **Networking utilities**
 - **OpenSSL**
 - **Python 3 and pip**
-  - PyTorch(CPU)
+  - PyTorch (CPU inference only)
   - Transformers
   - Tokenizers
   - Safetensors
