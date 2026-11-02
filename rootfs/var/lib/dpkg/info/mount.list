@@ -15,7 +15,6 @@
 /usr/share/bash-completion/completions/swapoff
 /usr/share/bash-completion/completions/swapon
 /usr/share/bash-completion/completions/umount
-/usr/share/doc
 /usr/share/doc/mount
 /usr/share/doc/mount/NEWS.Debian.gz
 /usr/share/doc/mount/changelog.Debian.gz
@@ -29,7 +28,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/mount
-/usr/share/man
 /usr/share/man/man5/fstab.5.gz
 /usr/share/man/man8/losetup.8.gz
 /usr/share/man/man8/mount.8.gz

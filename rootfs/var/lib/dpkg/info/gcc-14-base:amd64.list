@@ -1,7 +1,6 @@
 /.
 /usr
 /usr/share
-/usr/share/doc
 /usr/share/doc/gcc-14-base
 /usr/share/doc/gcc-14-base/README.Debian.amd64.gz
 /usr/share/doc/gcc-14-base/TODO.Debian

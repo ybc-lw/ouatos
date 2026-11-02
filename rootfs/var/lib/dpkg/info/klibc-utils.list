@@ -42,7 +42,6 @@
 /usr/lib/klibc/bin/uname
 /usr/lib/klibc/bin/zcat
 /usr/share
-/usr/share/doc
 /usr/share/initramfs-tools
 /usr/share/initramfs-tools/hooks
 /usr/share/initramfs-tools/hooks/klibc-utils

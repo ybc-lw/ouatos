@@ -8,7 +8,6 @@
 /usr/share
 /usr/share/binfmts
 /usr/share/binfmts/python3.13
-/usr/share/doc
 /usr/share/doc/python3.13-minimal
 /usr/share/doc/python3.13-minimal/README.Debian.gz
 /usr/share/doc/python3.13-minimal/changelog.Debian.gz
@@ -16,5 +15,4 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/python3.13-minimal
-/usr/share/man
 /usr/share/man/man1/python3.13.1.gz

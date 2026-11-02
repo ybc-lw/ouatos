@@ -493,7 +493,6 @@
 /usr/lib/python3/dist-packages/pip-25.1.1.dist-info/entry_points.txt
 /usr/lib/python3/dist-packages/pip-25.1.1.dist-info/top_level.txt
 /usr/share
-/usr/share/doc
 /usr/share/doc/python3-pip
 /usr/share/doc/python3-pip/NEWS.Debian.gz
 /usr/share/doc/python3-pip/README.Debian
@@ -733,7 +732,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/python3-pip
-/usr/share/man
 /usr/share/man/man1/pip3-cache.1.gz
 /usr/share/man/man1/pip3-check.1.gz
 /usr/share/man/man1/pip3-config.1.gz

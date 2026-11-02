@@ -18,13 +18,9 @@
 /usr/share/bug
 /usr/share/bug/initramfs-tools
 /usr/share/bug/initramfs-tools/script
-/usr/share/doc
 /usr/share/doc/initramfs-tools
 /usr/share/doc/initramfs-tools/TODO
 /usr/share/doc/initramfs-tools/changelog.gz
 /usr/share/doc/initramfs-tools/copyright
-/usr/share/man
-/usr/share/man/man5
 /usr/share/man/man5/update-initramfs.conf.5.gz
-/usr/share/man/man8
 /usr/share/man/man8/update-initramfs.8.gz

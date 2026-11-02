@@ -39,7 +39,6 @@
 /usr/sbin/ldconfig
 /usr/sbin/zic
 /usr/share
-/usr/share/doc
 /usr/share/doc/libc-bin
 /usr/share/doc/libc-bin/changelog.Debian.gz
 /usr/share/doc/libc-bin/changelog.gz
@@ -49,7 +48,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/libc-bin
-/usr/share/man
 /usr/share/man/man1/getconf.1.gz
 /usr/share/man/man1/tzselect.1.gz
 /var

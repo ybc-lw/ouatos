@@ -23,7 +23,6 @@
 /usr/share/bug
 /usr/share/bug/init-system-helpers
 /usr/share/bug/init-system-helpers/control
-/usr/share/doc
 /usr/share/doc/init-system-helpers
 /usr/share/doc/init-system-helpers/README.invoke-rc.d.gz
 /usr/share/doc/init-system-helpers/README.policy-rc.d.gz
@@ -32,7 +31,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/init-system-helpers
-/usr/share/man
 /usr/share/man/man1/deb-systemd-helper.1p.gz
 /usr/share/man/man1/deb-systemd-invoke.1p.gz
 /usr/share/man/man8/invoke-rc.d.8.gz

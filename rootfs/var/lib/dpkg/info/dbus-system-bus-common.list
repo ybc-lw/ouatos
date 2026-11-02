@@ -14,7 +14,6 @@
 /usr/share/dbus-1
 /usr/share/dbus-1/system-services
 /usr/share/dbus-1/system.conf
-/usr/share/doc
 /usr/share/doc/dbus-system-bus-common
 /usr/share/doc/dbus-system-bus-common/AUTHORS.gz
 /usr/share/doc/dbus-system-bus-common/NEWS.gz

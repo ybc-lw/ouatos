@@ -1,3 +1,43 @@
+Package: adduser
+Status: install ok installed
+Priority: important
+Section: admin
+Installed-Size: 428
+Maintainer: Debian Adduser Developers <adduser@packages.debian.org>
+Architecture: all
+Multi-Arch: foreign
+Version: 3.152
+Depends: passwd (>= 1:4.17.2-5)
+Suggests: liblocale-gettext-perl, perl, cron, quota
+Conffiles:
+ /etc/adduser.conf ef23042097ebb0d1075254f888c3c394
+ /etc/deluser.conf 11a06baf8245fd8d690b99024d228c1f
+Description: add and remove users and groups
+ This package includes the 'adduser' and 'deluser' commands for creating
+ and removing users.
+ .
+  - 'adduser' creates new users and groups and adds existing users to
+    existing groups;
+  - 'deluser' removes users and groups and removes users from a given
+    group.
+ .
+ Adding users with 'adduser' is much easier than adding them manually.
+ 'Adduser' will choose UID and GID values that conform to Debian policy,
+ create a home directory, copy skeletal user configuration, and
+ automate setting initial values for the user's password, real name
+ and so on.
+ .
+ 'Deluser' can back up and remove users' home directories
+ and mail spool or all the files they own on the system.
+ .
+ A custom script can be executed after each of the commands.
+ .
+ 'Adduser' and 'Deluser' are intended to be used by the local
+ administrator in lieu of the tools from the 'useradd' suite, and
+ they provide support for easy use from Debian package maintainer
+ scripts, functioning as kind of a policy layer to make those scripts
+ easier and more stable to write and maintain.
+
 Package: apt
 Status: install ok installed
 Priority: required
@@ -241,7 +281,7 @@ Description: POSIX-compliant shell
 Homepage: http://gondor.apana.org.au/~herbert/dash/
 
 Package: dbus
-Status: install ok unpacked
+Status: install ok triggers-pending
 Priority: standard
 Section: admin
 Installed-Size: 154
@@ -254,8 +294,8 @@ Depends: dbus-bin (= 1.16.2-2), dbus-daemon (= 1.16.2-2), dbus-system-bus-common
 Pre-Depends: init-system-helpers (>= 1.54~)
 Suggests: default-dbus-session-bus | dbus-session-bus
 Conffiles:
- /etc/default/dbus newconffile
- /etc/init.d/dbus newconffile
+ /etc/default/dbus 0d0f25a2f993509c857eb262f6e22015
+ /etc/init.d/dbus d78b20b35de983cf6f1475dcf8cb21a1
 Description: simple interprocess messaging system (system message bus)
  D-Bus is a message bus, used for sending messages between applications.
  Conceptually, it fits somewhere in between raw sockets and CORBA in
@@ -277,10 +317,11 @@ Description: simple interprocess messaging system (system message bus)
  that implement the dbus-session-bus virtual package, such as
  dbus-user-session. The recommended implementation is indicated by
  the default-dbus-session-bus virtual package.
+Triggers-Pending: /usr/share/dbus-1/system.d /usr/share/dbus-1/system-services
 Homepage: https://dbus.freedesktop.org/
 
 Package: dbus-bin
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 190
@@ -302,7 +343,7 @@ Description: simple interprocess messaging system (command line utilities)
 Homepage: https://dbus.freedesktop.org/
 
 Package: dbus-daemon
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 352
@@ -330,7 +371,7 @@ Description: simple interprocess messaging system (reference message bus)
 Homepage: https://dbus.freedesktop.org/
 
 Package: dbus-session-bus-common
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 80
@@ -358,7 +399,7 @@ Description: simple interprocess messaging system (session bus configuration)
 Homepage: https://dbus.freedesktop.org/
 
 Package: dbus-system-bus-common
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 91
@@ -1068,6 +1109,22 @@ Description: package management runtime library
     http(s) as well as an interface to add more transports like
     tor+http(s) (apt-transport-tor).
 
+Package: libatomic1
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 45
+Maintainer: Debian GCC Maintainers <debian-gcc@lists.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: gcc-14
+Version: 14.2.0-19
+Depends: gcc-14-base (= 14.2.0-19), libc6 (>= 2.14)
+Description: support library providing __atomic built-in functions
+ library providing __atomic built-in functions. When an atomic call cannot
+ be turned into lock-free instructions, GCC will make calls into this library.
+Homepage: http://gcc.gnu.org/
+
 Package: libattr1
 Status: install ok installed
 Priority: optional
@@ -1141,6 +1198,22 @@ Description: block device ID library
  This allows system administrators to avoid specifying filesystems by
  hard-coded device names and use a logical naming system instead.
 Homepage: https://github.com/util-linux/util-linux
+
+Package: libbluetooth3
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 268
+Maintainer: Debian Bluetooth Maintainers <team+pkg-bluetooth@tracker.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: bluez
+Version: 5.82-1.1
+Depends: libc6 (>= 2.38)
+Description: Library to use the BlueZ Linux Bluetooth stack
+ BlueZ is the official Linux Bluetooth protocol stack. It is an Open Source
+ project distributed under GNU General Public License (GPL).
+Homepage: http://www.bluez.org
 
 Package: libbpf1
 Status: install ok installed
@@ -1385,6 +1458,38 @@ Description: libcrypt shared library
  It provides the traditional Unix 'crypt' and 'crypt_r' interfaces,
  as well as a set of extended interfaces like 'crypt_gensalt'.
 
+Package: libcurl3t64-gnutls
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 997
+Maintainer: Debian Curl Maintainers <team+curl@tracker.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: curl
+Version: 8.14.1-2+deb13u5
+Replaces: libcurl3-gnutls
+Provides: libcurl3-gnutls (= 8.14.1-2+deb13u5)
+Depends: libbrotli1 (>= 0.6.0), libc6 (>= 2.38), libgnutls30t64 (>= 3.8.6), libgssapi-krb5-2 (>= 1.17), libidn2-0 (>= 2.0.0), libldap2 (>= 2.6.2), libnettle8t64, libnghttp2-14 (>= 1.50.0), libnghttp3-9 (>= 0.15.0), libngtcp2-16 (>= 1.1.0), libngtcp2-crypto-gnutls8 (>= 1.1.0), libpsl5t64 (>= 0.16.0), librtmp1 (>= 2.3), libssh2-1t64 (>= 1.11.1), libzstd1 (>= 1.5.5), zlib1g (>= 1:1.2.3.4)
+Recommends: ca-certificates
+Breaks: libcurl3-gnutls (<< 8.14.1-2+deb13u5)
+Description: easy-to-use client-side URL transfer library (GnuTLS flavour)
+ libcurl is an easy-to-use client-side URL transfer library, supporting DICT,
+ FILE, FTP, FTPS, GOPHER, HTTP, HTTPS, IMAP, IMAPS, LDAP, LDAPS, POP3, POP3S,
+ RTMP, RTSP, SCP, SFTP, SMTP, SMTPS, TELNET and TFTP.
+ .
+ libcurl supports SSL certificates, HTTP POST, HTTP PUT, FTP uploading, HTTP
+ form based upload, proxies, cookies, user+password authentication (Basic,
+ Digest, NTLM, Negotiate, Kerberos), file transfer resume, http proxy tunneling
+ and more!
+ .
+ libcurl is free, thread-safe, IPv6 compatible, feature rich, well supported,
+ fast, thoroughly documented and is already used by many known, big and
+ successful companies and numerous applications.
+ .
+ SSL support is provided by GnuTLS.
+Homepage: https://curl.se/
+
 Package: libcurl4t64
 Status: install ok installed
 Priority: optional
@@ -1438,7 +1543,7 @@ Description: Berkeley v5.3 Database Libraries [runtime]
 Homepage: http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/overview/index.html
 
 Package: libdbus-1-3
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: libs
 Installed-Size: 445
@@ -1685,6 +1790,31 @@ Description: GCC support library
 Homepage: http://gcc.gnu.org/
 Important: yes
 
+Package: libglib2.0-0t64
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 4449
+Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: glib2.0
+Version: 2.84.4-3~deb13u5
+Config-Version: 2.84.4-3~deb13u5
+Replaces: libglib2.0-0 (<< 2.80.0-7~)
+Provides: libgio-2.0-0 (= 2.84.4-3~deb13u5), libglib-2.0-0 (= 2.84.4-3~deb13u5), libglib2.0-0 (= 2.84.4-3~deb13u5), libgmodule-2.0-0 (= 2.84.4-3~deb13u5), libgobject-2.0-0 (= 2.84.4-3~deb13u5), libgthread-2.0-0 (= 2.84.4-3~deb13u5)
+Depends: libatomic1 (>= 4.8), libc6 (>= 2.38), libffi8 (>= 3.4), libmount1 (>= 2.40~rc2), libpcre2-8-0 (>= 10.22), libselinux1 (>= 3.1~), zlib1g (>= 1:1.2.2)
+Recommends: libglib2.0-data, shared-mime-info, xdg-user-dirs
+Suggests: low-memory-monitor
+Breaks: glib-networking-tests (<< 2.70.0~), gnome-keyring (<< 40.0-3~), gnome-shell (<< 44.9-2~), libedataserver-1.2-26 (<< 3.44.3-2~), libgladeui-2-6 (<< 3.22.2), libglib2.0-0 (<< 2.80.0-7~), libsoup2.4-tests (<< 2.72.0-3~)
+Description: GLib library of C routines
+ GLib is a library containing many useful C routines for things such
+ as trees, hashes, lists, and strings.  It is a useful general-purpose
+ C library used by projects such as GTK+, GIMP, and GNOME.
+ .
+ This package contains the shared libraries.
+Homepage: https://gitlab.gnome.org/GNOME/glib
+
 Package: libgmp10
 Status: install ok installed
 Priority: optional
@@ -1811,6 +1941,28 @@ Description: Internationalized domain names (IDNA2008/TR46) library
  .
  This package contains runtime libraries.
 Homepage: https://www.gnu.org/software/libidn/#libidn2
+
+Package: libjansson4
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 100
+Maintainer: Alessandro Ghedini <ghedo@debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: jansson (2.14-2)
+Version: 2.14-2+b3
+Depends: libc6 (>= 2.38)
+Description: C library for encoding, decoding and manipulating JSON data
+ Jansson is a C library for encoding, decoding and manipulating JSON data.
+ .
+ It features:
+  * Simple and intuitive API and data model
+  * Comprehensive documentation
+  * No dependencies on other libraries
+  * Full Unicode support (UTF-8)
+  * Extensive test suite
+Homepage: http://www.digip.org/jansson/
 
 Package: libk5crypto3
 Status: install ok installed
@@ -2073,6 +2225,29 @@ Description: message digest functions from BSD systems - shared library
  compatible API.
 Homepage: https://www.hadrons.org/software/libmd/
 
+Package: libmm-glib0
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 1361
+Maintainer: DebianOnMobile Maintainers <debian-on-mobile-maintainers@alioth-lists.debian.net>
+Architecture: amd64
+Multi-Arch: same
+Source: modemmanager
+Version: 1.24.0-1+deb13u1
+Depends: libc6 (>= 2.14), libglib2.0-0t64 (>= 2.62.0)
+Recommends: modemmanager (>= 1.24.0-1+deb13u1)
+Description: D-Bus service for managing modems - shared libraries
+ ModemManager is a DBus-activated daemon which controls mobile broadband
+ (2G/3G/4G/5G) devices and connections. Whether built-in devices, USB dongles,
+ Bluetooth-paired telephones or professional RS232/USB devices with external
+ power supplies, ModemManager is able to prepare and configure the modems and
+ setup connections with them.
+ .
+ This package contains shared libraries for applications interfacing with
+ ModemManager.
+Homepage: https://www.freedesktop.org/wiki/Software/ModemManager/
+
 Package: libmnl0
 Status: install ok installed
 Priority: optional
@@ -2149,6 +2324,24 @@ Description: shared libraries for terminal handling (wide character support)
  compiled with ncursesw, which includes support for wide characters.
 Homepage: https://invisible-island.net/ncurses/
 
+Package: libndp0
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 50
+Maintainer: Florian Ernst <florian@debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: libndp (1.9-1)
+Version: 1.9-1+b1
+Depends: libc6 (>= 2.38)
+Description: Library for Neighbor Discovery Protocol
+ libndp is a library for the IPv6 Neighbor Discovery Protocol (NDP).  It
+ contains functions for building and parsing NDP messages, and provides
+ a high-level interface for sending and receiving NDP messages on a
+ network interface.
+Homepage: http://libndp.org
+
 Package: libnettle8t64
 Status: install ok installed
 Priority: optional
@@ -2180,6 +2373,27 @@ Description: low level cryptographic library (symmetric and one-way cryptos)
  algorithms. To avoid having this package depend on libgmp, the
  asymmetric cryptos reside in a separate library, libhogweed.
 Homepage: https://www.lysator.liu.se/~nisse/nettle/
+
+Package: libnewt0.52
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 365
+Maintainer: Alastair McKinstry <mckinstry@debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: newt
+Version: 0.52.25-1
+Depends: libc6 (>= 2.38), libslang2 (>= 2.2.4)
+Recommends: libfribidi0
+Description: Not Erik's Windowing Toolkit - text mode windowing with slang
+ Newt is a windowing toolkit for text mode built from the slang library.
+ It allows color text mode applications to easily use stackable windows,
+ push buttons, check boxes, radio buttons, lists, entry fields, labels,
+ and displayable text. Scrollbars are supported, and forms may be nested
+ to provide extra functionality. This package contains the shared library
+ for programs that have been built with newt.
+Homepage: https://pagure.io/newt
 
 Package: libnghttp2-14
 Status: install ok installed
@@ -2218,8 +2432,66 @@ Description: HTTP/3 library with QUIC and QPACK (library)
  This package contains the shared library.
 Homepage: https://github.com/ngtcp2/nghttp3
 
-Package: libnss-myhostname
+Package: libngtcp2-16
 Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 335
+Maintainer: Debian Curl Maintainers <team+curl@tracker.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: ngtcp2
+Version: 1.11.0-1+deb13u1
+Depends: libc6 (>= 2.25)
+Description: implementation of QUIC protocol (library)
+ ngtcp2 project is an effort to implement QUIC protocol which is
+ now being discussed in IETF QUICWG for its standardization.
+ .
+ This package contains the shared library.
+Homepage: https://github.com/ngtcp2/ngtcp2
+
+Package: libngtcp2-crypto-gnutls8
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 80
+Maintainer: Debian Curl Maintainers <team+curl@tracker.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: ngtcp2
+Version: 1.11.0-1+deb13u1
+Depends: libc6 (>= 2.14), libgnutls30t64 (>= 3.8.2), libngtcp2-16 (>= 1.1.0)
+Description: implementation of QUIC protocol (library)
+ ngtcp2 project is an effort to implement QUIC protocol which is
+ now being discussed in IETF QUICWG for its standardization.
+ .
+ This package contains the shared library.
+Homepage: https://github.com/ngtcp2/ngtcp2
+
+Package: libnm0
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 1596
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: network-manager
+Version: 1.52.1-1
+Depends: libc6 (>= 2.34), libglib2.0-0t64 (>= 2.44.0), libgnutls30t64 (>= 3.7.2), libudev1 (>= 183)
+Description: GObject-based client library for NetworkManager
+ NetworkManager is a system network service that manages your network devices
+ and connections, attempting to keep active network connectivity when
+ available. It manages ethernet, Wi-Fi, mobile broadband (WWAN), and PPPoE
+ devices, and provides VPN integration with a variety of different VPN
+ services.
+ .
+ This package contains a convenience library to ease the access to
+ NetworkManager.
+Homepage: https://networkmanager.dev/
+
+Package: libnss-myhostname
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 258
@@ -2244,7 +2516,7 @@ Description: nss module providing fallback resolution for the current hostname
 Homepage: https://systemd.io
 
 Package: libnss-resolve
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 282
@@ -2752,6 +3024,28 @@ Description: SELinux library for manipulating binary security policies
  on binary policies such as customizing policy boolean settings.
 Homepage: https://selinuxproject.org
 
+Package: libslang2
+Status: install ok unpacked
+Priority: optional
+Section: libs
+Installed-Size: 2395
+Maintainer: Alastair McKinstry <mckinstry@debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: slang2 (2.3.3-5)
+Version: 2.3.3-5+b2
+Depends: libc6 (>= 2.38)
+Description: S-Lang programming library - runtime version
+ S-Lang is a C programmer's library that includes routines for the rapid
+ development of sophisticated, user friendly, multi-platform applications.
+ .
+ This package contains only the shared library libslang.so.* and copyright
+ information. It is only necessary for programs that use this library (such
+ as jed and slrn). If you plan on doing development with S-Lang, you will
+ need the companion -dev package as well.
+Built-Using: unicode-data (= 15.1.0-1)
+Homepage: http://www.jedsoft.org/slang/
+
 Package: libsmartcols1
 Status: install ok installed
 Priority: optional
@@ -2912,6 +3206,35 @@ Description: Manage ASN.1 structures (runtime)
  .
  This package contains runtime libraries.
 Homepage: https://www.gnu.org/software/libtasn1/
+
+Package: libteamdctl0
+Status: install ok unpacked
+Priority: optional
+Section: net
+Installed-Size: 49
+Maintainer: Dmitry Smirnov <onlyjob@debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: libteam (1.31-1)
+Version: 1.31-1+b2
+Depends: libc6 (>= 2.38), libdbus-1-3 (>= 1.9.14)
+Description: library for communication with `teamd` process
+ libteamdctl is a library for communication with teamd process
+ (via D-Bus, Unix socket or zeromq). It is used by the `teamdctl` utility.
+ .
+ Libteam provides a mechanism to team multiple NICs (ports) at OSI Layer 2
+ (Data link) into a single virtual NIC. The process is called "channel
+ bonding", "Ethernet bonding", "channel teaming", "link aggregation", etc.
+ This is already implemented in the Linux kernel by the bonding driver but
+ unlike the bonding driver, libteam (user space) has the following
+ additional features:
+  * load-balancing for LACP support
+  * NS/NA (IPV6) link monitoring
+  * port priorities and stickiness ("primary" option enhancement)
+  * separate per-port link monitoring setup
+ .
+ Libteam requires Linux kernel 3.3 or higher.
+Homepage: http://libteam.org
 
 Package: libtinfo6
 Status: install ok installed
@@ -3357,6 +3680,39 @@ Description: Basic TCP/IP networking system
  .
  In particular, it supplies common name-to-number mappings in /etc/services,
  /etc/rpc, /etc/protocols and /etc/ethertypes.
+
+Package: network-manager
+Status: install ok unpacked
+Priority: optional
+Section: net
+Installed-Size: 7756
+Maintainer: Utopia Maintenance Team <pkg-utopia-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Version: 1.52.1-1
+Depends: libaudit1 (>= 1:2.2.1), libbluetooth3 (>= 5), libc6 (>= 2.38), libcurl3t64-gnutls (>= 7.24.0), libglib2.0-0t64 (>= 2.68.0), libgnutls30t64 (>= 3.7.2), libjansson4 (>= 2.14), libmm-glib0 (>= 1.10.0), libndp0 (>= 1.2), libnewt0.52 (>= 0.52.25), libnm0 (= 1.52.1-1), libpsl5t64 (>= 0.13.0), libreadline8t64 (>= 6.0), libselinux1 (>= 3.1~), libsystemd0 (>= 209), libteamdctl0 (>= 1.9), libudev1 (>= 183), default-dbus-system-bus | dbus-system-bus, adduser
+Recommends: ppp, dnsmasq-base, modemmanager, wireless-regdb, wpasupplicant, libpam-systemd, polkitd, udev, network-manager-l10n
+Suggests: libteam-utils, iptables
+Breaks: ppp (>= 2.5.2-2~), ppp (<< 2.5.2-1+~)
+Conffiles:
+ /etc/NetworkManager/NetworkManager.conf newconffile
+Description: network management framework (daemon and userspace tools)
+ NetworkManager is a system network service that manages your network devices
+ and connections, attempting to keep active network connectivity when
+ available. It manages ethernet, Wi-Fi, mobile broadband (WWAN), and PPPoE
+ devices, and provides VPN integration with a variety of different VPN
+ services.
+ .
+ This package provides the userspace daemons and a command line interface to
+ interact with NetworkManager.
+ .
+ Optional dependencies:
+  * ppp: Required for establishing dial-up connections (e.g. via GSM).
+  * dnsmasq-base/iptables: Required for creating Ad-hoc connections and
+    connection sharing.
+  * libteam-utils: Network Team driver allows multiple network interfaces to be
+    teamed together and act like a single one. This process is called "ethernet
+    bonding", "channel teaming" or "link aggregation".
+Homepage: https://networkmanager.dev/
 
 Package: node-esprima
 Status: deinstall ok config-files
@@ -3821,7 +4177,7 @@ Description: system and service manager
 Homepage: https://systemd.io
 
 Package: systemd-resolved
-Status: install ok unpacked
+Status: install ok installed
 Priority: optional
 Section: admin
 Installed-Size: 916
@@ -3837,7 +4193,7 @@ Recommends: libnss-myhostname, libnss-resolve, libidn2-0
 Suggests: polkitd
 Conflicts: resolvconf, systemd (<< 257.4-4~)
 Conffiles:
- /etc/systemd/resolved.conf newconffile
+ /etc/systemd/resolved.conf c056212e9cddc090a567d691d727502d
 Description: systemd DNS resolver
  This package provides systemd's DNS resolver and the command line tool to
  manage it.

@@ -523,7 +523,6 @@
 /usr/share/dbus-1/system.d/org.freedesktop.systemd1.conf
 /usr/share/dbus-1/system.d/org.freedesktop.timedate1.conf
 /usr/share/dbus-1/system.d/systemd-localed-read-only.conf
-/usr/share/doc
 /usr/share/doc/systemd
 /usr/share/doc/systemd/CODING_STYLE.md.gz
 /usr/share/doc/systemd/DISTRO_PORTING.md
@@ -560,8 +559,6 @@
 /usr/share/locale/fr/LC_MESSAGES/systemd.mo
 /usr/share/locale/gl/LC_MESSAGES/systemd.mo
 /usr/share/locale/he/LC_MESSAGES/systemd.mo
-/usr/share/locale/hi
-/usr/share/locale/hi/LC_MESSAGES
 /usr/share/locale/hi/LC_MESSAGES/systemd.mo
 /usr/share/locale/hr/LC_MESSAGES/systemd.mo
 /usr/share/locale/hu/LC_MESSAGES/systemd.mo
@@ -592,7 +589,6 @@
 /usr/share/locale/zh_CN/LC_MESSAGES
 /usr/share/locale/zh_CN/LC_MESSAGES/systemd.mo
 /usr/share/locale/zh_TW/LC_MESSAGES/systemd.mo
-/usr/share/man
 /usr/share/man/man1/busctl.1.gz
 /usr/share/man/man1/hostnamectl.1.gz
 /usr/share/man/man1/journalctl.1.gz

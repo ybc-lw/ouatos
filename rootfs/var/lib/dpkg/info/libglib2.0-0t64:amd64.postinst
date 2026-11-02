@@ -1,0 +1,44 @@
+#!/bin/sh
+# Debian Policy §10.4 says /bin/sh has a superset of POSIX functionality
+# shellcheck disable=SC3043
+
+set -e
+
+
+handle_triggers () {
+    local trigger
+
+    for trigger in "$@"; do
+        if ! [ -d "$trigger" ]; then
+            continue
+        fi
+        case $trigger in
+          /usr/share/glib-2.0/schemas)
+            # This is triggered everytime an application installs a
+            # GSettings schema
+            "/usr/lib/x86_64-linux-gnu/glib-2.0/glib-compile-schemas" /usr/share/glib-2.0/schemas || true
+            ;;
+
+          "/usr/lib/x86_64-linux-gnu/gio/modules")
+            # This is triggered everytime an application installs a GIO
+            # module into /usr/lib/x86_64-linux-gnu/gio/modules
+
+            "/usr/lib/x86_64-linux-gnu/glib-2.0/gio-querymodules" "/usr/lib/x86_64-linux-gnu/gio/modules" || true
+            ;;
+        esac
+    done
+}
+
+if [ "$1" = triggered ]; then
+    # The list of triggers is space-separated, so word-splitting is intended:
+    # shellcheck disable=SC2086
+    handle_triggers $2
+    exit 0
+fi
+
+
+
+"/usr/lib/x86_64-linux-gnu/glib-2.0/glib-compile-schemas" /usr/share/glib-2.0/schemas || true
+"/usr/lib/x86_64-linux-gnu/glib-2.0/gio-querymodules" "/usr/lib/x86_64-linux-gnu/gio/modules" || true
+
+# vim:set sw=4 sts=4 et:

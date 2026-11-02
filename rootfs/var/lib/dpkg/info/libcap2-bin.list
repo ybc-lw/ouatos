@@ -6,7 +6,6 @@
 /usr/sbin/getpcaps
 /usr/sbin/setcap
 /usr/share
-/usr/share/doc
 /usr/share/doc/libcap2-bin
 /usr/share/doc/libcap2-bin/README.Debian
 /usr/share/doc/libcap2-bin/changelog.Debian.amd64.gz
@@ -16,7 +15,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/libcap2-bin
-/usr/share/man
 /usr/share/man/man1/capsh.1.gz
 /usr/share/man/man8/getcap.8.gz
 /usr/share/man/man8/getpcaps.8.gz

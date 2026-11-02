@@ -11,7 +11,6 @@
 /usr/share/bug/libmagic1t64
 /usr/share/bug/libmagic1t64/control
 /usr/share/bug/libmagic1t64/presubj
-/usr/share/doc
 /usr/share/doc/libmagic1t64
 /usr/share/doc/libmagic1t64/changelog.Debian.gz
 /usr/share/doc/libmagic1t64/changelog.gz
@@ -19,8 +18,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/libmagic1t64
-/usr/share/man
-/usr/share/man/man5
 /usr/share/man/man5/magic.5.gz
 /usr/share/misc
 /usr/lib/x86_64-linux-gnu/libmagic.so.1

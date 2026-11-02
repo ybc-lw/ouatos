@@ -44,3 +44,4 @@ clock:!*::
 kvm:!*::
 render:!*::
 messagebus:!*::
+systemd-resolve:!*::

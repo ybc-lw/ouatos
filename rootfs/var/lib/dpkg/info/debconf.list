@@ -26,7 +26,6 @@
 /usr/share/debconf/debconf.conf
 /usr/share/debconf/fix_db.pl
 /usr/share/debconf/frontend
-/usr/share/doc
 /usr/share/doc/debconf
 /usr/share/doc/debconf/README.Debian
 /usr/share/doc/debconf/changelog.gz
@@ -34,7 +33,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/debconf
-/usr/share/man
 /usr/share/man/man1/debconf-apt-progress.1.gz
 /usr/share/man/man1/debconf-communicate.1.gz
 /usr/share/man/man1/debconf-copydb.1.gz

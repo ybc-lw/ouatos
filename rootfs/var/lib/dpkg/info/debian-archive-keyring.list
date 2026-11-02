@@ -13,7 +13,6 @@
 /etc/apt/trusted.gpg.d/debian-archive-trixie-stable.asc
 /usr
 /usr/share
-/usr/share/doc
 /usr/share/doc/debian-archive-keyring
 /usr/share/doc/debian-archive-keyring/NEWS.Debian.gz
 /usr/share/doc/debian-archive-keyring/README
