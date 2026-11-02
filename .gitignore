@@ -5,7 +5,7 @@ node_modules/
 .vscode
 .DS_Store
 ._*
-*.Identifier
+*Zone.Identifier
 rootfs/dev
 rootfs/proc
 rootfs/sys

@@ -13,7 +13,6 @@
 /usr/share/bug/grub-efi-amd64-unsigned
 /usr/share/bug/grub-efi-amd64-unsigned/presubj
 /usr/share/bug/grub-efi-amd64-unsigned/script
-/usr/share/doc
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/grub-efi-amd64-unsigned

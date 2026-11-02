@@ -38,7 +38,6 @@
 /usr/sbin/usermod
 /usr/sbin/vipw
 /usr/share
-/usr/share/doc
 /usr/share/doc/passwd
 /usr/share/doc/passwd/NEWS.Debian.gz
 /usr/share/doc/passwd/README.Debian
@@ -52,15 +51,11 @@
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/passwd
 /usr/share/locale
-/usr/share/locale/bs
-/usr/share/locale/bs/LC_MESSAGES
 /usr/share/locale/bs/LC_MESSAGES/shadow.mo
 /usr/share/locale/ca/LC_MESSAGES/shadow.mo
 /usr/share/locale/cs/LC_MESSAGES/shadow.mo
 /usr/share/locale/da/LC_MESSAGES/shadow.mo
 /usr/share/locale/de/LC_MESSAGES/shadow.mo
-/usr/share/locale/dz
-/usr/share/locale/dz/LC_MESSAGES
 /usr/share/locale/dz/LC_MESSAGES/shadow.mo
 /usr/share/locale/el/LC_MESSAGES/shadow.mo
 /usr/share/locale/es/LC_MESSAGES/shadow.mo
@@ -74,16 +69,10 @@
 /usr/share/locale/it/LC_MESSAGES/shadow.mo
 /usr/share/locale/ja/LC_MESSAGES/shadow.mo
 /usr/share/locale/ka/LC_MESSAGES/shadow.mo
-/usr/share/locale/kk
-/usr/share/locale/kk/LC_MESSAGES
 /usr/share/locale/kk/LC_MESSAGES/shadow.mo
-/usr/share/locale/km
-/usr/share/locale/km/LC_MESSAGES
 /usr/share/locale/km/LC_MESSAGES/shadow.mo
 /usr/share/locale/ko/LC_MESSAGES/shadow.mo
 /usr/share/locale/nb/LC_MESSAGES/shadow.mo
-/usr/share/locale/ne
-/usr/share/locale/ne/LC_MESSAGES
 /usr/share/locale/ne/LC_MESSAGES/shadow.mo
 /usr/share/locale/nl/LC_MESSAGES/shadow.mo
 /usr/share/locale/nn/LC_MESSAGES/shadow.mo
@@ -95,8 +84,6 @@
 /usr/share/locale/sk/LC_MESSAGES/shadow.mo
 /usr/share/locale/sq/LC_MESSAGES/shadow.mo
 /usr/share/locale/sv/LC_MESSAGES/shadow.mo
-/usr/share/locale/tl
-/usr/share/locale/tl/LC_MESSAGES
 /usr/share/locale/tl/LC_MESSAGES/shadow.mo
 /usr/share/locale/tr/LC_MESSAGES/shadow.mo
 /usr/share/locale/uk/LC_MESSAGES/shadow.mo
@@ -105,7 +92,6 @@
 /usr/share/locale/zh_CN/LC_MESSAGES
 /usr/share/locale/zh_CN/LC_MESSAGES/shadow.mo
 /usr/share/locale/zh_TW/LC_MESSAGES/shadow.mo
-/usr/share/man
 /usr/share/man/cs
 /usr/share/man/cs/man1
 /usr/share/man/cs/man1/expiry.1.gz
@@ -120,10 +106,8 @@
 /usr/share/man/cs/man8/groupmod.8.gz
 /usr/share/man/cs/man8/grpck.8.gz
 /usr/share/man/cs/man8/vipw.8.gz
-/usr/share/man/da
 /usr/share/man/da/man1
 /usr/share/man/da/man1/chfn.1.gz
-/usr/share/man/da/man5
 /usr/share/man/da/man5/gshadow.5.gz
 /usr/share/man/da/man8
 /usr/share/man/da/man8/groupdel.8.gz
@@ -138,7 +122,6 @@
 /usr/share/man/de/man5/gshadow.5.gz
 /usr/share/man/de/man5/passwd.5.gz
 /usr/share/man/de/man5/shadow.5.gz
-/usr/share/man/de/man8
 /usr/share/man/de/man8/chgpasswd.8.gz
 /usr/share/man/de/man8/chpasswd.8.gz
 /usr/share/man/de/man8/groupadd.8.gz
@@ -168,7 +151,6 @@
 /usr/share/man/fr/man5/shadow.5.gz
 /usr/share/man/fr/man5/subgid.5.gz
 /usr/share/man/fr/man5/subuid.5.gz
-/usr/share/man/fr/man8
 /usr/share/man/fr/man8/chgpasswd.8.gz
 /usr/share/man/fr/man8/chpasswd.8.gz
 /usr/share/man/fr/man8/groupadd.8.gz
@@ -194,7 +176,6 @@
 /usr/share/man/id/man1/chsh.1.gz
 /usr/share/man/id/man8
 /usr/share/man/id/man8/useradd.8.gz
-/usr/share/man/it
 /usr/share/man/it/man1
 /usr/share/man/it/man1/chage.1.gz
 /usr/share/man/it/man1/chfn.1.gz
@@ -202,7 +183,6 @@
 /usr/share/man/it/man1/expiry.1.gz
 /usr/share/man/it/man1/gpasswd.1.gz
 /usr/share/man/it/man1/passwd.1.gz
-/usr/share/man/it/man5
 /usr/share/man/it/man5/gshadow.5.gz
 /usr/share/man/it/man5/passwd.5.gz
 /usr/share/man/it/man5/shadow.5.gz
@@ -277,7 +257,6 @@
 /usr/share/man/man8/userdel.8.gz
 /usr/share/man/man8/usermod.8.gz
 /usr/share/man/man8/vipw.8.gz
-/usr/share/man/pl
 /usr/share/man/pl/man1
 /usr/share/man/pl/man1/chage.1.gz
 /usr/share/man/pl/man1/chsh.1.gz
@@ -300,7 +279,6 @@
 /usr/share/man/pt_BR/man8/groupadd.8.gz
 /usr/share/man/pt_BR/man8/groupdel.8.gz
 /usr/share/man/pt_BR/man8/groupmod.8.gz
-/usr/share/man/ru
 /usr/share/man/ru/man1
 /usr/share/man/ru/man1/chage.1.gz
 /usr/share/man/ru/man1/chfn.1.gz
@@ -308,7 +286,6 @@
 /usr/share/man/ru/man1/expiry.1.gz
 /usr/share/man/ru/man1/gpasswd.1.gz
 /usr/share/man/ru/man1/passwd.1.gz
-/usr/share/man/ru/man5
 /usr/share/man/ru/man5/gshadow.5.gz
 /usr/share/man/ru/man5/passwd.5.gz
 /usr/share/man/ru/man5/shadow.5.gz
@@ -326,13 +303,11 @@
 /usr/share/man/ru/man8/userdel.8.gz
 /usr/share/man/ru/man8/usermod.8.gz
 /usr/share/man/ru/man8/vipw.8.gz
-/usr/share/man/sv
 /usr/share/man/sv/man1
 /usr/share/man/sv/man1/chage.1.gz
 /usr/share/man/sv/man1/chsh.1.gz
 /usr/share/man/sv/man1/expiry.1.gz
 /usr/share/man/sv/man1/passwd.1.gz
-/usr/share/man/sv/man5
 /usr/share/man/sv/man5/gshadow.5.gz
 /usr/share/man/sv/man5/passwd.5.gz
 /usr/share/man/sv/man8

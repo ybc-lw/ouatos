@@ -13,11 +13,9 @@
 /usr/sbin/fstab-decode
 /usr/sbin/killall5
 /usr/share
-/usr/share/doc
 /usr/share/doc/sysvinit-utils
 /usr/share/doc/sysvinit-utils/changelog.Debian.gz
 /usr/share/doc/sysvinit-utils/copyright
-/usr/share/man
 /usr/share/man/man5/init-d-script.5.gz
 /usr/share/man/man8/fstab-decode.8.gz
 /usr/share/man/man8/killall5.8.gz

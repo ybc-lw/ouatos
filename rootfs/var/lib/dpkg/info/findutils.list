@@ -4,7 +4,6 @@
 /usr/bin/find
 /usr/bin/xargs
 /usr/share
-/usr/share/doc
 /usr/share/doc/findutils
 /usr/share/doc/findutils/NEWS.gz
 /usr/share/doc/findutils/README.gz
@@ -60,6 +59,5 @@
 /usr/share/locale/zh_CN/LC_MESSAGES
 /usr/share/locale/zh_CN/LC_MESSAGES/findutils.mo
 /usr/share/locale/zh_TW/LC_MESSAGES/findutils.mo
-/usr/share/man
 /usr/share/man/man1/find.1.gz
 /usr/share/man/man1/xargs.1.gz

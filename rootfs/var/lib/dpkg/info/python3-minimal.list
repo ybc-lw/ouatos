@@ -4,12 +4,10 @@
 /usr/bin/py3clean
 /usr/bin/py3compile
 /usr/share
-/usr/share/doc
 /usr/share/doc/python3-minimal
 /usr/share/doc/python3-minimal/README.Debian
 /usr/share/doc/python3-minimal/changelog.Debian.gz
 /usr/share/doc/python3-minimal/copyright
-/usr/share/man
 /usr/share/man/man1/py3clean.1.gz
 /usr/share/man/man1/py3compile.1.gz
 /usr/share/man/man1/py3versions.1.gz

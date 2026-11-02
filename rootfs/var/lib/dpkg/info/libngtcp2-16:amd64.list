@@ -1,0 +1,12 @@
+/.
+/usr
+/usr/lib
+/usr/lib/x86_64-linux-gnu
+/usr/lib/x86_64-linux-gnu/libngtcp2.so.16.2.9
+/usr/share
+/usr/share/doc
+/usr/share/doc/libngtcp2-16
+/usr/share/doc/libngtcp2-16/changelog.Debian.gz
+/usr/share/doc/libngtcp2-16/changelog.gz
+/usr/share/doc/libngtcp2-16/copyright
+/usr/lib/x86_64-linux-gnu/libngtcp2.so.16

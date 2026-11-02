@@ -44,3 +44,4 @@ clock:x:995:
 kvm:x:994:
 render:x:993:
 messagebus:x:992:
+systemd-resolve:x:991:

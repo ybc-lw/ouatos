@@ -11,7 +11,6 @@
 /usr/share
 /usr/share/applications
 /usr/share/applications/python3.13.desktop
-/usr/share/doc
 /usr/share/doc/python3.13
 /usr/share/doc/python3.13/ACKS.gz
 /usr/share/doc/python3.13/NEWS.gz
@@ -23,7 +22,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/python3.13
-/usr/share/man
 /usr/share/man/man1/pdb3.13.1.gz
 /usr/share/man/man1/pydoc3.13.1.gz
 /usr/share/man/man1/pygettext3.13.1.gz

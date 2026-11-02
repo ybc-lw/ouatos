@@ -4,7 +4,6 @@
 /usr/bin/cpio
 /usr/bin/mt-gnu
 /usr/share
-/usr/share/doc
 /usr/share/doc/cpio
 /usr/share/doc/cpio/NEWS.gz
 /usr/share/doc/cpio/README.gz
@@ -96,8 +95,5 @@
 /usr/share/locale/zh_TW
 /usr/share/locale/zh_TW/LC_MESSAGES
 /usr/share/locale/zh_TW/LC_MESSAGES/cpio.mo
-/usr/share/man
-/usr/share/man/man1
 /usr/share/man/man1/cpio.1.gz
 /usr/share/man/man1/mt-gnu.1.gz
-/usr/share/man/man8

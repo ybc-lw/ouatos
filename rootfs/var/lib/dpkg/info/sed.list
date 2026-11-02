@@ -3,7 +3,6 @@
 /usr/bin
 /usr/bin/sed
 /usr/share
-/usr/share/doc
 /usr/share/doc/sed
 /usr/share/doc/sed/AUTHORS
 /usr/share/doc/sed/BUGS.gz
@@ -63,5 +62,4 @@
 /usr/share/locale/zh_CN/LC_MESSAGES
 /usr/share/locale/zh_CN/LC_MESSAGES/sed.mo
 /usr/share/locale/zh_TW/LC_MESSAGES/sed.mo
-/usr/share/man
 /usr/share/man/man1/sed.1.gz

@@ -9,7 +9,6 @@
 /usr/lib/x86_64-linux-gnu/krb5/plugins/preauth/spake.so
 /usr/lib/x86_64-linux-gnu/libkrb5.so.3.3
 /usr/share
-/usr/share/doc
 /usr/share/doc/libkrb5-3
 /usr/share/doc/libkrb5-3/README.Debian
 /usr/share/doc/libkrb5-3/README.gz

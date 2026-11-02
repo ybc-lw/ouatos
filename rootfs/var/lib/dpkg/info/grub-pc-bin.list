@@ -312,7 +312,6 @@
 /usr/share/bug/grub-pc-bin
 /usr/share/bug/grub-pc-bin/presubj
 /usr/share/bug/grub-pc-bin/script
-/usr/share/doc
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/grub-pc-bin

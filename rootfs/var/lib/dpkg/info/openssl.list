@@ -14,7 +14,6 @@
 /usr/lib/ssl/misc/CA.pl
 /usr/lib/ssl/misc/tsget.pl
 /usr/share
-/usr/share/doc
 /usr/share/doc/openssl
 /usr/share/doc/openssl/HOWTO
 /usr/share/doc/openssl/HOWTO/certificates.txt.gz
@@ -33,7 +32,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/openssl
-/usr/share/man
 /usr/share/man/man1/CA.pl.1ssl.gz
 /usr/share/man/man1/openssl-asn1parse.1ssl.gz
 /usr/share/man/man1/openssl-ca.1ssl.gz

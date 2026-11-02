@@ -160,7 +160,6 @@
 /usr/share/ca-certificates/mozilla/emSign_Root_CA_-_G1.crt
 /usr/share/ca-certificates/mozilla/vTrus_ECC_Root_CA.crt
 /usr/share/ca-certificates/mozilla/vTrus_Root_CA.crt
-/usr/share/doc
 /usr/share/doc/ca-certificates
 /usr/share/doc/ca-certificates/README.Debian
 /usr/share/doc/ca-certificates/changelog.gz
@@ -182,5 +181,4 @@
 /usr/share/doc/ca-certificates/examples/ca-certificates-local/local
 /usr/share/doc/ca-certificates/examples/ca-certificates-local/local/Local_Root_CA.crt
 /usr/share/doc/ca-certificates/examples/ca-certificates-local/local/Makefile
-/usr/share/man
 /usr/share/man/man8/update-ca-certificates.8.gz

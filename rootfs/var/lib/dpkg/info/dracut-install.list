@@ -4,7 +4,6 @@
 /usr/lib/dracut
 /usr/lib/dracut/dracut-install
 /usr/share
-/usr/share/doc
 /usr/share/doc/dracut-install
 /usr/share/doc/dracut-install/NEWS.Debian.gz
 /usr/share/doc/dracut-install/changelog.Debian.gz

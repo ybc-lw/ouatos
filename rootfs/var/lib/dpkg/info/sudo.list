@@ -40,7 +40,6 @@
 /usr/share/apport
 /usr/share/apport/package-hooks
 /usr/share/apport/package-hooks/source_sudo.py
-/usr/share/doc
 /usr/share/doc/sudo
 /usr/share/doc/sudo/CONTRIBUTING.md
 /usr/share/doc/sudo/CONTRIBUTORS.md.gz
@@ -222,17 +221,13 @@
 /usr/share/locale/zh_TW/LC_MESSAGES
 /usr/share/locale/zh_TW/LC_MESSAGES/sudo.mo
 /usr/share/locale/zh_TW/LC_MESSAGES/sudoers.mo
-/usr/share/man
-/usr/share/man/man1
 /usr/share/man/man1/cvtsudoers.1.gz
-/usr/share/man/man5
 /usr/share/man/man5/sudo.conf.5.gz
 /usr/share/man/man5/sudo_logsrv.proto.5.gz
 /usr/share/man/man5/sudo_logsrvd.conf.5.gz
 /usr/share/man/man5/sudo_plugin.5.gz
 /usr/share/man/man5/sudoers.5.gz
 /usr/share/man/man5/sudoers_timestamp.5.gz
-/usr/share/man/man8
 /usr/share/man/man8/sudo.8.gz
 /usr/share/man/man8/sudo_logsrvd.8.gz
 /usr/share/man/man8/sudo_sendlog.8.gz

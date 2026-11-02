@@ -6,7 +6,6 @@
 /usr/bin/grep
 /usr/bin/rgrep
 /usr/share
-/usr/share/doc
 /usr/share/doc/grep
 /usr/share/doc/grep/AUTHORS
 /usr/share/doc/grep/NEWS.Debian.gz
@@ -62,8 +61,6 @@
 /usr/share/locale/sl/LC_MESSAGES/grep.mo
 /usr/share/locale/sr/LC_MESSAGES/grep.mo
 /usr/share/locale/sv/LC_MESSAGES/grep.mo
-/usr/share/locale/ta
-/usr/share/locale/ta/LC_MESSAGES
 /usr/share/locale/ta/LC_MESSAGES/grep.mo
 /usr/share/locale/th/LC_MESSAGES/grep.mo
 /usr/share/locale/tr/LC_MESSAGES/grep.mo
@@ -73,7 +70,6 @@
 /usr/share/locale/zh_CN/LC_MESSAGES
 /usr/share/locale/zh_CN/LC_MESSAGES/grep.mo
 /usr/share/locale/zh_TW/LC_MESSAGES/grep.mo
-/usr/share/man
 /usr/share/man/man1/grep.1.gz
 /usr/share/man/man1/egrep.1.gz
 /usr/share/man/man1/fgrep.1.gz

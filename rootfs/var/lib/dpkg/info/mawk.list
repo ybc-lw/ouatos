@@ -3,7 +3,6 @@
 /usr/bin
 /usr/bin/mawk
 /usr/share
-/usr/share/doc
 /usr/share/doc/mawk
 /usr/share/doc/mawk/ACKNOWLEDGMENT
 /usr/share/doc/mawk/README
@@ -21,7 +20,6 @@
 /usr/share/doc/mawk/examples/nocomment.awk
 /usr/share/doc/mawk/examples/primes.awk
 /usr/share/doc/mawk/examples/qsort.awk
-/usr/share/man
 /usr/share/man/man1/mawk.1.gz
 /usr/share/man/man7/mawk-arrays.7.gz
 /usr/share/man/man7/mawk-code.7.gz

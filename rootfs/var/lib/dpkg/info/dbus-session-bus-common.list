@@ -7,7 +7,6 @@
 /usr/share/dbus-1
 /usr/share/dbus-1/services
 /usr/share/dbus-1/session.conf
-/usr/share/doc
 /usr/share/doc/dbus-session-bus-common
 /usr/share/doc/dbus-session-bus-common/AUTHORS.gz
 /usr/share/doc/dbus-session-bus-common/NEWS.gz

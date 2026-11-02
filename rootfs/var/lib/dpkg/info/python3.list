@@ -5,7 +5,6 @@
 /usr/lib/valgrind
 /usr/lib/valgrind/python3.supp
 /usr/share
-/usr/share/doc
 /usr/share/doc/python3
 /usr/share/doc/python3/README.Debian
 /usr/share/doc/python3/changelog.Debian.gz
@@ -17,7 +16,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/python3
-/usr/share/man
 /usr/share/pixmaps
 /usr/share/python3
 /usr/share/python3/python.mk

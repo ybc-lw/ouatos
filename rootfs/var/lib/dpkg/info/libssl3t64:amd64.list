@@ -9,7 +9,6 @@
 /usr/lib/x86_64-linux-gnu/libcrypto.so.3
 /usr/lib/x86_64-linux-gnu/libssl.so.3
 /usr/share
-/usr/share/doc
 /usr/share/doc/libssl3t64
 /usr/share/doc/libssl3t64/NEWS.Debian.gz
 /usr/share/doc/libssl3t64/changelog.Debian.gz

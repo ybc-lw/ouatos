@@ -6,7 +6,6 @@
 /usr/bin/gettext.sh
 /usr/bin/ngettext
 /usr/share
-/usr/share/doc
 /usr/share/doc/gettext-base
 /usr/share/doc/gettext-base/ABOUT-NLS
 /usr/share/doc/gettext-base/changelog.Debian.gz
@@ -144,8 +143,6 @@
 /usr/share/locale/zh_TW
 /usr/share/locale/zh_TW/LC_MESSAGES
 /usr/share/locale/zh_TW/LC_MESSAGES/gettext-runtime.mo
-/usr/share/man
-/usr/share/man/man1
 /usr/share/man/man1/envsubst.1.gz
 /usr/share/man/man1/gettext.1.gz
 /usr/share/man/man1/ngettext.1.gz

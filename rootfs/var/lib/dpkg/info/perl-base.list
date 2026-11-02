@@ -727,7 +727,6 @@
 /usr/lib/x86_64-linux-gnu/perl-base/warnings/register.pm
 /usr/lib/x86_64-linux-gnu/perl-base/warnings.pm
 /usr/share
-/usr/share/doc
 /usr/share/doc/perl
 /usr/share/doc/perl/AUTHORS.gz
 /usr/share/doc/perl/Documentation
@@ -738,6 +737,5 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/perl-base
-/usr/share/man
 /usr/share/man/man1/perl.1.gz
 /usr/share/man/man1/perl5.40.1.1.gz

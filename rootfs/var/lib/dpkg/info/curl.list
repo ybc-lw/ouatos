@@ -4,7 +4,6 @@
 /usr/bin/curl
 /usr/bin/wcurl
 /usr/share
-/usr/share/doc
 /usr/share/doc/curl
 /usr/share/doc/curl/NEWS.Debian.gz
 /usr/share/doc/curl/README.Debian
@@ -14,8 +13,6 @@
 /usr/share/fish
 /usr/share/fish/vendor_completions.d
 /usr/share/fish/vendor_completions.d/curl.fish
-/usr/share/man
-/usr/share/man/man1
 /usr/share/man/man1/curl.1.gz
 /usr/share/man/man1/wcurl.1.gz
 /usr/share/zsh

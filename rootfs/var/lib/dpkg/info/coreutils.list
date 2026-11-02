@@ -111,7 +111,6 @@
 /usr/sbin
 /usr/sbin/chroot
 /usr/share
-/usr/share/doc
 /usr/share/doc/coreutils
 /usr/share/doc/coreutils/AUTHORS
 /usr/share/doc/coreutils/NEWS.gz
@@ -166,8 +165,6 @@
 /usr/share/locale/hr/LC_TIME
 /usr/share/locale/hu/LC_MESSAGES/coreutils.mo
 /usr/share/locale/hu/LC_TIME
-/usr/share/locale/ia
-/usr/share/locale/ia/LC_MESSAGES
 /usr/share/locale/ia/LC_MESSAGES/coreutils.mo
 /usr/share/locale/ia/LC_TIME
 /usr/share/locale/id/LC_MESSAGES/coreutils.mo
@@ -178,8 +175,6 @@
 /usr/share/locale/ja/LC_TIME
 /usr/share/locale/ka/LC_MESSAGES/coreutils.mo
 /usr/share/locale/ka/LC_TIME
-/usr/share/locale/kk
-/usr/share/locale/kk/LC_MESSAGES
 /usr/share/locale/kk/LC_MESSAGES/coreutils.mo
 /usr/share/locale/kk/LC_TIME
 /usr/share/locale/ko/LC_MESSAGES/coreutils.mo
@@ -212,8 +207,6 @@
 /usr/share/locale/sr/LC_TIME
 /usr/share/locale/sv/LC_MESSAGES/coreutils.mo
 /usr/share/locale/sv/LC_TIME
-/usr/share/locale/ta
-/usr/share/locale/ta/LC_MESSAGES
 /usr/share/locale/ta/LC_MESSAGES/coreutils.mo
 /usr/share/locale/ta/LC_TIME
 /usr/share/locale/tr/LC_MESSAGES/coreutils.mo
@@ -228,7 +221,6 @@
 /usr/share/locale/zh_CN/LC_TIME
 /usr/share/locale/zh_TW/LC_MESSAGES/coreutils.mo
 /usr/share/locale/zh_TW/LC_TIME
-/usr/share/man
 /usr/share/man/man1/arch.1.gz
 /usr/share/man/man1/b2sum.1.gz
 /usr/share/man/man1/base32.1.gz
