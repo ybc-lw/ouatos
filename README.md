@@ -8,14 +8,16 @@ The current system image includes the following software and components:
 
 - **Debian base system**
 - **systemd**
-- **APT and dpkg**
-- **Bash**
-- **iproute2**
-- **iputils-ping**
-- **curl**
+- **Networking utilities**
 - **OpenSSL**
 - **Python 3 and pip**
-- **Node.js and npm**
+  - PyTorch(CPU)
+  - Transformers
+  - Tokenizers
+  - Safetensors
+  - GGUF
+  - Hugging Face Hub
+- **Node.js and pnpm**
 - **llama.cpp**
 
 ## Installation
