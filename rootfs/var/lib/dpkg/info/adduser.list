@@ -7,7 +7,6 @@
 /usr/sbin/adduser
 /usr/sbin/deluser
 /usr/share
-/usr/share/doc
 /usr/share/doc/adduser
 /usr/share/doc/adduser/NEWS.Debian.gz
 /usr/share/doc/adduser/README.gz
@@ -30,7 +29,6 @@
 /usr/share/doc/adduser/examples/adduser.local.conf.examples/skel.other
 /usr/share/doc/adduser/examples/adduser.local.conf.examples/skel.other/index.html
 /usr/share/doc/adduser/examples/deluser.conf
-/usr/share/man
 /usr/share/man/da
 /usr/share/man/da/man5
 /usr/share/man/da/man5/deluser.conf.5.gz

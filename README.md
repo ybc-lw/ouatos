@@ -9,6 +9,7 @@ The current system image includes the following software and components:
 - **Debian base system**
 - **systemd**
 - **Networking utilities**
+- **GNU Binutils**
 - **OpenSSL**
 - **Python 3 and pip**
   - PyTorch (CPU inference only)
@@ -17,6 +18,7 @@ The current system image includes the following software and components:
   - Safetensors
   - GGUF
   - Hugging Face Hub
+- **OpenBLAS**
 - **Node.js and pnpm**
 - **llama.cpp**
 

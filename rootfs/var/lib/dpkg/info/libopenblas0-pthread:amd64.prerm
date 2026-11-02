@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+if [ "$1" != "upgrade" ]
+then
+    update-alternatives --remove libblas.so.3-x86_64-linux-gnu \
+                        /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
+
+    update-alternatives --remove liblapack.so.3-x86_64-linux-gnu \
+                        /usr/lib/x86_64-linux-gnu/openblas-pthread/liblapack.so.3
+
+    update-alternatives --remove libopenblas.so.0-x86_64-linux-gnu \
+                        /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas.so.0
+fi
+
+
+
+exit 0

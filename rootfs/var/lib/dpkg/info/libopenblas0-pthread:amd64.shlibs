@@ -1,0 +1,8 @@
+# We want packages linked with -lblas to depend on any BLAS alternative, and we 
+# want packages linked with -lopenblas to depend specifically on libopenblas0.  
+#                                                                               
+# Such a setting is not supported by dh_makeshlibs, so we ship a hand-crafted   
+# shlibs file.      
+libopenblas 0 libopenblas0
+libblas 3 libblas3 | libblas.so.3
+liblapack 3 liblapack3 | liblapack.so.3
