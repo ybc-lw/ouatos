@@ -76,7 +76,6 @@
 /usr/share/dbus-1/system.d/nm-dispatcher.conf
 /usr/share/dbus-1/system.d/nm-priv-helper.conf
 /usr/share/dbus-1/system.d/org.freedesktop.NetworkManager.conf
-/usr/share/doc
 /usr/share/doc/network-manager
 /usr/share/doc/network-manager/AUTHORS
 /usr/share/doc/network-manager/NEWS.Debian.gz
@@ -94,8 +93,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/network-manager
-/usr/share/man
-/usr/share/man/man1
 /usr/share/man/man1/nm-online.1.gz
 /usr/share/man/man1/nmcli.1.gz
 /usr/share/man/man1/nmtui-connect.1.gz

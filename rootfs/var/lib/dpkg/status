@@ -151,6 +151,71 @@ Description: GNU Bourne Again SHell
  the bash-completion package.
 Homepage: http://tiswww.case.edu/php/chet/bash/bashtop.html
 
+Package: binutils
+Status: install ok installed
+Priority: optional
+Section: devel
+Installed-Size: 1073
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: amd64
+Version: 2.44-3
+Replaces: binutils-aarch64-linux-gnu (<< 2.43.90), binutils-common (<< 2.43.90), binutils-i686-linux-gnu (<< 2.43.90), binutils-riscv64-linux-gnu (<< 2.43.90), binutils-x86-64-linux-gnu (<< 2.43.90)
+Provides: elf-binutils
+Depends: libbinutils (= 2.44-3), libc6 (>= 2.38), libgcc-s1 (>= 3.3.1), libgprofng0 (>= 2.44), libstdc++6 (>= 13.1), binutils-common (= 2.44-3), binutils-x86-64-linux-gnu (= 2.44-3)
+Suggests: binutils-doc (>= 2.44-3), gprofng-gui, binutils-gold
+Breaks: binutils-aarch64-linux-gnu (<< 2.43.90), binutils-i686-linux-gnu (<< 2.43.90), binutils-riscv64-linux-gnu (<< 2.43.90), binutils-x86-64-linux-gnu (<< 2.43.90)
+Conflicts: binutils-mingw-w64-i686 (<< 2.23.52.20130612-1+3), binutils-mingw-w64-x86-64 (<< 2.23.52.20130612-1+3), binutils-multiarch (<< 2.27-8), modutils (<< 2.4.19-1)
+Conffiles:
+ /etc/gprofng.rc 9ef0ad52fe3e0ad424927ad653d29983
+Description: GNU assembler, linker and binary utilities
+ The programs in this package are used to assemble, link and manipulate
+ binary and object files.  They may be used in conjunction with a compiler
+ and various libraries to build programs.
+Homepage: https://www.gnu.org/software/binutils/
+
+Package: binutils-common
+Status: install ok installed
+Priority: optional
+Section: devel
+Installed-Size: 16098
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: binutils
+Version: 2.44-3
+Replaces: binutils (<< 2.38.50.20220527-2), binutils-multiarch (<< 2.38.50.20220527-2)
+Breaks: binutils (<< 2.38.50.20220527-2), binutils-multiarch (<< 2.38.50.20220527-2)
+Conffiles:
+ /etc/gprofng.rc newconffile remove-on-upgrade
+Description: Common files for the GNU assembler, linker and binary utilities
+ This package contains the localization files used by binutils packages for
+ various target architectures and parts of the binutils documentation. It is
+ not useful on its own.
+Homepage: https://www.gnu.org/software/binutils/
+
+Package: binutils-x86-64-linux-gnu
+Status: install ok installed
+Priority: optional
+Section: devel
+Installed-Size: 5990
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: amd64
+Multi-Arch: allowed
+Source: binutils
+Version: 2.44-3
+Replaces: binutils (<< 2.29-6), binutils-dev (<< 2.38.50.20220609-2)
+Depends: binutils-common (= 2.44-3), libbinutils (= 2.44-3), libc6 (>= 2.38), libctf-nobfd0 (>= 2.36), libctf0 (>= 2.36), libjansson4 (>= 2.14), libsframe1 (>= 2.41), libzstd1 (>= 1.5.5), zlib1g (>= 1:1.1.4)
+Suggests: binutils-doc (= 2.44-3)
+Breaks: binutils (<< 2.29-6), binutils-dev (<< 2.38.50.20220609-2)
+Description: GNU binary utilities, for x86-64-linux-gnu target
+ This package provides GNU assembler, linker and binary utilities
+ for the x86-64-linux-gnu target.
+ .
+ You don't need this package unless you plan to cross-compile programs
+ for x86-64-linux-gnu and x86-64-linux-gnu is not your native
+ platform.
+Homepage: https://www.gnu.org/software/binutils/
+
 Package: bsdutils
 Essential: yes
 Status: install ok installed
@@ -1180,6 +1245,23 @@ Description: Dynamic library for security auditing
  security related events.
 Homepage: https://people.redhat.com/sgrubb/audit/
 
+Package: libbinutils
+Status: install ok installed
+Priority: optional
+Section: devel
+Installed-Size: 2390
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: binutils
+Version: 2.44-3
+Replaces: binutils (<< 2.29-6)
+Depends: libc6 (>= 2.38), libsframe1, libzstd1 (>= 1.5.5), zlib1g (>= 1:1.2.0), binutils-common (= 2.44-3)
+Breaks: binutils (<< 2.29-6)
+Description: GNU binary utilities (private shared library)
+ This package includes the private shared libraries libbfd and libopcodes.
+Homepage: https://www.gnu.org/software/binutils/
+
 Package: libblkid1
 Status: install ok installed
 Priority: optional
@@ -1455,6 +1537,40 @@ Description: libcrypt shared library
  bcrypt-based password hashes
  It provides the traditional Unix 'crypt' and 'crypt_r' interfaces,
  as well as a set of extended interfaces like 'crypt_gensalt'.
+
+Package: libctf-nobfd0
+Status: install ok installed
+Priority: optional
+Section: devel
+Installed-Size: 293
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: binutils
+Version: 2.44-3
+Replaces: libbinutils (<< 2.33.50.20191128-1~)
+Depends: libc6 (>= 2.14), zlib1g (>= 1:1.2.0)
+Breaks: libbinutils (<< 2.33.50.20191128-1~)
+Description: Compact C Type Format library (runtime, no BFD dependency)
+ This package includes the libctf-nobfd shared library.  The Compact C Type
+ Format (CTF) is a way of representing information about a binary program
+Homepage: https://www.gnu.org/software/binutils/
+
+Package: libctf0
+Status: install ok installed
+Priority: optional
+Section: devel
+Installed-Size: 232
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: binutils
+Version: 2.44-3
+Depends: libbinutils (= 2.44-3), libc6 (>= 2.33), zlib1g (>= 1:1.2.0)
+Description: Compact C Type Format library (runtime, BFD dependency)
+ This package includes the libctf shared library.  The Compact C Type
+ Format (CTF) is a way of representing information about a binary program
+Homepage: https://www.gnu.org/software/binutils/
 
 Package: libcurl3t64-gnutls
 Status: install ok installed
@@ -1788,6 +1904,23 @@ Description: GCC support library
 Homepage: http://gcc.gnu.org/
 Important: yes
 
+Package: libgfortran5
+Status: install ok installed
+Priority: optional
+Section: libs
+Installed-Size: 3152
+Maintainer: Debian GCC Maintainers <debian-gcc@lists.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: gcc-14
+Version: 14.2.0-19
+Depends: gcc-14-base (= 14.2.0-19), libc6 (>= 2.38), libgcc-s1 (>= 4.3)
+Breaks: gcc-4.3 (<< 4.3.6-1), gcc-4.4 (<< 4.4.6-4), gcc-4.5 (<< 4.5.3-2)
+Description: Runtime library for GNU Fortran applications
+ Library needed for GNU Fortran applications linked against the
+ shared library.
+Homepage: http://gcc.gnu.org/
+
 Package: libglib2.0-0t64
 Status: install ok installed
 Priority: optional
@@ -1864,6 +1997,29 @@ Description: GNU TLS library - main runtime library
  .
  This package contains the main runtime library.
 Homepage: https://www.gnutls.org/
+
+Package: libgprofng0
+Status: install ok installed
+Priority: optional
+Section: devel
+Installed-Size: 4034
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: binutils
+Version: 2.44-3
+Depends: libbinutils (= 2.44-3), libc6 (>= 2.38), libgcc-s1 (>= 3.3.1), libstdc++6 (>= 14), zlib1g (>= 1:1.1.4)
+Description: GNU Next Generation profiler (runtime library)
+ Gprofng is the GNU Next Generation profiler for analyzing the performance
+ of Linux applications.  Gprofng allows you to:
+ .
+  - Profile C / C++ / Java / Scala applications without needing to recompile
+  - Profile multi-threaded applications
+  - Analyze and compare multiple experiments
+  - Use time-based sampling and / or hardware event counters
+ .
+ This package includes the libgprofng shared library.
+Homepage: https://www.gnu.org/software/binutils/
 
 Package: libgssapi-krb5-2
 Status: install ok installed
@@ -2531,6 +2687,33 @@ Description: nss module to resolve names via systemd-resolved
  Installing this package automatically adds resolve to /etc/nsswitch.conf.
 Homepage: https://systemd.io
 
+Package: libopenblas0-pthread
+Status: install ok installed
+Priority: optional
+Section: libs
+Installed-Size: 46660
+Maintainer: Debian Science Team <debian-science-maintainers@lists.alioth.debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: openblas
+Version: 0.3.29+ds-3
+Provides: libblas.so.3, liblapack.so.3
+Depends: libc6 (>= 2.38), libgfortran5 (>= 8)
+Breaks: libatlas3-base (<< 3.10.3-4~), libblas3 (<< 3.7.1-2~), liblapack3 (<< 3.7.1-2~), libopenblas-dev (<< 0.2.20+ds-3~)
+Description: Optimized BLAS (linear algebra) library (shared lib, pthread)
+ OpenBLAS is an optimized BLAS library based on GotoBLAS2 1.13 BSD version.
+ .
+ On amd64, arm64, i386, loong64, ppc64el, riscv64 and s390x, all kernels are
+ included in the library and the one matching best your processor is selected
+ at runtime.
+ .
+ On other architectures, for maximum performance, you may want to rebuild
+ OpenBLAS locally, see the section: “Building an optimized OpenBLAS package for
+ your machine” in README.Debian.
+ .
+ Configuration: USE_THREAD=1 USE_OPENMP=0 INTERFACE64=0
+Homepage: https://www.openblas.net/
+
 Package: libp11-kit0
 Status: install ok installed
 Priority: optional
@@ -3020,6 +3203,24 @@ Description: SELinux library for manipulating binary security policies
  as by programs like load_policy that need to perform specific transformations
  on binary policies such as customizing policy boolean settings.
 Homepage: https://selinuxproject.org
+
+Package: libsframe1
+Status: install ok installed
+Priority: optional
+Section: devel
+Installed-Size: 110
+Maintainer: Matthias Klose <doko@debian.org>
+Architecture: amd64
+Multi-Arch: same
+Source: binutils
+Version: 2.44-3
+Depends: libc6 (>= 2.14)
+Description: Library to handle the SFrame format (runtime library)
+ SFrame stands for Simple Frame format.  SFrame format keeps track
+ of the minimal necessary information needed for generating stack traces.
+ .
+ This package includes the libsframe shared library.
+Homepage: https://www.gnu.org/software/binutils/
 
 Package: libslang2
 Status: install ok installed
