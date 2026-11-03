@@ -146,7 +146,7 @@ def verify(inst, disk, scanner, disk_dev, uefi):
         check(r.stdout.strip() == 'True', 'password verifies against the stored hash (crypt)')
         check('Pa55' not in open('/tmp/ouatos-install.log').read(), 'password never appears in the install log')
         osr = engine.parse_os_release(rd('etc/os-release'))
-        check(engine.system_name(osr) == 'ouatos GNU/Linux', 'system name from target os-release: %r' % engine.system_name(osr))
+        check(engine.system_name(osr) == 'ouatos', 'system name from target os-release: %r' % engine.system_name(osr))
         default = rd('etc/default/grub')
         check('GRUB_DISTRIBUTOR="ouatos"' in default, 'GRUB_DISTRIBUTOR="ouatos" (lowercase)')
         cfg = rd('boot/grub/grub.cfg')

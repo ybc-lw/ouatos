@@ -25,8 +25,8 @@ def run(path, tag):
     with m.open_payload() as f:
         check(sha(f, m.payload_size()) == want, '[%s] payload read raw is byte-identical to the input (sha256 %s...)' % (tag, want[:12]))
     info = engine.load_media_info(m)
-    check(engine.system_name(info['os_release']) == 'ouatos GNU/Linux' and info['installed_bytes'] > 300 << 20, '[%s] os-release + image facts read from the medium: %r' % (tag, engine.system_name(info['os_release'])))
-    check(m.read_small(media.OSREL_NAMES).startswith(b'PRETTY_NAME="ouatos GNU/Linux"'), '[%s] os_release content' % tag)
+    check(engine.system_name(info['os_release']) == 'ouatos' and (info['os_release'].get('PRETTY_NAME') or '').lower().startswith('ouatos') and info['installed_bytes'] > 300 << 20, '[%s] os-release + image facts read from the medium: %r' % (tag, engine.system_name(info['os_release'])))
+    check(b'PRETTY_NAME="ouatos' in m.read_small(media.OSREL_NAMES), '[%s] os_release content' % tag)
 
 run(ISO, 'real ISO')
 # Same ISO with every Rock Ridge NM entry destroyed: only plain ISO 9660 names remain (what the kernel

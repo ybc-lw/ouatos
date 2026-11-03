@@ -154,7 +154,7 @@ def _run_installs(medium, work):
                     check('alice' in [l.split(':')[3] for l in rd('etc/group').splitlines() if l.startswith('sudo:')][0].split(','), 'alice in sudo group')
                     check(os.path.exists('/tmp/verify/boot/grub/grub.cfg') and os.path.exists('/tmp/verify/usr/bin/sudo'), 'grub.cfg written, sudo present')
                     cfg = rd('boot/grub/grub.cfg')
-                    check('ouatos GNU/Linux' in cfg and 'OUATOS' not in cfg, 'boot menu says "ouatos GNU/Linux"')
+                    check("menuentry 'ouatos" in cfg and 'OUATOS' not in cfg and 'Ouatos' not in cfg, 'boot menu says "ouatos" (lowercase)')
                 finally:
                     subprocess.run(['umount', '/tmp/verify'])
             finally:
