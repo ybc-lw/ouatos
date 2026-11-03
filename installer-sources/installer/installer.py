@@ -22,7 +22,7 @@ class Wizard:
         self.scr, self.env, self.info = scr, env, info
         self.ui = fbgui.UI(scr, fonts, scale)
         self.osr = info['os_release']
-        self.sysname = system_name(self.osr)                    # e.g. "ouatos GNU/Linux"
+        self.sysname = system_name(self.osr)                    # always "ouatos"
         self.brand = brand_name(self.osr)                       # e.g. "ouatos"
         self.disks_fn = disks_fn or (lambda: list_disks(env.media))
         self.power_fn = power_fn or engine.power

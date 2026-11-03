@@ -97,7 +97,7 @@ def run(w_px, h_px, tag):
     wiz, drawn, scale = build(w_px, h_px, powered.append)
     engine.Installer = FakeInstaller
     FakeInstaller.created.clear()
-    check(wiz.sysname == 'ouatos GNU/Linux' and wiz.brand == 'ouatos', 'names derived from os-release: %r / %r (scale %.2f)' % (wiz.sysname, wiz.brand, scale))
+    check(wiz.sysname == 'ouatos' and wiz.brand == 'ouatos', 'names are always plain ouatos, even if os-release says GNU/systemd/Linux: %r / %r (scale %.2f)' % (wiz.sysname, wiz.brand, scale))
     shot(wiz, tag + '_1_welcome')
     key(wiz, 'enter'); wiz.frame()
     check(wiz.page == 'disk', 'Enter on Welcome -> disk page')
@@ -220,7 +220,7 @@ def run(w_px, h_px, tag):
     allt = ' '.join(drawn)
     bad = re.findall(r'(?i)ouatos', allt)
     check(bad and all(b == 'ouatos' for b in bad), 'every "ouatos" drawn is lowercase (%d occurrences)' % len(bad))
-    check('GNU/Linux' in allt and not re.search(r'OUATOS|Ouatos', allt), 'no OUATOS / Ouatos anywhere on screen')
+    check(not re.search(r'OUATOS|Ouatos|GNU/', allt), 'no OUATOS / Ouatos anywhere on screen')
     known = set(wiz.ui.fonts.meta[next(iter(wiz.ui.fonts.meta))]['glyphs'])
     missing = sorted({c for c in allt if c not in known})
     check(not missing, 'every character drawn exists in the glyph atlas (missing: %r)' % missing)

@@ -1,5 +1,5 @@
-PRETTY_NAME="ouatos GNU/Linux"
-NAME="ouatos GNU/Linux"
+PRETTY_NAME="ouatos GNU/systemd/Linux"
+NAME="ouatos GNU/systemd/Linux"
 VERSION_ID="1.1.0-dev.1"
 ID=ouatos
 HOME_URL="https://github.com/ybc-lw/ouatos"

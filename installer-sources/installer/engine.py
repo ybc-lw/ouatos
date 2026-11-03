@@ -98,14 +98,14 @@ def enforce_brand(s):
 
 
 def system_name(osr):
-    """Display name, e.g. 'ouatos GNU/Linux' (PRETTY_NAME, falling back to NAME / ID)."""
-    return enforce_brand(osr.get('PRETTY_NAME') or osr.get('NAME') or osr.get('ID') or BRAND)
+    """Display name: hard-coded to BRAND ('ouatos'), regardless of os-release."""
+    return BRAND
 
 
 def brand_name(osr):
-    """Short name, e.g. 'ouatos' (NAME without a trailing 'GNU/Linux')."""
+    """Short name, e.g. 'ouatos' (NAME without a trailing 'GNU/Linux' or 'GNU/systemd/Linux')."""
     n = osr.get('NAME') or osr.get('ID') or BRAND
-    n = re.sub(r'\s*GNU/Linux\s*$', '', n, flags=re.I).strip() or BRAND
+    n = re.sub(r'\s*GNU(?:/[\w.+-]+)*/Linux\s*$', '', n, flags=re.I).strip() or BRAND
     return enforce_brand(n)
 
 
