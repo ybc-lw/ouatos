@@ -24,3 +24,4 @@ rootfs/usr/share/man
 rootfs/usr/share/info
 rootfs/etc/machine-id
 *.patch
+*.rej

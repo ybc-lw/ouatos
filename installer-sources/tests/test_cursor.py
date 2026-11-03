@@ -39,7 +39,14 @@ scr.sink.written = 0; time.sleep(0.51); redraw = wiz.tick(); wiz.frame()
 check(redraw and scr.sink.written < full * 0.05, 'caret-blink redraw wrote only %d bytes (%.2f%% of the %d byte frame)' % (scr.sink.written, 100 * scr.sink.written / full, full))
 check(sprite_ok(700, 500) and sink_matches_buf_outside_cursor(700, 500), 'pointer untouched by the blink redraw')
 cur_before = scr.cursor
-scr.sink.written = 0; wiz.frame()
+# The caret blink is derived from time.time() while drawing. Freeze the clock so a slow render cannot
+# cross a 0.5 s boundary between the two frames (that made this check flaky on slow CI runners).
+_real_time = time.time; _t0 = _real_time(); time.time = lambda: _t0
+try:
+    wiz.frame()                      # settle on the frozen caret phase
+    scr.sink.written = 0; wiz.frame()
+finally:
+    time.time = _real_time
 check(scr.sink.written == 0, 'redrawing an identical frame writes nothing')
 # a redraw that overlaps the pointer must repaint it
 bx = [w for w in wiz.ui.prev if w[0] == 'next'][0][1]

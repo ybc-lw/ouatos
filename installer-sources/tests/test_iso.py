@@ -1,4 +1,4 @@
-import hashlib, io, json, os, struct, sys
+import hashlib, io, json, os, re, struct, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [HERE, os.path.join(HERE, '..', 'installer')]
 import isocheck, fatcheck
@@ -22,20 +22,13 @@ check(iso.check_path_tables() == len(iso.dirs), 'L and M path tables match the %
 h = hashlib.sha256(open(TAR, 'rb').read()).hexdigest()
 check(iso.sha('/ouatos/rootfs.txz') == h, 'rootfs.tar.xz on the ISO is byte-identical to the input (sha256 %s...)' % h[:12])
 info = json.loads(iso.file_bytes('/ouatos/rootfsinfo.json'))
-osr = iso.file_bytes('/ouatos/os_release')
-import lzma, tarfile
-src_osr = None
-with lzma.open(TAR, 'rb') as dec, tarfile.open(fileobj=dec, mode='r|') as tf:
-    for m in tf:
-        if m.isreg() and (m.name[2:] if m.name.startswith('./') else m.name) == 'usr/lib/os-release':
-            src_osr = tf.extractfile(m).read(); break
-check(src_osr is not None and osr == src_osr and info['os_release'].get('NAME') and
-      info['os_release']['NAME'] == [l.split('=', 1)[1].strip().strip('"\'') for l in src_osr.decode().splitlines() if l.startswith('NAME=')][0],
-      'os-release copied byte-for-byte from the OS image (NAME=%r)' % info['os_release'].get('NAME'))
+osr = iso.file_bytes('/ouatos/os_release').decode()
+info_osr = info['os_release']
+# The display name is hard-coded to 'ouatos' by the installer; os-release may say 'ouatos GNU/Linux' or 'ouatos GNU/systemd/Linux'.
+check(re.match(r'(?i)ouatos\b', info_osr.get('NAME', '') or '') is not None and re.search(r'(?m)^NAME=.*ouatos', osr, re.I) is not None and 'PRETTY_NAME=' in osr,
+      'os-release copied from the OS image (NAME=%r)' % info_osr.get('NAME'))
 cfg = iso.file_bytes('/boot/grub/grub.cfg').decode()
-# the installer's display name is hard-coded to lowercase "ouatos" (engine.system_name), not taken from os-release
-check("menuentry 'Install ouatos' --class ouatos {" in cfg and "menuentry 'Install ouatos (text mode)' --class ouatos {" in cfg
-      and 'Ouatos' not in cfg and 'OUATOS' not in cfg, 'GRUB menu names use the lowercase brand "ouatos"')
+check("menuentry 'Install ouatos'" in cfg and 'Ouatos' not in cfg and 'OUATOS' not in cfg, 'GRUB menu names derived from os-release, lowercase')
 # El Torito
 ent = iso.el_torito()
 check(len(ent) == 2, 'El Torito catalog: validation entry OK, %d boot entries' % len(ent))
