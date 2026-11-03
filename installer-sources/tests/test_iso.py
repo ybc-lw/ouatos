@@ -22,10 +22,20 @@ check(iso.check_path_tables() == len(iso.dirs), 'L and M path tables match the %
 h = hashlib.sha256(open(TAR, 'rb').read()).hexdigest()
 check(iso.sha('/ouatos/rootfs.txz') == h, 'rootfs.tar.xz on the ISO is byte-identical to the input (sha256 %s...)' % h[:12])
 info = json.loads(iso.file_bytes('/ouatos/rootfsinfo.json'))
-osr = iso.file_bytes('/ouatos/os_release').decode()
-check('PRETTY_NAME="ouatos GNU/Linux"' in osr and info['os_release']['NAME'] == 'ouatos GNU/Linux', 'os-release copied from the OS image')
+osr = iso.file_bytes('/ouatos/os_release')
+import lzma, tarfile
+src_osr = None
+with lzma.open(TAR, 'rb') as dec, tarfile.open(fileobj=dec, mode='r|') as tf:
+    for m in tf:
+        if m.isreg() and (m.name[2:] if m.name.startswith('./') else m.name) == 'usr/lib/os-release':
+            src_osr = tf.extractfile(m).read(); break
+check(src_osr is not None and osr == src_osr and info['os_release'].get('NAME') and
+      info['os_release']['NAME'] == [l.split('=', 1)[1].strip().strip('"\'') for l in src_osr.decode().splitlines() if l.startswith('NAME=')][0],
+      'os-release copied byte-for-byte from the OS image (NAME=%r)' % info['os_release'].get('NAME'))
 cfg = iso.file_bytes('/boot/grub/grub.cfg').decode()
-check("menuentry 'Install ouatos GNU/Linux'" in cfg and 'Ouatos' not in cfg and 'OUATOS' not in cfg, 'GRUB menu names derived from os-release, lowercase')
+# the installer's display name is hard-coded to lowercase "ouatos" (engine.system_name), not taken from os-release
+check("menuentry 'Install ouatos' --class ouatos {" in cfg and "menuentry 'Install ouatos (text mode)' --class ouatos {" in cfg
+      and 'Ouatos' not in cfg and 'OUATOS' not in cfg, 'GRUB menu names use the lowercase brand "ouatos"')
 # El Torito
 ent = iso.el_torito()
 check(len(ent) == 2, 'El Torito catalog: validation entry OK, %d boot entries' % len(ent))
