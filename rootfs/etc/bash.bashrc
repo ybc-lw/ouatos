@@ -56,3 +56,7 @@ if [ -x /usr/lib/command-not-found -o -x /usr/share/command-not-found/command-no
 		fi
 	}
 fi
+
+# Use pnpm as the default npm-compatible package manager
+alias npm='pnpm'
+alias npx='pnpx'
