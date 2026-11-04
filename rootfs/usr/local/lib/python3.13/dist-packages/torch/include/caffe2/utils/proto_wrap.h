@@ -1,0 +1,19 @@
+#if !defined(TORCH_STABLE_ONLY) && !defined(TORCH_TARGET_VERSION)
+#ifndef CAFFE2_UTILS_PROTO_WRAP_H_
+#define CAFFE2_UTILS_PROTO_WRAP_H_
+
+#include <c10/util/Logging.h>
+
+namespace ONNX_NAMESPACE {
+
+// ONNX wrapper functions for protobuf's GetEmptyStringAlreadyInited() function
+// used to avoid duplicated global variable in the case when protobuf
+// is built with hidden visibility.
+TORCH_API const ::std::string& GetEmptyStringAlreadyInited();
+
+} // namespace ONNX_NAMESPACE
+#endif // CAFFE2_UTILS_PROTO_WRAP_H_
+
+#else
+#error "This file should not be included when either TORCH_STABLE_ONLY or TORCH_TARGET_VERSION is defined."
+#endif  // !defined(TORCH_STABLE_ONLY) && !defined(TORCH_TARGET_VERSION)

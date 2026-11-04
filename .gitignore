@@ -25,3 +25,7 @@ rootfs/usr/share/info
 rootfs/etc/machine-id
 *.patch
 *.rej
+licenses/
+license_files/
+LICENSE
+!/LICENSE

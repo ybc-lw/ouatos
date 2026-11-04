@@ -1,0 +1,6 @@
+# Manually installed tools
+
+- nodejs/: Node.js license for the installed Node.js 24.22.3-pre binary.
+- llama.cpp/: llama.cpp project license covering installed llama-* binaries and libllama* libraries.
+- corepack/: Corepack 0.36.0 license.
+- pnpm: only a Corepack shim is installed in this rootfs; no independent pnpm package/runtime was present. The shim is covered by the Corepack license.
