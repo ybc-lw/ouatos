@@ -69,3 +69,6 @@ $endif
 # "\e[F": end-of-line
 
 $endif
+
+# Disable terminal bell globally
+set bell-style none
