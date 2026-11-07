@@ -79,6 +79,68 @@ try:
     check(policy.verify_policy(R, 'alice') == [], 'verify_policy does not cross into a mounted filesystem either')
 finally:
     subprocess.run(['umount', os.path.join(R, 'proc')])
+
+# ---- dpkg / apt: a tree like the image (no empty dirs, restrictive implicit dirs, tar run under umask 077) ----
+D = '/tmp/policy_dpkg'; shutil.rmtree(D, ignore_errors=True)
+def mkd(rel, mode=0o755, data=None):
+    p = os.path.join(D, rel)
+    if data is None: os.makedirs(p, exist_ok=True)
+    else:
+        os.makedirs(os.path.dirname(p), exist_ok=True); open(p, 'w').write(data)
+    os.chmod(p, mode)
+old_umask = os.umask(0o077)
+try:
+    os.makedirs(D + '/var/lib/dpkg/info'); os.makedirs(D + '/usr/lib/x86_64-linux-gnu'); os.makedirs(D + '/etc')
+    os.makedirs(D + '/usr/bin'); os.makedirs(D + '/root'); os.makedirs(D + '/var/tmp'); os.makedirs(D + '/tmp')
+    os.makedirs(D + '/etc/ssl/private'); os.makedirs(D + '/etc/sudoers.d'); os.makedirs(D + '/var/lib/sudo')
+    open(D + '/usr/bin/dpkg', 'w').write('ELF'); os.chmod(D + '/usr/bin/dpkg', 0o755)
+    open(D + '/var/lib/dpkg/status', 'w').write('Package: dpkg\nStatus: install ok installed\n'); os.chmod(D + '/var/lib/dpkg/status', 0o600)
+    for n, m in (('dpkg.list', 0o600), ('bash.postinst', 0o644), ('bash.prerm', 0o600), ('bash.md5sums', 0o644)):
+        open(D + '/var/lib/dpkg/info/' + n, 'w').write('x'); os.chmod(D + '/var/lib/dpkg/info/' + n, m)
+    os.chmod(D + '/var/lib/dpkg', 0o700); os.chmod(D + '/var/lib/dpkg/info', 0o700); os.chmod(D + '/usr/lib/x86_64-linux-gnu', 0o700)
+    os.chmod(D + '/etc/ssl/private', 0o700); os.chmod(D + '/etc/sudoers.d', 0o750); os.chmod(D + '/var/lib/sudo', 0o711)
+    stD = lambda rel: stat.S_IMODE(os.lstat(os.path.join(D, rel)).st_mode)
+    check(any('missing' in p for p in policy.verify_dpkg(D)), 'verify_dpkg detects the dpkg state directories the image lacks')
+
+    # umask 077 must not leak into directories the installer creates
+    created = policy.ensure_standard_dirs(D)
+    check(stD('usr/share/file') == 0o755 and stD('usr/share/file/magic') == 0o755, 'implicit parents of a created directory are 0755 under umask 077 (usr/share/file)')
+    check(stD('usr/local') == 0o755 and stD('usr/local/bin') == 0o755 and stD('var/cache/apt/archives') == 0o755, 'directories created under umask 077 are 0755')
+    check(all(os.lstat(os.path.join(D, d)).st_uid == 0 for d in ('usr/share/file', 'var/cache/apt/archives/partial')), 'created directories are root-owned')
+    check(os.path.isdir(D + '/var/lib/dpkg/alternatives') and os.path.isdir(D + '/var/lib/dpkg/triggers') and os.path.isdir(D + '/var/log/apt') and os.path.isdir(D + '/var/cache/apt/archives/partial') and os.path.isdir(D + '/etc/alternatives'),
+          'dpkg/apt directories created (alternatives, triggers, log/apt, archives/partial, /etc/alternatives)')
+    check(stD('var/cache/apt/archives/partial') == 0o700 and stD('var/lib/apt/lists/partial') == 0o700, 'apt partial directories are 0700')
+
+    fix = policy.repair_dir_modes(D)
+    check(stD('usr/lib/x86_64-linux-gnu') == 0o755, 'a directory left at 0700 by tar is made traversable (usr/lib/x86_64-linux-gnu)')
+    check(stD('etc/ssl/private') == 0o700 and stD('etc/sudoers.d') == 0o750 and stD('var/lib/sudo') == 0o711, 'private directories (ssl/private, sudoers.d, lib/sudo) keep their mode')
+    check(policy.repair_dir_modes(D) == [], 'repair_dir_modes is idempotent')
+
+    changes = policy.repair_dpkg(D)
+    check(stD('var/lib/dpkg') == 0o755 and stD('var/lib/dpkg/info') == 0o755, '/var/lib/dpkg and /var/lib/dpkg/info are 0755')
+    check(all(os.path.isfile(D + '/' + f) for f in ('var/lib/dpkg/lock', 'var/lib/dpkg/lock-frontend', 'var/cache/apt/archives/lock', 'var/lib/apt/lists/lock', 'var/lib/dpkg/available')), 'dpkg/apt lock files and the available file exist')
+    check(stD('var/lib/dpkg/lock') == 0o640 and stD('var/lib/dpkg/lock-frontend') == 0o640, 'dpkg lock files are 0640')
+    check(stD('var/lib/dpkg/status') == 0o644 and stD('var/lib/dpkg/info/dpkg.list') == 0o644, 'dpkg database files readable by everybody (status 0600 -> 0644)')
+    check(stD('var/lib/dpkg/info/bash.postinst') == 0o755 and stD('var/lib/dpkg/info/bash.prerm') == 0o755, 'maintainer scripts are executable (0755)')
+    check(stD('var/lib/dpkg/info/bash.md5sums') == 0o644, 'ordinary info files stay 0644')
+    check(policy.repair_dpkg(D) == [], 'repair_dpkg is idempotent (%s)' % changes[:2])
+    policy.fix_special_dirs(D); policy.enforce_root_ownership(D); policy.apply_baseline_permissions(D)
+    check(policy.verify_dpkg(D) == [], 'verify_dpkg: nothing left to complain about (%s)' % policy.verify_dpkg(D)[:2])
+
+    # verify_dpkg must catch regressions
+    os.chmod(D + '/var/lib/dpkg/info', 0o700)
+    check(any('/var/lib/dpkg/info must be' in p for p in policy.verify_dpkg(D)), 'verify_dpkg detects /var/lib/dpkg/info at 0700')
+    os.chmod(D + '/var/lib/dpkg/info', 0o755); os.chmod(D + '/var/lib/dpkg/info/bash.postinst', 0o644)
+    check(any('maintainer scripts' in p for p in policy.verify_dpkg(D)), 'verify_dpkg detects a maintainer script without the x bit')
+    os.chmod(D + '/var/lib/dpkg/info/bash.postinst', 0o755); os.rmdir(D + '/var/lib/dpkg/alternatives')
+    check(any('alternatives is missing' in p for p in policy.verify_dpkg(D)), 'verify_dpkg detects a missing /var/lib/dpkg/alternatives')
+    check(policy.verify_dpkg('/tmp/policy_root') == [] if os.path.isdir('/tmp/policy_root') else True, 'verify_dpkg ignores a system without dpkg')
+    # a symlinked parent is never followed out of the target
+    os.symlink('/nonexistent-host-dir', D + '/usr/share/info-link')
+    check(policy._mkdir(D, 'usr/share/info-link/x', 0o755) is False and not os.path.exists('/nonexistent-host-dir'), '_mkdir never walks through a symlink')
+finally:
+    os.umask(old_umask)
+shutil.rmtree(D, ignore_errors=True)
 shutil.rmtree(R)
 print('\nRESULT:', 'ALL POLICY TESTS PASSED' if all(res) else 'FAILURES: %d' % res.count(False))
 sys.exit(0 if all(res) else 1)

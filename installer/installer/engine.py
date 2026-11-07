@@ -550,6 +550,13 @@ class Installer:
 
     # -------------------------------------------------------------- driver
     def run(self):
+        old_umask = os.umask(0o022)       # tar creates implicit parent directories with 0777 & ~umask
+        try:
+            self._run()
+        finally:
+            os.umask(old_umask)
+
+    def _run(self):
         log('=== ouatos install started: %s -> %s (%s) ===' % (
             system_name(self.osr), self.cfg.disk.path, 'UEFI' if self.env.uefi else 'BIOS'))
         try:
@@ -715,11 +722,15 @@ class Installer:
         self.progress(3, 0.02, 'Creating directories and setting ownership')
         created = policy.ensure_standard_dirs(tgt)
         log('created %d standard directories missing from the image: %s' % (len(created), ', '.join(created[:14]) + (' ...' if len(created) > 14 else '')))
+        dirfix = policy.repair_dir_modes(tgt)             # directories tar created implicitly with a restrictive mode
+        log('directory modes: ' + ('; '.join(dirfix[:20]) + (' ...' if len(dirfix) > 20 else '') if dirfix else 'nothing to change'))
         policy.fix_special_dirs(tgt)                      # /tmp, /var/tmp = root:root 1777 ; /root = 0700
         fixed = policy.enforce_root_ownership(tgt)        # everything outside /home/<user> is root:root
         log('ownership: %d entries were not root:root and were reset%s' % (len(fixed), (': ' + ', '.join(fixed[:8])) if fixed else ''))
         perms = policy.apply_baseline_permissions(tgt)
         log('permissions: ' + ('; '.join(perms) if perms else 'nothing to change'))
+        dpkgfix = policy.repair_dpkg(tgt)                 # state dirs, locks, readable db, executable maintainer scripts
+        log('dpkg/apt: ' + ('; '.join(dpkgfix[:30]) + (' ...' if len(dpkgfix) > 30 else '') if dpkgfix else 'nothing to change'))
         # hostname / hosts
         self._write('etc/hostname', cfg.hostname + '\n')
         try:
@@ -778,6 +789,13 @@ class Installer:
             for n in ds + fs:
                 os.lchown(os.path.join(r, n), uid, gid)
         os.chown(home, uid, gid)
+        if os.path.exists(os.path.join(tgt, 'usr/bin/dpkg')):
+            # smoke test: dpkg must be able to open its database and take its lock (output goes to the install log)
+            for cmd in (['/usr/bin/dpkg', '--print-architecture'], ['/usr/bin/dpkg', '--audit'],
+                        ['/usr/bin/dpkg-query', '-W', '-f=${Package} ${Version}\\n', 'dpkg']):
+                r = self.ch.run(cmd, check=False)
+                if r.returncode != 0:
+                    log('WARNING: %s exited with status %d' % (' '.join(cmd), r.returncode))
         problems = policy.verify_policy(tgt, cfg.username)
         if problems:
             log('POLICY PROBLEMS: ' + '; '.join(problems))
