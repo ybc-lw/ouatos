@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: installer-sources
+        working-directory: installer
     steps:
       - uses: actions/checkout@v4
 
@@ -46,8 +46,9 @@ jobs:
 
       - name: FAT writer
         run: |
-          python3 tests/test_fat.py | tee /tmp/test_fat.log
-          ! grep -q "BUG" /tmp/test_fat.log
+          python3 tests/test_fat.py > /tmp/test_fat.log 2>&1 || { cat /tmp/test_fat.log; exit 1; }
+          cat /tmp/test_fat.log
+          if grep -q "BUG" /tmp/test_fat.log; then exit 1; fi
 
       - name: Installer safety regressions
         run: |
@@ -76,6 +77,11 @@ jobs:
 
       - name: Ownership / permission policy (needs root)
         run: sudo python3 tests/test_policy.py
+
+      - name: Ownership / permission policy (needs root)
+        run: |
+          sudo python3 tests/test_policy.py
+          sudo python3 tests/test_policy_image_listing.py
 
       - name: Upload GUI screenshots
         if: always()
@@ -112,34 +118,36 @@ jobs:
           ls -lh "$TAR"
 
       - name: Build the installer ISO
-        working-directory: installer-sources
+        working-directory: installer
         run: |
           sudo python3 build_iso.py "$TAR" "$ISO" 2>&1 | tee /tmp/build_iso.log
-          # build_iso.py only warns about Git LFS stubs; treat that as an error here
-          ! grep -q "Git LFS pointer" /tmp/build_iso.log
+          if grep -q "Git LFS pointer" /tmp/build_iso.log; then
+            echo "::error::rootfs contains Git LFS pointer stubs (git lfs pull was not run)"
+            exit 1
+          fi
           ls -lh "$ISO"
 
       - name: Validate ISO 9660 / Rock Ridge / El Torito / payload hash
-        working-directory: installer-sources
+        working-directory: installer
         run: sudo python3 tests/test_iso.py "$ISO" "$TAR"
 
       - name: Raw medium access (find by label, read payload without mounting)
-        working-directory: installer-sources
+        working-directory: installer
         run: sudo python3 tests/test_media.py "$ISO" "$TAR"
 
       - name: Live boot path (udev/kmod, /init finds the medium)
-        working-directory: installer-sources
+        working-directory: installer
         run: sudo env OUATOS_TEXT=1 bash tests/test_boot_path.sh "$ISO" /tmp/ouatos-build
 
       # Partitions and installs onto loop-backed disks, BIOS and UEFI.
       - name: End-to-end install onto a loop disk
-        working-directory: installer-sources
+        working-directory: installer
         run: |
           sudo OUATOS_TEST_TAR="$TAR" OUATOS_TEST_ISO="$ISO" OUATOS_TEST_MKE2FS=/usr/sbin/mke2fs \
             python3 tests/test_engine.py
 
       - name: Install using only live initramfs tools
-        working-directory: installer-sources
+        working-directory: installer
         run: sudo python3 tests/test_live.py
 
       # -----------------------------------------------------------------------
@@ -159,11 +167,11 @@ jobs:
           ls -l /dev/kvm || echo "no /dev/kvm, falling back to TCG (slow)"
 
       - name: VM install + boot (BIOS)
-        working-directory: installer-sources
+        working-directory: installer
         run: sudo python3 tests/test_vm.py "$ISO" --firmware bios --workdir /tmp/vmtest-bios --build-dir /tmp/ouatos-build
 
       - name: VM install + boot (UEFI)
-        working-directory: installer-sources
+        working-directory: installer
         run: sudo python3 tests/test_vm.py "$ISO" --firmware uefi --workdir /tmp/vmtest-uefi --build-dir /tmp/ouatos-build
 
       - name: Upload VM serial logs and screenshots
@@ -181,6 +189,6 @@ jobs:
         if: ${{ inputs.upload_iso == true }}
         uses: actions/upload-artifact@v4
         with:
-          name: ouatos-installer-iso
+          name: ouatos-xxx-installer-amd64-iso
           path: ${{ env.ISO }}
           retention-days: 3
