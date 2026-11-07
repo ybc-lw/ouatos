@@ -17,6 +17,13 @@ Welcome → Disk → Partitions → Computer name (default `ouatos`) → Account
 * **Ownership / permission policy** (`installer/policy.py`, verified at the end of every install, which fails
   if violated): `/` and everything under it is `root:root`; `/tmp` and `/var/tmp` are `root:root` mode `1777`;
   `/home/<user>` is `<user>:<user>`.
+* **dpkg / apt readiness** (`policy.repair_dpkg`, `verify_dpkg`): the installer creates the state directories the
+  image lacks (`/var/lib/dpkg/{info,triggers,alternatives,updates}`, `/etc/alternatives`, `/var/cache/apt/archives/partial`,
+  `/var/lib/apt/lists/partial`, `/var/log/apt`, ...) with their standard owner/mode, creates the lock files, makes the
+  dpkg database readable and the maintainer scripts in `/var/lib/dpkg/info` executable. `repair_dir_modes` fixes
+  directories that tar created implicitly with a restrictive mode, and the installer runs with `umask 022` so that
+  nothing it (or tar) creates depends on the live environment's umask. After the repair a `dpkg --audit` smoke test
+  runs in the chroot (result in the install log) and `verify_dpkg` makes the install fail if something is still wrong.
 * Installs GRUB (BIOS: core.img embedded; UEFI: `EFI/BOOT/BOOTX64.EFI` + `EFI/ouatos/grubx64.efi` + NVRAM entry).
 * Every displayed name comes from the OS's own `os-release` (`engine.system_name`), and "ouatos" is forced to lowercase.
 
