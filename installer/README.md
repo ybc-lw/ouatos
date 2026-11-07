@@ -17,6 +17,12 @@ Welcome → Disk → Partitions → Computer name (default `ouatos`) → Account
 * **Ownership / permission policy** (`installer/policy.py`, verified at the end of every install, which fails
   if violated): `/` and everything under it is `root:root`; `/tmp` and `/var/tmp` are `root:root` mode `1777`;
   `/home/<user>` is `<user>:<user>`.
+  **Declared exceptions** (`SPECIAL_OWNERS` + the image's own `var/lib/dpkg/statoverride`, names resolved from the
+  target's `/etc/passwd` and `/etc/group`, skipped and logged if a name does not exist): the D-Bus launch helper
+  `root:messagebus 4754`, `chage`/`expiry`/`unix_chkpwd` `root:shadow 2755`, `wall` `root:tty 2755`,
+  `/etc/shadow*`/`/etc/gshadow*` `root:shadow`, apt's `partial` directories `_apt:root 0700`.  Everything else stays
+  root:root and `verify_policy` reports any other entry that is not.  `standard_dir_conflicts` makes the install
+  fail with a clear message if the image has a file or a dangling link where a standard directory is required.
 * **dpkg / apt readiness** (`policy.repair_dpkg`, `verify_dpkg`): the installer creates the state directories the
   image lacks (`/var/lib/dpkg/{info,triggers,alternatives,updates}`, `/etc/alternatives`, `/var/cache/apt/archives/partial`,
   `/var/lib/apt/lists/partial`, `/var/log/apt`, ...) with their standard owner/mode, creates the lock files, makes the
@@ -44,6 +50,14 @@ Secure Boot must be off (GRUB is unsigned). Automatic whole-disk partitioning on
 USB sticks: UEFI boot only (hybrid MBR exposes the EFI image; no legacy-BIOS USB boot code). Needs ~1 GiB RAM, 4 GiB disk.
 The OS image ships no e2fsprogs/dosfstools: the installer bundles `mke2fs` from the build host (GPLv2, notice in
 `/ouatos/licenses`) and writes FAT itself; fstab disables fsck passes accordingly.
+
+## The target is a foreign file system
+Absolute symlinks in the OS image (`/var/run -> /run`, ...) mean something different inside the new system than on the
+machine running the installer.  All access to the target therefore goes through `policy.tpath(root, rel, follow=False)`,
+which resolves every directory component *inside* the target root (absolute links are re-rooted, `..` cannot leave it,
+loops raise `ELOOP`) and does not follow the last component unless asked to.  `Chroot` refuses to mount over a
+symlink or a non-directory, and checks all four mount points before mounting any.  `tests/test_policy.py` builds a target full of absolute
+links into a simulated host and asserts that the host is byte-for-byte unchanged after the whole policy sequence.
 
 ## About the OS image archive (what the installer compensates for)
 The archive has no empty directories (no /dev /proc /sys /run /home /tmp ...), every entry is 0:0 and modes are
