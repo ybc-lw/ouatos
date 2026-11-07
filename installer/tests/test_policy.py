@@ -141,6 +141,140 @@ try:
 finally:
     os.umask(old_umask)
 shutil.rmtree(D, ignore_errors=True)
+
+# ---- owners that must NOT be root:root, and the type check of standard directories ----
+O = '/tmp/policy_owners'; shutil.rmtree(O, ignore_errors=True)
+def mko(rel, mode, data='x'):
+    p = os.path.join(O, rel); os.makedirs(os.path.dirname(p), exist_ok=True)
+    if data is None: os.makedirs(p, exist_ok=True)
+    else: open(p, 'w').write(data)
+    os.chmod(p, mode)
+mko('etc/passwd', 0o644, 'root:x:0:0::/root:/bin/bash\n_apt:x:42:65534::/nonexistent:/usr/sbin/nologin\nmessagebus:x:100:107::/nonexistent:/usr/sbin/nologin\n')
+mko('etc/group', 0o644, 'root:x:0:\ntty:x:5:\nshadow:x:42:\nmessagebus:x:107:\nsudo:x:27:\n')
+for f in ('usr/lib/dbus-1.0/dbus-daemon-launch-helper', 'usr/bin/chage', 'usr/bin/expiry', 'usr/sbin/unix_chkpwd', 'usr/bin/wall'): mko(f, 0o755, 'ELF')
+for f in ('etc/shadow', 'etc/gshadow'): mko(f, 0o644)
+mko('var/cache/apt/archives/partial', 0o755, None); mko('var/lib/apt/lists/partial', 0o755, None)
+mko('usr/bin/ssh-keysign', 0o755, 'ELF'); mko('var/lib/dpkg/statoverride', 0o644, 'root messagebus 4754 /usr/lib/dbus-1.0/dbus-daemon-launch-helper\nroot sudo 2750 /usr/bin/ssh-keysign\nroot nosuchgroup 0755 /usr/bin/wall\n')
+stO = lambda rel: (os.lstat(os.path.join(O, rel)).st_uid, os.lstat(os.path.join(O, rel)).st_gid, stat.S_IMODE(os.lstat(os.path.join(O, rel)).st_mode))
+for d in ('etc', 'usr', 'var', 'etc', 'usr/bin', 'usr/sbin', 'usr/lib', 'usr/lib/dbus-1.0'): os.makedirs(os.path.join(O, d), exist_ok=True)
+owners, skipped = policy.special_owners(O)
+check(owners['usr/lib/dbus-1.0/dbus-daemon-launch-helper'] == (0, 107, 0o4754) and owners['usr/bin/chage'][1] == 42 and owners['usr/bin/wall'][1] == 5,
+      'special_owners resolves names from the TARGET passwd/group (messagebus=107, shadow=42, tty=5)')
+check(owners['usr/bin/ssh-keysign'] == (0, 27, 0o2750), 'dpkg statoverride entries are applied too')
+check(any('nosuchgroup' in x for x in skipped) and owners['usr/bin/wall'] == (0, 5, 0o2755), 'a statoverride entry naming a missing group is skipped and logged (built-in kept)')
+changes, skipped2 = policy.apply_special_owners(O)
+check(stO('usr/lib/dbus-1.0/dbus-daemon-launch-helper') == (0, 107, 0o4754), 'D-Bus launch helper is root:messagebus 4754 (setuid kept: chown first, chmod second)')
+check(stO('usr/bin/chage') == (0, 42, 0o2755) and stO('usr/sbin/unix_chkpwd') == (0, 42, 0o2755) and stO('usr/bin/wall') == (0, 5, 0o2755), 'chage/unix_chkpwd are root:shadow 2755, wall is root:tty 2755')
+check(stO('etc/shadow') == (0, 42, 0o644) and stO('etc/gshadow')[:2] == (0, 42), '/etc/shadow and /etc/gshadow get group shadow, mode untouched by the owner step')
+check(stO('var/cache/apt/archives/partial') == (42, 0, 0o700) and stO('var/lib/apt/lists/partial') == (42, 0, 0o700), 'apt partial directories are _apt:root 0700')
+check(stO('usr/bin/ssh-keysign') == (0, 27, 0o2750), 'statoverride mode/owner applied (root:sudo 2750)')
+check(policy.apply_special_owners(O)[0] == [], 'apply_special_owners is idempotent')
+ch = policy.enforce_root_ownership(O)
+check(not any(c in owners for c in ch) and stO('usr/bin/chage')[1] == 42 and stO('usr/lib/dbus-1.0/dbus-daemon-launch-helper')[1] == 107,
+      'enforce_root_ownership leaves the declared exceptions alone')
+os.chmod(O + '/usr/bin/chage', 0o755)
+check(any('/usr/bin/chage must be 0:42 2755' in p for p in policy.verify_policy(O)), 'verify_policy detects a lost setgid bit on chage')
+os.chmod(O + '/usr/bin/chage', 0o2755); os.chown(O + '/usr/bin/expiry', 0, 0)
+check(any('/usr/bin/expiry must be 0:42' in p for p in policy.verify_policy(O)), 'verify_policy detects an exception that is back to root:root')
+os.chown(O + '/usr/bin/expiry', 0, 42); os.chmod(O + '/usr/bin/expiry', 0o2755)
+check(not any('must be 0:' in p or 'must be 42:' in p for p in policy.verify_policy(O)), 'verify_policy accepts the declared exceptions')
+mko('usr/bin/stray', 0o755, 'x'); os.chown(O + '/usr/bin/stray', 0, 42)
+check(any('not owned by root:root' in p and 'usr/bin/stray' in p for p in policy.verify_policy(O)), 'any other non-root entry is still reported')
+mko('etc/group', 0o644, 'root:x:0:\nsudo:x:27:\n')
+check(policy.special_owners(O)[0].get('usr/bin/chage') is None and policy.apply_special_owners(O)[1], 'groups missing in the target: entries skipped, nothing guessed')
+
+# type of existing standard paths
+T = '/tmp/policy_types'; shutil.rmtree(T, ignore_errors=True)
+for d in ('usr/local', 'usr/share', 'var/lib', 'etc/apt', 'run'): os.makedirs(os.path.join(T, d))
+open(T + '/usr/local/bin', 'w').write('i am a file')                 # file where a directory is required
+os.symlink('/nonexistent-on-the-host', T + '/usr/local/sbin')          # absolute link to nowhere
+os.symlink('/usr/share', T + '/usr/local/share')                       # absolute link that resolves INSIDE the target
+os.symlink('../loop', T + '/usr/loop'); os.symlink('usr/loop', T + '/loop')
+open(T + '/var/lib/misc', 'w').write('file')                           # blocks var/lib/misc itself
+open(T + '/etc/apt/keyrings', 'w').write('file')
+policy.ensure_standard_dirs(T)                                         # must not crash or touch anything odd
+conf = policy.standard_dir_conflicts(T)
+check(any(c.startswith('/usr/local/bin exists but is not a directory') for c in conf), 'a regular file where a directory is required is reported (usr/local/bin)')
+check(any(c.startswith('/usr/local/sbin is a symbolic link to') for c in conf), 'a dangling symlink is reported (usr/local/sbin)')
+check(not any(c.startswith('/usr/local/share') for c in conf), 'an absolute symlink that resolves to a directory INSIDE the target is accepted (usr/local/share)')
+check(any(c.startswith('/var/lib/misc exists but is not a directory') for c in conf) and any(c.startswith('/etc/apt/keyrings exists') for c in conf), 'files blocking var/lib/misc and etc/apt/keyrings are reported')
+check(os.path.isdir(T + '/var/lib/dpkg/info') and os.path.isdir(T + '/usr/local/lib'), 'unrelated directories are still created')
+check(not os.path.exists('/nonexistent-on-the-host'), 'nothing was created outside the target through the absolute symlink')
+check(policy._mkdir(T, 'usr/local/bin/sub/dir', 0o755) is False, '_mkdir returns False instead of crashing when a parent is a regular file')
+check(policy.resolve_in_root(T, T + '/usr/loop') is None, 'resolve_in_root detects a symlink loop')
+shutil.rmtree(O, ignore_errors=True); shutil.rmtree(T, ignore_errors=True)
+
+# ---- absolute symlinks in the target must never reach the machine the installer runs on ----
+H = '/tmp/policy_hostsim'; G = '/tmp/policy_symtarget'
+for d_ in (H, G): shutil.rmtree(d_, ignore_errors=True)
+def snap(top):
+    out = {}
+    for r_, ds_, fs_ in os.walk(top):
+        for n_ in ds_ + fs_:
+            p_ = os.path.join(r_, n_); st_ = os.lstat(p_)
+            out[p_] = (stat.S_IMODE(st_.st_mode), st_.st_uid, st_.st_gid, st_.st_size, os.readlink(p_) if stat.S_ISLNK(st_.st_mode) else (open(p_, 'rb').read() if stat.S_ISREG(st_.st_mode) else None))
+    out[top] = (stat.S_IMODE(os.lstat(top).st_mode), os.lstat(top).st_uid, os.lstat(top).st_gid, 0, None)
+    return out
+for d_ in ('dbus', 'apt/lists', 'apt/lists/partial', 'home', 'dpkginfo', 'run', 'etc', 'usr_bin', 'tmpdir'): os.makedirs(os.path.join(H, d_))
+open(H + '/passwd', 'w').write('host:x:0:0::/root:/bin/sh\nhostuser:x:1000:1000::/home/hostuser:/bin/sh\n'); open(H + '/group', 'w').write('shadow:x:99:\nmessagebus:x:99:\n')
+open(H + '/shadow', 'w').write('host-secret\n'); os.chmod(H + '/shadow', 0o640); open(H + '/machine-id', 'w').write('0' * 32 + '\n')
+open(H + '/dpkginfo/dpkg.postinst', 'w').write('#!/bin/sh\n'); os.chmod(H + '/dpkginfo/dpkg.postinst', 0o644)
+open(H + '/usr_bin/chage', 'w').write('ELF'); os.chmod(H + '/usr_bin/chage', 0o755)
+open(H + '/hostfile', 'w').write('do not touch\n')
+os.chmod(H + '/apt/lists', 0o700); os.chmod(H + '/dbus', 0o700)
+for d_ in ('var/lib', 'etc', 'usr/bin', 'usr/lib', 'var/lib/dpkg'): os.makedirs(os.path.join(G, d_))
+open(G + '/usr/bin/dpkg', 'w').write('ELF'); os.chmod(G + '/usr/bin/dpkg', 0o755)
+for link_, dst_ in (('var/lib/dbus', H + '/dbus'), ('var/lib/apt', H + '/apt'), ('var/lib/dpkg/info', H + '/dpkginfo'), ('etc/passwd', H + '/passwd'),
+                    ('etc/group', H + '/group'), ('etc/shadow', H + '/shadow'), ('etc/machine-id', H + '/machine-id'), ('home', H + '/home'),
+                    ('run', H + '/run'), ('var/run', '/run'), ('var/lock', '/run/lock'), ('usr/bin/chage', H + '/usr_bin/chage'),
+                    ('etc/dpkg', H + '/etc')):
+    os.symlink(dst_, os.path.join(G, link_))
+before_host = snap(H)
+os.symlink('/loop-b', G + '/loop-a'); os.symlink('/loop-a', G + '/loop-b')
+try: policy.tpath(G, 'loop-a/x'); looped = False
+except OSError as e_: looped = e_.errno == 40
+check(looped, 'tpath raises ELOOP for a symlink loop instead of hanging or leaving the target')
+os.unlink(G + '/loop-a'); os.unlink(G + '/loop-b')
+check(policy.tpath(G, 'var/lib/dbus', follow=True) == G + H + '/dbus', 'tpath resolves an absolute link against the TARGET (%s)' % policy.tpath(G, 'var/lib/dbus', follow=True).replace(G, '<target>'))
+check(policy.tpath(G, 'var/lib/dbus/machine-id') == G + H + '/dbus/machine-id' and not policy.tpath(G, 'var/lib/dbus/machine-id').startswith(H), 'tpath resolves parent directories inside the target (non-follow keeps the last component)')
+check(os.path.islink(policy.tpath(G, 'etc/passwd')) and policy.tpath(G, 'etc/passwd') == G + '/etc/passwd', 'tpath without follow leaves the last component alone (so a link itself can be replaced)')
+check(policy._id_tables(G)[0] == {} and policy._id_tables(G)[1] == {}, "passwd/group behind an absolute link are read from the target (nothing found), not from the host")
+policy.init_machine_id(G)
+check(snap(H) == before_host, 'init_machine_id: host untouched (var/lib/dbus and etc/machine-id are absolute links)')
+policy.ensure_standard_dirs(G); policy.repair_dir_modes(G)
+try: policy.fix_special_dirs(G)
+except OSError: pass
+policy.enforce_root_ownership(G); policy.apply_baseline_permissions(G); policy.repair_dpkg(G); policy.apply_special_owners(G); policy.verify_policy(G, None)
+check(snap(H) == before_host, 'ensure/repair/enforce/baseline/repair_dpkg/special owners/verify: host file system byte-for-byte unchanged')
+check(stat.S_IMODE(os.stat(H + '/apt/lists').st_mode) == 0o700 and stat.S_IMODE(os.stat(H + '/dbus').st_mode) == 0o700 and not os.path.exists(H + '/apt/lists/lock'), 'the host directories keep mode 0700 and gained no lock files')
+check(os.path.isdir(G + H + '/apt/lists') or os.path.isdir(G + '/var/lib/dpkg'), 'what had to be created was created inside the target')
+check(os.path.lexists(G + '/var/run') and os.readlink(G + '/var/run') == '/run' and os.path.lexists(G + '/usr/bin/chage'), 'the links themselves are left as the image made them')
+
+# engine: mount points and _write
+import types, engine
+M = '/tmp/policy_chroot'; shutil.rmtree(M, ignore_errors=True); os.makedirs(M)
+os.symlink('/tmp/policy_hostsim/run', M + '/run')                       # would be a mount over the host's directory
+ch_ = engine.Chroot(M)
+try:
+    ch_.__enter__(); raised = False
+except engine.InstallError as e_:
+    raised = 'symbolic link' in str(e_)
+check(raised and ch_.mounts == [], 'Chroot refuses a symlink as mount point and mounts nothing (checked before the first mount)')
+os.unlink(M + '/run'); shutil.rmtree(M + '/proc'); open(M + '/proc', 'w').write('x')
+try:
+    ch_.__enter__(); raised = False
+except engine.InstallError as e_:
+    raised = 'not a directory' in str(e_)
+check(raised and ch_.mounts == [], 'Chroot refuses a regular file as mount point')
+inst = object.__new__(engine.Installer); inst.env = types.SimpleNamespace(target=G)
+os.makedirs(G + '/etc', exist_ok=True)
+os.symlink(H + '/hostfile', G + '/etc/hostname')
+inst._write('etc/hostname', 'newname\n')
+check(open(H + '/hostfile').read() == 'do not touch\n' and not os.path.islink(G + '/etc/hostname') and open(G + '/etc/hostname').read() == 'newname\n',
+      'Installer._write replaces an absolute link instead of writing through it to the host')
+inst._write('var/log/x.cfg', 'y\n')
+check(snap(H) == snap(H) and open(H + '/hostfile').read() == 'do not touch\n', 'Installer._write into a directory behind an absolute link stays inside the target')
+shutil.rmtree(M, ignore_errors=True); shutil.rmtree(H, ignore_errors=True); shutil.rmtree(G, ignore_errors=True)
 shutil.rmtree(R)
 print('\nRESULT:', 'ALL POLICY TESTS PASSED' if all(res) else 'FAILURES: %d' % res.count(False))
 sys.exit(0 if all(res) else 1)

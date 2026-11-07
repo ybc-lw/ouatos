@@ -171,13 +171,15 @@ def verify(inst, disk, scanner, disk_dev, uefi):
         check((S_('/home/alice').st_uid, S_('/home/alice').st_gid) == (uid_, gid_), '/home/alice is owned by alice:alice (%d:%d)' % (uid_, gid_))
         bad_ = [os.path.join(r_, n_) for r_, ds_, fs_ in os.walk(VER + '/home/alice') for n_ in ds_ + fs_ if (os.lstat(os.path.join(r_, n_)).st_uid, os.lstat(os.path.join(r_, n_)).st_gid) != (uid_, gid_)]
         check(not bad_, 'everything inside /home/alice is owned by alice:alice')
+        import policy as _pol0
+        _special = set(_pol0.special_owners(VER)[0])      # deliberate exceptions: set-id helpers, shadow group, _apt dirs
         nonroot = []
         for r_, ds_, fs_ in os.walk(VER):
             if r_ == VER + '/home':
                 ds_[:] = []
             for n_ in ds_ + fs_:
                 st_ = os.lstat(os.path.join(r_, n_))
-                if (st_.st_uid, st_.st_gid) != (0, 0) and r_ != VER + '/home':
+                if (st_.st_uid, st_.st_gid) != (0, 0) and r_ != VER + '/home' and os.path.join(r_, n_)[len(VER) + 1:] not in _special:
                     nonroot.append(os.path.join(r_, n_)[len(VER):])
         check(not nonroot, 'every file and directory outside /home/<user> is owned by root:root (%d exceptions)' % len(nonroot))
         check(all(os.path.isdir(VER + d_) for d_ in ('/dev', '/proc', '/sys', '/run', '/mnt', '/media', '/srv', '/opt', '/home', '/root', '/usr/local/bin')), 'standard directories exist (dev proc sys run mnt media srv opt home root usr/local/bin)')

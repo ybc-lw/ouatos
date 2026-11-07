@@ -477,22 +477,31 @@ class Chroot:
         self.root = root
         self.mounts = []
 
-    def _mount(self, args, dst):
-        sh(['mount'] + args + [os.path.join(self.root, dst)], what='mount ' + dst)
-        self.mounts.append(dst)
+    def _mountpoint(self, d):
+        """The mount point /<d> of the target as a path on THIS system.  It must be a real directory: mount(8)
+        follows symlinks, so an absolute link such as dev -> /dev would mount over the live system's /dev."""
+        path = policy.tpath(self.root, d)
+        if os.path.islink(path):
+            raise InstallError('/%s in the new system is a symbolic link; refusing to mount over it.' % d, os.readlink(path))
+        if os.path.lexists(path) and not os.path.isdir(path):
+            raise InstallError('/%s in the new system is not a directory.' % d)
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def _mount(self, args, path):
+        sh(['mount'] + args + [path], what='mount ' + path)
+        self.mounts.append(path)
 
     def __enter__(self):
-        for d in ('dev', 'proc', 'sys', 'run'):
-            os.makedirs(os.path.join(self.root, d), exist_ok=True)
-        self._mount(['--rbind', '/dev'], 'dev')
-        self._mount(['-t', 'proc', 'proc'], 'proc')
-        self._mount(['--rbind', '/sys'], 'sys')
-        self._mount(['-t', 'tmpfs', 'tmpfs'], 'run')
+        points = {d: self._mountpoint(d) for d in ('dev', 'proc', 'sys', 'run')}   # check all four before mounting any
+        self._mount(['--rbind', '/dev'], points['dev'])
+        self._mount(['-t', 'proc', 'proc'], points['proc'])
+        self._mount(['--rbind', '/sys'], points['sys'])
+        self._mount(['-t', 'tmpfs', 'tmpfs'], points['run'])
         return self
 
     def __exit__(self, *a):
-        for d in reversed(self.mounts):
-            p = os.path.join(self.root, d)
+        for p in reversed(self.mounts):
             if sh(['umount', '-R', p], check=False).returncode != 0:
                 sh(['umount', '-R', '-l', p], check=False)
         self.mounts = []
@@ -695,13 +704,13 @@ class Installer:
             log('tar: ' + err[-1500:])
         if rc != 0:
             raise InstallError('Copying the system failed (tar exit status %d).' % rc, err[-1500:])
-        if not glob.glob(os.path.join(tgt, 'boot', 'vmlinuz-*')) or not os.path.exists(os.path.join(tgt, 'usr/bin/bash')):
+        if not glob.glob(os.path.join(policy.tpath(tgt, 'boot', follow=True), 'vmlinuz-*')) or not os.path.exists(policy.tpath(tgt, 'usr/bin/bash', follow=True)):
             raise InstallError('The copied system looks incomplete.')
         self.progress(2, 1.0, 'System copied')
 
     # -------------------------------------------------------------- 4. configure
     def _write(self, rel, text, mode=0o644):
-        path = os.path.join(self.env.target, rel)
+        path = policy.tpath(self.env.target, rel)          # parents resolved inside the target, the entry itself not followed
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if os.path.lexists(path):
             os.unlink(path)
@@ -714,7 +723,7 @@ class Installer:
         self.progress(3, 0.05, 'Writing system settings')
         # target's own os-release is the source of truth for names from here on
         try:
-            with open(os.path.join(tgt, 'etc/os-release')) as f:
+            with open(policy.tpath(tgt, 'etc/os-release', follow=True)) as f:
                 self.osr = parse_os_release(f.read()) or self.osr
         except OSError:
             pass
@@ -731,10 +740,18 @@ class Installer:
         log('permissions: ' + ('; '.join(perms) if perms else 'nothing to change'))
         dpkgfix = policy.repair_dpkg(tgt)                 # state dirs, locks, readable db, executable maintainer scripts
         log('dpkg/apt: ' + ('; '.join(dpkgfix[:30]) + (' ...' if len(dpkgfix) > 30 else '') if dpkgfix else 'nothing to change'))
+        conflicts = policy.standard_dir_conflicts(tgt)    # a file or a dangling link where a directory is required
+        if conflicts:
+            log('DIRECTORY CONFLICTS: ' + '; '.join(conflicts))
+            raise InstallError('The system image has files or links where directories are required.', '\n'.join(conflicts))
+        owned, skipped = policy.apply_special_owners(tgt)  # set-id helpers, shadow group, _apt dirs: not root:root
+        log('special owners: ' + ('; '.join(owned) if owned else 'nothing to change'))
+        if skipped:
+            log('special owners skipped: ' + '; '.join(skipped))
         # hostname / hosts
         self._write('etc/hostname', cfg.hostname + '\n')
         try:
-            hosts = open(os.path.join(tgt, 'etc/hosts')).read().splitlines()
+            hosts = open(policy.tpath(tgt, 'etc/hosts', follow=True)).read().splitlines()
         except OSError:
             hosts = ['127.0.0.1\tlocalhost', '::1\t\tlocalhost ip6-localhost ip6-loopback']
         hosts = [h for h in hosts if not re.match(r'127\.0\.1\.1\s', h)]
@@ -753,7 +770,7 @@ class Installer:
                 fstab.append('UUID=%s\tnone\tswap\tsw\t0\t0' % p.fs_uuid)
         self._write('etc/fstab', '\n'.join(fstab) + '\n')
         if self.env.uefi:
-            os.makedirs(os.path.join(tgt, 'boot/efi'), exist_ok=True)
+            os.makedirs(policy.tpath(tgt, 'boot/efi', follow=True), exist_ok=True)
         # machine-id: a fresh random ID for this installation
         self.progress(3, 0.3, 'Initialising the machine ID')
         mid = policy.init_machine_id(tgt)
@@ -763,7 +780,7 @@ class Installer:
         self.ch = Chroot(tgt)
         self.ch.__enter__()
         try:
-            existing = {l.split(':')[0] for l in open(os.path.join(tgt, 'etc/group'))}
+            existing = {l.split(':')[0] for l in open(policy.tpath(tgt, 'etc/group', follow=True))}
         except OSError:
             existing = set()
         if 'sudo' not in existing:
@@ -782,14 +799,15 @@ class Installer:
         self.progress(3, 0.7, 'Setting passwords')
         self.ch.run(['/usr/sbin/chpasswd'], input=creds.encode(), what='Setting the passwords')
         # /home/<user> belongs to <user>:<user>: enforce it explicitly, whatever useradd did
-        pw = next(r for r in policy.parse_colon_file(os.path.join(tgt, 'etc/passwd')) if r[0] == cfg.username)
+        pw = next(r for r in policy.parse_colon_file(policy.tpath(tgt, 'etc/passwd', follow=True)) if r[0] == cfg.username)
         uid, gid = int(pw[2]), int(pw[3])
-        home = os.path.join(tgt, 'home', cfg.username)
+        home = policy.tpath(tgt, 'home/' + cfg.username)
         for r, ds, fs in os.walk(home):
             for n in ds + fs:
                 os.lchown(os.path.join(r, n), uid, gid)
         os.chown(home, uid, gid)
-        if os.path.exists(os.path.join(tgt, 'usr/bin/dpkg')):
+        policy.apply_special_owners(tgt)                  # useradd/chpasswd rewrote /etc/shadow, /etc/gshadow: root:shadow again
+        if os.path.exists(policy.tpath(tgt, 'usr/bin/dpkg', follow=True)):
             # smoke test: dpkg must be able to open its database and take its lock (output goes to the install log)
             for cmd in (['/usr/bin/dpkg', '--print-architecture'], ['/usr/bin/dpkg', '--audit'],
                         ['/usr/bin/dpkg-query', '-W', '-f=${Package} ${Version}\\n', 'dpkg']):
@@ -804,7 +822,7 @@ class Installer:
 
     # -------------------------------------------------------------- 5. bootloader
     def _grub_modules(self, platform, wanted):
-        have = lambda m: os.path.exists(os.path.join(self.env.target, 'usr/lib/grub', platform, m + '.mod'))
+        have = lambda m: os.path.exists(policy.tpath(self.env.target, 'usr/lib/grub/%s/%s.mod' % (platform, m), follow=True))
         return [m for m in wanted if have(m)]
 
     def step_bootloader(self):
@@ -851,7 +869,7 @@ class Installer:
         self.ch.run(['/usr/bin/grub-mkimage', '-O', 'x86_64-efi', '-d', '/usr/lib/grub/x86_64-efi',
                      '-o', '/tmp/ouatos-grubx64.efi', '-p', '/boot/grub', '-c', '/tmp/ouatos-early.cfg'] + mods,
                     what='Building the bootloader image')
-        with open(os.path.join(tgt, 'tmp/ouatos-grubx64.efi'), 'rb') as f:
+        with open(policy.tpath(tgt, 'tmp/ouatos-grubx64.efi', follow=True), 'rb') as f:
             efi = f.read()
         self.progress(4, 0.45, 'Writing the EFI system partition')
         dev = self.env.scanner.path(d, esp)
@@ -887,7 +905,7 @@ class Installer:
         self._wait_uuid_link(root)
         r = ch.run(['/usr/sbin/grub-mkconfig', '-o', '/boot/grub/grub.cfg'], check=False)
         try:
-            cfg = open(os.path.join(tgt, 'boot/grub/grub.cfg')).read()
+            cfg = open(policy.tpath(tgt, 'boot/grub/grub.cfg', follow=True)).read()
             ok = (r.returncode == 0 and 'menuentry' in cfg and 'root=UUID=%s' % root.fs_uuid in cfg)
         except OSError:
             pass
@@ -895,7 +913,7 @@ class Installer:
             log('grub.cfg generated by grub-mkconfig')
             return
         log('grub-mkconfig output unusable; writing a minimal grub.cfg instead')
-        kernels = sorted(glob.glob(os.path.join(tgt, 'boot/vmlinuz-*')))
+        kernels = sorted(glob.glob(os.path.join(policy.tpath(tgt, 'boot', follow=True), 'vmlinuz-*')))
         if not kernels:
             raise InstallError('No kernel was found in the installed system.')
         ver = os.path.basename(kernels[-1])[len('vmlinuz-'):]
@@ -914,11 +932,14 @@ class Installer:
         self.progress(5, 0.1, 'Cleaning up')
         for f in ('tmp/ouatos-early.cfg', 'tmp/ouatos-grubx64.efi'):
             try:
-                os.unlink(os.path.join(tgt, f))
+                os.unlink(policy.tpath(tgt, f))
             except OSError:
                 pass
         try:
-            shutil.copy(LOG_FILE, os.path.join(tgt, 'var/log/ouatos-install.log'))
+            dst = policy.tpath(tgt, 'var/log/ouatos-install.log')
+            if os.path.islink(dst):
+                os.unlink(dst)                            # shutil.copy would write THROUGH the link, possibly to the host
+            shutil.copy(LOG_FILE, dst)
         except OSError:
             pass
         if self.ch:
