@@ -302,3 +302,91 @@ Package: dbus-system-bus-common
 Architecture: amd64
 Auto-Installed: 1
 
+Package: adduser
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libngtcp2-16
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libmm-glib0
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libngtcp2-crypto-gnutls8
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libjansson4
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libcurl3t64-gnutls
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libndp0
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libteamdctl0
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libbluetooth3
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libslang2
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libnm0
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libnewt0.52
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libatomic1
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libglib2.0-0t64
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libctf-nobfd0
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libbinutils
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libgfortran5
+Architecture: amd64
+Auto-Installed: 1
+
+Package: binutils-x86-64-linux-gnu
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libctf0
+Architecture: amd64
+Auto-Installed: 1
+
+Package: binutils-common
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libsframe1
+Architecture: amd64
+Auto-Installed: 1
+
+Package: libgprofng0
+Architecture: amd64
+Auto-Installed: 1
+

@@ -1,0 +1,6 @@
+update-alternatives 2026-11-02 16:13:52: run with --install /usr/lib/x86_64-linux-gnu/libblas.so.3 libblas.so.3-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 100
+update-alternatives 2026-11-02 16:13:52: link group libblas.so.3-x86_64-linux-gnu updated to point to /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
+update-alternatives 2026-11-02 16:13:52: run with --install /usr/lib/x86_64-linux-gnu/liblapack.so.3 liblapack.so.3-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/openblas-pthread/liblapack.so.3 100
+update-alternatives 2026-11-02 16:13:52: link group liblapack.so.3-x86_64-linux-gnu updated to point to /usr/lib/x86_64-linux-gnu/openblas-pthread/liblapack.so.3
+update-alternatives 2026-11-02 16:13:52: run with --install /usr/lib/x86_64-linux-gnu/libopenblas.so.0 libopenblas.so.0-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas.so.0 100
+update-alternatives 2026-11-02 16:13:52: link group libopenblas.so.0-x86_64-linux-gnu updated to point to /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas.so.0

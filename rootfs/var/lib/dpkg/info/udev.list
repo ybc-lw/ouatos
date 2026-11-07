@@ -120,7 +120,6 @@
 /usr/share/bug/udev
 /usr/share/bug/udev/control
 /usr/share/bug/udev/script
-/usr/share/doc
 /usr/share/doc/udev
 /usr/share/doc/udev/NEWS.Debian.gz
 /usr/share/doc/udev/README.Debian.gz
@@ -137,14 +136,10 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/udev
-/usr/share/man
-/usr/share/man/man5
 /usr/share/man/man5/systemd.link.5.gz
 /usr/share/man/man5/udev.conf.5.gz
-/usr/share/man/man7
 /usr/share/man/man7/hwdb.7.gz
 /usr/share/man/man7/udev.7.gz
-/usr/share/man/man8
 /usr/share/man/man8/systemd-hwdb.8.gz
 /usr/share/man/man8/systemd-udevd.service.8.gz
 /usr/share/man/man8/udevadm.8.gz

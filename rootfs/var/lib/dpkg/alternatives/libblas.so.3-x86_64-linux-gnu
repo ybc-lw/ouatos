@@ -1,0 +1,6 @@
+auto
+/usr/lib/x86_64-linux-gnu/libblas.so.3
+
+/usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
+100
+

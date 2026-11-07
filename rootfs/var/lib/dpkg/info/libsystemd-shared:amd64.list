@@ -6,7 +6,6 @@
 /usr/lib/x86_64-linux-gnu/systemd/libsystemd-core-257.so
 /usr/lib/x86_64-linux-gnu/systemd/libsystemd-shared-257.so
 /usr/share
-/usr/share/doc
 /usr/share/doc/libsystemd-shared
 /usr/share/doc/libsystemd-shared/NEWS.Debian.gz
 /usr/share/doc/libsystemd-shared/changelog.Debian.gz

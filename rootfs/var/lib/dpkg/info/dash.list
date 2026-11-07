@@ -6,7 +6,6 @@
 /usr/share/debianutils
 /usr/share/debianutils/shells.d
 /usr/share/debianutils/shells.d/dash
-/usr/share/doc
 /usr/share/doc/dash
 /usr/share/doc/dash/README.Debian.diet
 /usr/share/doc/dash/README.source
@@ -16,7 +15,6 @@
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/dash
-/usr/share/man
 /usr/share/man/man1/dash.1.gz
 /usr/share/menu
 /usr/share/menu/dash

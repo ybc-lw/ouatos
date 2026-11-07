@@ -1,0 +1,44 @@
+# Installed Python distributions
+
+License texts are copied from each installed distribution metadata license directory, preserving filenames and subdirectories. Packages without bundled license text are listed as metadata only unless a project license file was retrieved.
+
+| Distribution | Version | License text copied |
+|---|---:|:---:|
+| annotated-doc | 0.0.5 | yes |
+| anyio | 4.16.0 | yes |
+| certifi | 2026.10.23 | yes |
+| charset-normalizer | 3.5.2 | yes |
+| click | 8.5.0 | yes |
+| filelock | 4.2.7 | yes |
+| fsspec | 2026.9.0 | yes |
+| gguf | 0.19.0 | yes |
+| h11 | 0.16.0 | yes |
+| hf-xet | 1.8.0 | yes |
+| httpcore2 | 2.16.0 | yes |
+| httpx2 | 2.16.0 | yes |
+| huggingface_hub | 2.4.0 | yes |
+| idna | 3.20 | yes |
+| Jinja2 | 3.1.6 | yes |
+| markdown-it-py | 4.2.0 | yes |
+| MarkupSafe | 3.0.4 | yes |
+| mdurl | 0.1.2 | metadata only |
+| mpmath | 1.3.0 | metadata only |
+| networkx | 3.7 | yes |
+| numpy | 2.5.4 | yes |
+| Pygments | 2.21.0 | yes |
+| PyYAML | 6.0.3 | yes |
+| regex | 2026.9.29 | yes |
+| requests | 2.34.2 | yes |
+| rich | 15.0.0 | yes |
+| safetensors | 0.8.0 | yes |
+| setuptools | 84.2.1 | yes |
+| shellingham | 1.5.4 | metadata only |
+| sympy | 1.14.0 | yes |
+| tokenizers | 0.23.3 | yes |
+| torch | 2.16.0a0+git7805a5d | yes |
+| tqdm | 4.70.1 | yes |
+| transformers | 5.22.1 | yes |
+| truststore | 0.10.5 | yes |
+| typer | 0.27.3 | yes |
+| typing_extensions | 4.16.0 | yes |
+| urllib3 | 2.8.0 | yes |

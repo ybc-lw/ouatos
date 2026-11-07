@@ -17,7 +17,6 @@
 /usr/share/bash-completion/completions/kmod
 /usr/share/bash-completion/completions/lsmod
 /usr/share/bash-completion/completions/rmmod
-/usr/share/doc
 /usr/share/doc/libkmod2
 /usr/share/doc/libkmod2/README.md
 /usr/share/fish
@@ -28,12 +27,9 @@
 /usr/share/initramfs-tools
 /usr/share/initramfs-tools/hooks
 /usr/share/initramfs-tools/hooks/kmod
-/usr/share/man
-/usr/share/man/man5
 /usr/share/man/man5/depmod.d.5.gz
 /usr/share/man/man5/modprobe.d.5.gz
 /usr/share/man/man5/modules.dep.5.gz
-/usr/share/man/man8
 /usr/share/man/man8/depmod.8.gz
 /usr/share/man/man8/insmod.8.gz
 /usr/share/man/man8/kmod.8.gz

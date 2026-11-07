@@ -6,7 +6,6 @@
 /usr/bin/diff3
 /usr/bin/sdiff
 /usr/share
-/usr/share/doc
 /usr/share/doc/diffutils
 /usr/share/doc/diffutils/NEWS.gz
 /usr/share/doc/diffutils/changelog.Debian.gz
@@ -53,7 +52,6 @@
 /usr/share/locale/zh_CN/LC_MESSAGES
 /usr/share/locale/zh_CN/LC_MESSAGES/diffutils.mo
 /usr/share/locale/zh_TW/LC_MESSAGES/diffutils.mo
-/usr/share/man
 /usr/share/man/man1/cmp.1.gz
 /usr/share/man/man1/diff.1.gz
 /usr/share/man/man1/diff3.1.gz
