@@ -29,3 +29,5 @@ licenses/
 license_files/
 LICENSE
 !/LICENSE
+rootfs/var/log
+*.log

@@ -17,15 +17,12 @@
 /usr/share/bug
 /usr/share/bug/binutils
 /usr/share/bug/binutils/presubj
-/usr/share/doc
 /usr/share/doc/binutils
 /usr/share/doc/binutils/changelog.Debian.gz
 /usr/share/doc/binutils/copyright
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/binutils
-/usr/share/man
-/usr/share/man/man1
 /usr/share/man/man1/gprofng-archive.1.gz
 /usr/share/man/man1/gprofng-collect-app.1.gz
 /usr/share/man/man1/gprofng-display-html.1.gz

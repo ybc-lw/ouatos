@@ -3810,6 +3810,41 @@ Description: tools for mounting and manipulating filesystems
  swapoff(8), and losetup(8) commands.
 Homepage: https://github.com/util-linux/util-linux
 
+Package: nano
+Status: install ok installed
+Priority: important
+Section: editors
+Installed-Size: 2839
+Maintainer: Jordi Mallach <jordi@debian.org>
+Architecture: amd64
+Version: 8.4-1+deb13u1
+Replaces: nano-tiny (<< 2.8.6-2), pico
+Depends: libc6 (>= 2.38), libncursesw6 (>= 6), libtinfo6 (>= 6)
+Suggests: hunspell
+Breaks: nano-tiny (<< 2.8.6-2)
+Conflicts: pico
+Conffiles:
+ /etc/nanorc b30e7a873df86d742e539d3e3f2a3826
+Description: small, friendly text editor inspired by Pico
+ GNU nano is an easy-to-use text editor originally designed as a replacement
+ for Pico, the ncurses-based editor from the non-free mailer package Pine
+ (itself now available under the Apache License as Alpine).
+ .
+ However, GNU nano also implements many features missing in Pico, including:
+  - undo/redo
+  - line numbering
+  - syntax coloring
+  - soft-wrapping of overlong lines
+  - selecting text by holding Shift
+  - interactive search and replace (with regular expression support)
+  - a go-to line (and column) command
+  - support for multiple file buffers
+  - auto-indentation
+  - tab completion of filenames and search terms
+  - toggling features while running
+  - and full internationalization support
+Homepage: https://www.nano-editor.org/
+
 Package: ncurses-base
 Essential: yes
 Status: install ok installed

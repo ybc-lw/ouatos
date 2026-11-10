@@ -163,14 +163,11 @@
 /usr/lib/x86_64-linux-gnu/ldscripts/i386pep.xu
 /usr/lib/x86_64-linux-gnu/ldscripts/stamp
 /usr/share
-/usr/share/doc
 /usr/share/doc/binutils
 /usr/share/doc/binutils/test-summary-amd64.gz
 /usr/share/lintian
 /usr/share/lintian/overrides
 /usr/share/lintian/overrides/binutils-x86-64-linux-gnu
-/usr/share/man
-/usr/share/man/man1
 /usr/bin/x86_64-linux-gnu-ld
 /usr/share/doc/binutils-x86-64-linux-gnu
 /usr/share/man/man1/x86_64-linux-gnu-addr2line.1.gz
