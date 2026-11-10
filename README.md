@@ -9,7 +9,6 @@ The current system image includes the following software and components:
 - **Debian base system**
 - **systemd**
 - **Networking utilities**
-- **GNU Binutils**
 - **OpenSSL**
 - **Python 3 and pip**
   - PyTorch (CPU inference only)
@@ -36,6 +35,4 @@ The installation image performs the following setup tasks:
 
 ## License
 
-ouatos is released under the MIT License.
-
-See LICENSE for the full license text.
+ouatos is released under the MIT License. See LICENSE for the full license text.

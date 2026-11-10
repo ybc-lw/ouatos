@@ -1,7 +1,6 @@
 /.
 /usr
 /usr/share
-/usr/share/doc
 /usr/share/doc/binutils
 /usr/share/doc/binutils/NEWS.gz
 /usr/share/doc/binutils/README.cross.gz
@@ -204,8 +203,6 @@
 /usr/share/locale/zh_TW/LC_MESSAGES
 /usr/share/locale/zh_TW/LC_MESSAGES/binutils.mo
 /usr/share/locale/zh_TW/LC_MESSAGES/ld.mo
-/usr/share/man
-/usr/share/man/man1
 /usr/share/man/man1/addr2line.1.gz
 /usr/share/man/man1/ar.1.gz
 /usr/share/man/man1/as.1.gz
