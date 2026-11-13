@@ -45,7 +45,12 @@ def run(cmd, **kw):
 def unmount_under(path):
     """Never let a stale bind mount (/dev, /proc ...) inside the work dir be traversed by rmtree."""
     path = os.path.realpath(path)
-    mounts = [l.split()[1] for l in open('/proc/mounts') if l.split()[1].startswith(path + '/')]
+    mounts = []
+    with open('/proc/mounts') as f:
+        for line in f:
+            mp = line.split()[1].replace('\\040', ' ').replace('\\011', '\t').replace('\\012', '\n').replace('\\134', '\\')
+            if mp == path or mp.startswith(path + '/'):
+                mounts.append(mp)
     for m in sorted(mounts, key=len, reverse=True):
         subprocess.run(['umount', '-l', m], check=True)
 
@@ -97,7 +102,9 @@ def main():
               % (f['path'], (f['expected_bytes'] or 0) / 2**20))
 
     step('Unpacking the OS image to use its kernel, GRUB, Python and tools')
-    if os.path.exists(rootfs):
+    if os.path.islink(rootfs):
+        os.unlink(rootfs)
+    elif os.path.exists(rootfs):
         shutil.rmtree(rootfs)
     os.makedirs(rootfs)
     run(['tar', '-xf', tarball, '-C', rootfs, '--numeric-owner', '--xattrs', '--xattrs-include=*'],
@@ -111,7 +118,9 @@ def main():
 
     step('Building the live installer environment')
     mklive.build_live(rootfs, live, kver, os.path.join(HERE, 'installer'))
-    if os.path.exists(iso_dir):
+    if os.path.islink(iso_dir):
+        os.unlink(iso_dir)
+    elif os.path.exists(iso_dir):
         shutil.rmtree(iso_dir)
     for d in ('boot/grub/fonts', 'ouatos/licenses', 'EFI/BOOT'):
         os.makedirs(os.path.join(iso_dir, d))
@@ -123,14 +132,16 @@ def main():
     step('Building the bootloader images with the OS image\'s own GRUB')
     ob = os.path.join(rootfs, 'tmp/ob')
     os.makedirs(ob, exist_ok=True)
-    open(os.path.join(ob, 'early.cfg'), 'w').write(EARLY_CFG % label)
+    with open(os.path.join(ob, 'early.cfg'), 'w') as f:
+        f.write(EARLY_CFG % label)
     gfx = {}
     for plat, fmt, out, mods in (('i386-pc', 'i386-pc-eltorito', 'eltorito.img', BIOS_MODS),
                                  ('x86_64-efi', 'x86_64-efi', 'bootx64.efi', EFI_MODS)):
         have = [m for m in mods if os.path.exists(os.path.join(rootfs, 'usr/lib/grub', plat, m + '.mod'))]
         run(['chroot', rootfs, '/usr/bin/grub-mkimage', '-O', fmt, '-d', '/usr/lib/grub/' + plat, '-o', '/tmp/ob/' + out,
              '-p', '/boot/grub', '-c', '/tmp/ob/early.cfg'] + have)
-        gfx[out] = open(os.path.join(ob, out), 'rb').read()
+        with open(os.path.join(ob, out), 'rb') as f:
+            gfx[out] = f.read()
         d = os.path.join(iso_dir, 'boot/grub', plat)
         os.makedirs(d)
         src = os.path.join(rootfs, 'usr/lib/grub', plat)
@@ -140,10 +151,12 @@ def main():
         print('   %-14s %6d bytes  (%d modules embedded)' % (out, len(gfx[out]), len(have)))
     shutil.copy2(os.path.join(rootfs, 'usr/share/grub/unicode.pf2'), os.path.join(iso_dir, 'boot/grub/fonts/unicode.pf2'))
     cfg = grub_cfg(sysname, label)
-    open(os.path.join(ob, 'grub.cfg'), 'w').write(cfg)
+    with open(os.path.join(ob, 'grub.cfg'), 'w') as f:
+        f.write(cfg)
     run(['chroot', rootfs, '/usr/bin/grub-script-check', '/tmp/ob/grub.cfg'])
     print('   grub.cfg passes grub-script-check')
-    open(os.path.join(iso_dir, 'boot/grub/grub.cfg'), 'w').write(cfg)
+    with open(os.path.join(iso_dir, 'boot/grub/grub.cfg'), 'w') as f:
+        f.write(cfg)
 
     step('Building the EFI boot image (FAT)')
     efi = gfx['bootx64.efi']
@@ -153,26 +166,30 @@ def main():
     print('   efi.img: %d MiB FAT16' % (size >> 20))
 
     step('Collecting installer payload and notices')
-    with open(os.path.join(iso_dir, 'ouatos/os_release'), 'w') as f:
-        f.write(open(os.path.join(rootfs, 'usr/lib/os-release')).read())
-    json.dump(info, open(os.path.join(iso_dir, 'ouatos/rootfsinfo.json'), 'w'))
+    with open(os.path.join(rootfs, 'usr/lib/os-release')) as src_f, \
+         open(os.path.join(iso_dir, 'ouatos/os_release'), 'w') as dst_f:
+        dst_f.write(src_f.read())
+    with open(os.path.join(iso_dir, 'ouatos/rootfsinfo.json'), 'w') as f:
+        json.dump(info, f)
     for src, name in (('/usr/share/doc/fonts-dejavu-core/copyright', 'DejaVu-fonts.txt'),
                       ('/usr/share/doc/e2fsprogs/copyright', 'e2fsprogs.txt'),
                       (os.path.join(rootfs, 'usr/share/doc/grub-common/copyright'), 'grub.txt'),
                       (os.path.join(rootfs, 'usr/share/doc/linux-image-%s/copyright' % kver), 'linux-kernel.txt')):
         if os.path.exists(src):
             shutil.copy2(src, os.path.join(iso_dir, 'ouatos/licenses', name))
-    open(os.path.join(iso_dir, 'ouatos/README.txt'), 'w').write(
-        '%s installer medium\n\n'
-        'Boots on BIOS and UEFI (Secure Boot must be off: the bootloader is unsigned) and installs %s.\n'
-        'Contents: boot/ (kernel, installer initramfs, GRUB), ouatos/rootfs.txz (the system that gets installed, your rootfs.tar.xz unchanged).\n'
-        'Third-party notices: ouatos/licenses/.\n' % (sysname, sysname))
+    with open(os.path.join(iso_dir, 'ouatos/README.txt'), 'w') as f:
+        f.write(
+            '%s installer medium\n\n'
+            'Boots on BIOS and UEFI (Secure Boot must be off: the bootloader is unsigned) and installs %s.\n'
+            'Contents: boot/ (kernel, installer initramfs, GRUB), ouatos/rootfs.txz (the system that gets installed, your rootfs.tar.xz unchanged).\n'
+            'Third-party notices: ouatos/licenses/.\n' % (sysname, sysname))
 
     step('Writing the ISO 9660 image')
     iso = isowriter.ISO(label, sysid='LINUX', publisher=brand, preparer='build_iso.py',
                         app='%s installer' % brand, mtime=int(time.time()))
     iso.mkdir('/boot/grub')
-    for root_, _, files in os.walk(iso_dir):
+    for root_, dirs, files in os.walk(iso_dir):
+        dirs.sort()
         for f in sorted(files):
             p = os.path.join(root_, f)
             rel = '/' + os.path.relpath(p, iso_dir)

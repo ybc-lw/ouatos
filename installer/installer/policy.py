@@ -1,23 +1,17 @@
 """Ownership / permission policy applied to a freshly extracted system.
 
 Rules implemented here:
-  * "/" and everything under it is owned by root:root (the only exception is a user's home directory).
+  * "/" and everything under it is owned by root:root (the only exceptions are user home directories and
+    package-specific entries resolved from SPECIAL_OWNERS, tmpfiles.d, and dpkg statoverride).
   * /tmp and /var/tmp are root:root with mode 1777 (sticky bit: users cannot delete each other's files).
   * /home/<user> is owned by <user>:<user>  (done by the engine with useradd -U, verified by verify_policy()).
   * /etc/machine-id is initialised with a fresh random ID for every installation.
 
 The OS image is an archive that has lost information: it contains no empty directories (no /dev /proc /sys
 /run /tmp /home ...), every entry is owned by 0:0 and its modes are flattened (no setuid bits, /etc/shadow is
-0644 ...).  So the installer (1) creates the standard directories, (2) tightens -- never loosens -- the few
-security-critical modes, and (3) restores the setuid bit on the handful of programs that cannot work without it.
-
-dpkg/apt additionally need their state directories (info, alternatives, triggers, updates, archives/partial ...),
-lock files and executable maintainer scripts; those are created / repaired by repair_dpkg() and checked by
-verify_dpkg().  A handful of entries must NOT be root:root (the D-Bus launch helper is root:messagebus 4754,
-chage/expiry/unix_chkpwd are setgid shadow, /etc/shadow is root:shadow, ...): see SPECIAL_OWNERS and
-special_owners() -- they are applied from the target's own /etc/passwd, /etc/group and dpkg statoverride database,
-and enforce_root_ownership()/verify_policy() leave exactly those entries alone.  Directories that tar created implicitly (their mode then depends on the process umask) are
-repaired by repair_dir_modes().
+0644 ...).  So the installer (1) creates/repairs the standard directories, (2) tightens -- never loosens -- the few
+security-critical modes, and (3) restores the setuid bit and package-specific owners/modes from SPECIAL_OWNERS,
+tmpfiles.d, and dpkg statoverride.
 """
 import errno
 import glob
@@ -26,7 +20,7 @@ import re
 import stat
 import uuid
 
-# (path relative to /, mode).  Created only when missing; existing directories are left as they are.
+# (path relative to /, mode).  Created when missing, or repaired if a non-directory / broken symlink is in the way.
 STANDARD_DIRS = [
     # top level and mount points
     ('dev', 0o755), ('proc', 0o755), ('sys', 0o755), ('run', 0o755), ('mnt', 0o755), ('media', 0o755),
@@ -45,7 +39,7 @@ STANDARD_DIRS = [
     ('etc/init.d', 0o755), ('etc/rc2.d', 0o755), ('etc/rc3.d', 0o755), ('etc/rc4.d', 0o755),
     ('etc/rc5.d', 0o755), ('etc/profile.d', 0o755), ('etc/skel', 0o755), ('etc/default', 0o755),
     ('usr/share/doc', 0o755), ('usr/lib/dpkg', 0o755),
-    ('var/local', 0o755), ('var/opt', 0o755), ('var/mail', 0o755), ('var/backups', 0o755),
+    ('var/local', 0o755), ('var/opt', 0o755), ('var/mail', 0o2775), ('var/backups', 0o755),
     # /usr
     ('usr/games', 0o755), ('usr/src', 0o755), ('usr/local', 0o755), ('usr/local/bin', 0o755),
     ('usr/local/sbin', 0o755), ('usr/local/lib', 0o755), ('usr/local/share', 0o755), ('usr/local/etc', 0o755),
@@ -74,27 +68,55 @@ SPECIAL_DIRS = {'tmp': 0o1777, 'var/tmp': 0o1777, 'root': 0o700}
 TIGHTEN = {
     'etc/shadow': 0o640, 'etc/shadow-': 0o640, 'etc/gshadow': 0o640, 'etc/gshadow-': 0o640,
     'etc/security/opasswd': 0o600, 'etc/.pwd.lock': 0o600, 'etc/sudoers': 0o440, 'etc/sudoers.d': 0o750,
-    'root/.bash_history': 0o600, 'var/cache/debconf/passwords.dat': 0o600, 'var/log/btmp': 0o640,
+    'root/.bash_history': 0o600, 'var/cache/debconf/passwords.dat': 0o600, 'var/log/btmp': 0o660,
     'var/lib/dpkg/lock': 0o640, 'var/lib/dpkg/lock-frontend': 0o640, 'var/cache/apt/archives/lock': 0o640,
     'var/lib/apt/lists/lock': 0o640,
 }
 TIGHTEN_GLOBS = {'etc/sudoers.d/*': 0o440}
 
 # Programs that cannot work without the setuid bit (sudo is what makes the new user an administrator).
-SETUID = ['usr/bin/sudo', 'usr/bin/su', 'usr/bin/passwd', 'usr/bin/chfn', 'usr/bin/chsh', 'usr/bin/gpasswd',
-          'usr/bin/newgrp', 'usr/bin/mount', 'usr/bin/umount']
+SETUID = [
+    'usr/bin/sudo', 'usr/bin/su', 'usr/bin/passwd', 'usr/bin/chfn', 'usr/bin/chsh', 'usr/bin/gpasswd',
+    'usr/bin/newgrp', 'usr/bin/mount', 'usr/bin/umount', 'usr/bin/fusermount', 'usr/bin/fusermount3',
+    'usr/bin/pkexec', 'usr/lib/polkit-1/polkit-agent-helper-1', 'usr/libexec/polkit-agent-helper-1',
+]
 
 HOME_ROOT = 'home'
 
-# Entries that are deliberately NOT root:root.  (path, owner, group, mode or None = keep the mode).  Names are looked
-# up in the TARGET's /etc/passwd and /etc/group; an entry whose name does not exist there is skipped (and logged).
-# dpkg's statoverride database (var/lib/dpkg/statoverride) is applied on top: it wins, as it does in dpkg itself.
+# Entries that are deliberately NOT root:root (or require specific setgid/directory permissions).
+# Tuple: (path, owner, group, mode_or_None) or (path, owner, group, mode_or_None, recursive_bool).
+# Names are looked up in the TARGET's /etc/passwd and /etc/group; missing users/groups are skipped and logged.
+# Target tmpfiles.d and dpkg's statoverride database are layered on top (statoverride has highest priority).
 SPECIAL_OWNERS = [
     ('usr/lib/dbus-1.0/dbus-daemon-launch-helper', 'root', 'messagebus', 0o4754),
     ('usr/bin/chage', 'root', 'shadow', 0o2755),
     ('usr/bin/expiry', 'root', 'shadow', 0o2755),
     ('usr/sbin/unix_chkpwd', 'root', 'shadow', 0o2755),
     ('usr/bin/wall', 'root', 'tty', 0o2755),
+    ('usr/bin/write', 'root', 'tty', 0o2755),
+    ('usr/bin/bsd-write', 'root', 'tty', 0o2755),
+    ('usr/bin/crontab', 'root', 'crontab', 0o2755),
+    ('var/spool/cron/crontabs', 'root', 'crontab', 0o1730),
+    ('var/mail', 'root', 'mail', 0o2775),
+    ('usr/bin/ssh-agent', 'root', '_ssh', 0o2755),
+    ('usr/bin/ssh-agent', 'root', 'ssh', 0o2755),
+    ('usr/lib/openssh/ssh-keysign', 'root', '_ssh', 0o2755),
+    ('usr/lib/openssh/ssh-keysign', 'root', 'ssh', 0o2755),
+    ('usr/lib/utempter/utempter', 'root', 'utmp', 0o2755),
+    ('var/log/wtmp', 'root', 'utmp', 0o664),
+    ('var/log/btmp', 'root', 'utmp', 0o660),
+    ('var/log/lastlog', 'root', 'utmp', 0o664),
+    ('var/log/journal', 'root', 'systemd-journal', 0o2755, True),
+    ('etc/ssl/private', 'root', 'ssl-cert', 0o710),
+    ('etc/polkit-1/rules.d', 'polkitd', 'root', 0o750),
+    ('var/lib/polkit-1', 'polkitd', 'root', 0o700, True),
+    ('etc/cups/ssl', 'root', 'lp', 0o700),
+    ('var/spool/cups', 'root', 'lp', 0o710, True),
+    ('var/cache/cups', 'root', 'lp', 0o775, True),
+    ('usr/sbin/pppd', 'root', 'dip', 0o4754),
+    ('var/lib/colord', 'colord', 'colord', 0o755, True),
+    ('var/lib/geoclue', 'geoclue', 'geoclue', 0o755, True),
+    ('var/lib/tpm2-tss', 'tss', 'tss', 0o755, True),
     # the setgid-shadow helpers above can only read these through the group
     ('etc/shadow', 'root', 'shadow', None), ('etc/shadow-', 'root', 'shadow', None),
     ('etc/gshadow', 'root', 'shadow', None), ('etc/gshadow-', 'root', 'shadow', None),
@@ -135,6 +157,8 @@ PRIVATE_DIRS = ['root', 'home', 'etc/ssl/private', 'etc/credstore', 'etc/credsto
                 'var/spool/cron/crontabs', 'etc/polkit-1/rules.d', 'usr/share/polkit-1/rules.d', 'etc/cups/ssl',
                 'etc/security/opasswd', 'tmp', 'var/tmp', 'lost+found']
 
+_EPHEMERAL_ROOTS = ('run', 'tmp', 'proc', 'sys', 'dev')
+
 
 def tpath(root, rel, follow=False):
     """The real path, on the machine the installer runs on, of `rel` inside the target at `root`.
@@ -161,25 +185,51 @@ def _p(root, rel):
     return tpath(root, rel)
 
 
-def _mkdir(root, rel, mode=0o755):
+def _is_valid_target_dir(root, path):
+    """True if `path` is a real directory, a symlink resolving to an existing in-root directory,
+    or an intentional symlink into an ephemeral runtime mount (/run, /tmp, /proc, /sys, /dev)."""
+    if not os.path.lexists(path):
+        return False
+    if not os.path.islink(path):
+        return os.path.isdir(path)
+    real = resolve_in_root(root, path)
+    if real is None:
+        return False
+    norm_root = os.path.normpath(root)
+    if real != norm_root and not real.startswith(norm_root + os.sep):
+        return False
+    if os.path.lexists(real):
+        return not os.path.islink(real) and os.path.isdir(real)
+    rel_target = os.path.relpath(real, norm_root)
+    top = rel_target.split(os.sep, 1)[0]
+    return top in _EPHEMERAL_ROOTS
+
+
+def _mkdir(root, rel, mode=0o755, replace_invalid=False):
     """mkdir -p that never depends on the process umask: every missing component becomes root:root, and the
     components above the last one get 0755 (os.makedirs would give them 0777 & ~umask).  Returns True if the
-    last component was created.  Never walks through a symlink (an absolute one would leave the target)."""
+    last component was created.  Safely traverses valid in-root directory symlinks; if `replace_invalid` is True,
+    removes non-directories or broken/wrong symlinks blocking any path component."""
     parts = [p for p in rel.split('/') if p]
-    cur = root
+    cur = os.path.normpath(root)
+    created_last = False
     for i, part in enumerate(parts):
-        cur = os.path.join(cur, part)
+        nxt = os.path.join(cur, part)
         last = i == len(parts) - 1
-        if os.path.lexists(cur):
-            if not last and (os.path.islink(cur) or not os.path.isdir(cur)):
+        if os.path.lexists(nxt):
+            if _is_valid_target_dir(root, nxt):
+                cur = resolve_in_root(root, nxt) if os.path.islink(nxt) else nxt
+                continue
+            if not replace_invalid:
                 return False                                # a symlink or a file in the way: never walk through it
-            continue
-        os.mkdir(cur)
-        os.chown(cur, 0, 0)
-        os.chmod(cur, mode if last else 0o755)
+            os.unlink(nxt)
+        os.mkdir(nxt)
+        os.chown(nxt, 0, 0)
+        os.chmod(nxt, mode if last else 0o755)
+        cur = nxt
         if last:
-            return True
-    return False
+            created_last = True
+    return created_last
 
 
 def resolve_in_root(root, path, limit=40):
@@ -220,69 +270,172 @@ def standard_dir_conflicts(root):
         if rel in seen:
             continue
         seen.add(rel)
-        real = resolve_in_root(root, _p(root, rel))
+        try:
+            entry = _p(root, rel)
+        except OSError:
+            problems.append('/%s has a symbolic link loop in a parent directory' % rel)
+            continue
+        real = resolve_in_root(root, entry)
         if real is None:
             problems.append('/%s is a symbolic link loop' % rel)
         elif os.path.isdir(real):
             continue
         elif os.path.lexists(real):
             problems.append('/%s exists but is not a directory' % rel)
-        elif os.path.lexists(_p(root, rel)):
-            problems.append('/%s is a symbolic link to %s, which does not exist' % (rel, os.readlink(_p(root, rel))))
+        elif os.path.lexists(entry):
+            problems.append('/%s is a symbolic link to %s, which does not exist' % (rel, os.readlink(entry)))
         else:
             problems.append('/%s is missing and could not be created (something that is not a directory is in the way)' % rel)
     return problems
 
 
 def _id_tables(root):
-    users, groups = {}, {}
+    users, user_gids, groups = {}, {}, {}
     for r in parse_colon_file(tpath(root, 'etc/passwd', follow=True)):
-        if len(r) > 2 and r[2].isdigit():
+        if len(r) > 3 and r[2].isdigit() and r[3].isdigit():
             users[r[0]] = int(r[2])
+            user_gids[r[0]] = int(r[3])
     for r in parse_colon_file(tpath(root, 'etc/group', follow=True)):
         if len(r) > 2 and r[2].isdigit():
             groups[r[0]] = int(r[2])
-    return users, groups
+    return users, user_gids, groups
 
 
-def _lookup(name, table):
-    if name.startswith('#') and name[1:].isdigit():          # dpkg writes numeric ids as #1234
-        return int(name[1:])
-    return table.get(name)
+def _lookup_owner_group(owner, group, users, user_gids, groups):
+    if owner in ('-', ''):
+        uid, default_gid = 0, 0
+    elif owner.startswith('#') and owner[1:].isdigit():          # dpkg writes numeric ids as #1234
+        uid, default_gid = int(owner[1:]), 0
+    elif owner.isdigit():
+        uid, default_gid = int(owner), 0
+    else:
+        uid = users.get(owner)
+        default_gid = user_gids.get(owner, 0)
+
+    if group in ('-', ''):
+        gid = default_gid
+    elif group.startswith('#') and group[1:].isdigit():
+        gid = int(group[1:])
+    elif group.isdigit():
+        gid = int(group)
+    else:
+        gid = groups.get(group)
+    return uid, gid
+
+
+def _iter_tmpfiles_entries(root):
+    """Yield (rel, owner, group, mode, recursive, src) from target's usr/lib/tmpfiles.d and etc/tmpfiles.d."""
+    conf_files = {}
+    for base in ('usr/lib/tmpfiles.d', 'etc/tmpfiles.d'):
+        try:
+            d = tpath(root, base, follow=True)
+        except OSError:
+            continue
+        if not os.path.isdir(d):
+            continue
+        for name in sorted(os.listdir(d)):
+            if name.endswith('.conf'):
+                conf_files[name] = os.path.join(d, name)         # etc/tmpfiles.d overrides usr/lib/tmpfiles.d
+
+    for name in sorted(conf_files):
+        try:
+            with open(conf_files[name]) as f:
+                lines = f.readlines()
+        except OSError:
+            continue
+        for raw in lines:
+            line = raw.strip()
+            if not line or line.startswith('#'):
+                continue
+            parts = line.split()
+            if len(parts) < 5:
+                continue
+            rtype, raw_path, raw_mode, owner, group = parts[:5]
+            if rtype not in ('d', 'D', 'z', 'Z', 'f', 'F', 'w'):
+                continue
+            if any(ch in raw_path for ch in ('%', '*', '?', '[')):
+                continue
+            rel = os.path.normpath(raw_path).lstrip('/')
+            if not rel or rel == '.' or rel.startswith('..'):
+                continue
+            # Only apply tmpfiles entries for paths that already exist in the extracted rootfs image
+            try:
+                if not os.path.lexists(_p(root, rel)):
+                    continue
+            except OSError:
+                continue
+            mode = None
+            if raw_mode != '-':
+                m = raw_mode.lstrip('~:')
+                if re.fullmatch(r'[0-7]{3,4}', m):
+                    mode = int(m, 8)
+            if owner == '-' and group == '-' and mode is None:
+                continue
+            yield (rel, owner, group, mode, rtype == 'Z', 'tmpfiles.d/%s' % name)
+
+
+def _special_owner_rules(root):
+    """Resolve package-specific ownership/permission rules from SPECIAL_OWNERS, tmpfiles.d, and statoverride.
+    Returns ({rel: (uid, gid, mode_or_None, recursive)}, [skipped descriptions])."""
+    users, user_gids, groups = _id_tables(root)
+    out, skipped = {}, []
+    wanted = []
+    for item in SPECIAL_OWNERS:
+        rel, o, g, m = item[:4]
+        rec = bool(item[4]) if len(item) > 4 else False
+        wanted.append((rel, o, g, m, rec, 'built-in'))
+    for rel, o, g, m, rec, src in _iter_tmpfiles_entries(root):
+        wanted.append((rel, o, g, m, rec, src))
+    try:                                                       # owner group mode path, as dpkg-statoverride --list
+        with open(tpath(root, 'var/lib/dpkg/statoverride', follow=True)) as f:
+            for line in f:
+                parts = line.split(None, 3)
+                if len(parts) == 4 and re.fullmatch(r'[0-7]{3,4}', parts[2]):
+                    rel = os.path.normpath(parts[3].strip()).lstrip('/')
+                    if rel and rel != '.' and not rel.startswith('..'):
+                        wanted.append((rel, parts[0], parts[1], int(parts[2], 8), False, 'statoverride'))
+    except OSError:
+        pass
+    for rel, owner, group, mode, rec, src in wanted:
+        uid, gid = _lookup_owner_group(owner, group, users, user_gids, groups)
+        if uid is None or gid is None:
+            skipped.append('/%s (%s %s:%s: no such %s in the target)' % (
+                rel, src, owner, group, 'user' if uid is None else 'group'))
+            continue
+        out[rel] = (uid, gid, mode, rec)                            # a later entry replaces an earlier one
+    return out, skipped
 
 
 def special_owners(root):
     """The entries that are not root:root, resolved against the TARGET's passwd/group files.
     Returns ({rel: (uid, gid, mode or None)}, [descriptions of entries that were skipped])."""
-    users, groups = _id_tables(root)
-    out, skipped = {}, []
-    wanted = [(rel, o, g, m, 'built-in') for rel, o, g, m in SPECIAL_OWNERS]
-    try:                                                       # owner group mode path, as dpkg-statoverride --list
-        with open(tpath(root, 'var/lib/dpkg/statoverride', follow=True)) as f:
-            for line in f:
-                parts = line.split(None, 3)
-                if len(parts) == 4 and parts[2].isdigit():
-                    rel = os.path.normpath(parts[3].strip()).lstrip('/')
-                    if rel and not rel.startswith('..'):
-                        wanted.append((rel, parts[0], parts[1], int(parts[2], 8), 'statoverride'))
-    except OSError:
-        pass
-    for rel, owner, group, mode, src in wanted:
-        uid, gid = _lookup(owner, users), _lookup(group, groups)
-        if uid is None or gid is None:
-            skipped.append('/%s (%s %s:%s: no such %s in the target)' % (rel, src, owner, group, 'user' if uid is None else 'group'))
-            continue
-        out[rel] = (uid, gid, mode)                            # a later (statoverride) entry replaces a built-in one
-    return out, skipped
+    rules, skipped = _special_owner_rules(root)
+    return {rel: (uid, gid, mode) for rel, (uid, gid, mode, _rec) in rules.items()}, skipped
+
+
+def _matched_owner_rule(rel, rules):
+    """Return exact rule for `rel`, or nearest recursive ancestor rule, or None."""
+    if rel in rules:
+        return rules[rel]
+    cur = os.path.dirname(rel)
+    while cur and cur != '.':
+        rule = rules.get(cur)
+        if rule and rule[3]:
+            return rule
+        cur = os.path.dirname(cur)
+    return None
 
 
 def apply_special_owners(root):
     """chown/chmod the entries from special_owners().  chown comes first because it clears setuid/setgid bits.
     Returns (changes, skipped)."""
-    owners, skipped = special_owners(root)
+    rules, skipped = _special_owner_rules(root)
     changes = []
-    for rel, (uid, gid, mode) in sorted(owners.items()):
-        path = _p(root, rel)
+    for rel, (uid, gid, mode, rec) in sorted(rules.items()):
+        try:
+            path = _p(root, rel)
+        except OSError:
+            continue
         if not os.path.lexists(path) or os.path.islink(path):
             continue
         st = os.lstat(path)
@@ -295,28 +448,46 @@ def apply_special_owners(root):
             cur = mode
         if chowned or (mode is not None and stat.S_IMODE(st.st_mode) != mode):
             changes.append('/%s -> %d:%d %04o' % (rel, uid, gid, cur))
+        if rec and stat.S_ISDIR(st.st_mode):
+            for r, ds, fs in os.walk(path):
+                for name in ds + fs:
+                    sub = os.path.join(r, name)
+                    sub_rel = os.path.relpath(sub, root)
+                    matched = _matched_owner_rule(sub_rel, rules)
+                    if matched is not None and matched[:2] != (uid, gid):
+                        continue
+                    sst = os.lstat(sub)
+                    if (sst.st_uid, sst.st_gid) != (uid, gid):
+                        os.lchown(sub, uid, gid)
+                        changes.append('/%s -> %d:%d' % (sub_rel, uid, gid))
     return changes, skipped
 
 
 def ensure_standard_dirs(root):
-    """Create missing standard directories (owner root:root).  Returns the list created.  A path that already exists
-    is left alone whatever it is -- standard_dir_conflicts() reports the ones that are not directories."""
+    """Create missing standard directories (owner root:root) and repair existing paths that are not real
+    directories or valid in-root directory symlinks (such as regular files or broken/wrong symlinks).
+    Returns the list of created/repaired relative directory paths."""
     created = []
     for rel, mode in STANDARD_DIRS:
-        if os.path.lexists(_p(root, rel)):
-            continue                                        # already there (or something else is): leave it
-        if _mkdir(root, rel, mode):
+        try:
+            path = _p(root, rel)
+            if _is_valid_target_dir(root, path):
+                continue
+        except OSError:
+            pass                                            # symlink loop in parent; _mkdir(replace_invalid=True) fixes it
+        if _mkdir(root, rel, mode, replace_invalid=True):
             created.append(rel)
     return created
 
 
 def repair_dir_modes(root):
-    """Directories must be traversable by everybody (at least 0755) unless they are private on purpose.  tar
-    creates the parents of archive members implicitly with 0777 & ~umask, so a restrictive umask during the
+    """Directories must be traversable by everybody (at least 0755) unless private or explicitly governed by a rule.
+    tar creates the parents of archive members implicitly with 0777 & ~umask, so a restrictive umask during the
     extraction leaves directories such as /usr/lib/x86_64-linux-gnu or /var/lib/dpkg/info at 0700.  Only adds the
     missing rwx / r-x bits.  Returns 'path 0700 -> 0755' descriptions."""
     changes = []
     private = tuple(PRIVATE_DIRS)
+    rules = _special_owner_rules(root)[0]
     rootdev = os.lstat(root).st_dev
     stack = [root]
     while stack:
@@ -333,10 +504,12 @@ def repair_dir_modes(root):
                 st = e.stat(follow_symlinks=False)
                 if st.st_dev != rootdev or not stat.S_ISDIR(st.st_mode):
                     continue
-                cur = stat.S_IMODE(st.st_mode)
-                if 0o755 & ~cur:
-                    os.chmod(e.path, cur | 0o755)
-                    changes.append('%s %04o -> %04o' % (rel, cur, cur | 0o755))
+                rule = rules.get(rel)
+                if rule is None or rule[2] is None:
+                    cur = stat.S_IMODE(st.st_mode)
+                    if 0o755 & ~cur:
+                        os.chmod(e.path, cur | 0o755)
+                        changes.append('%s %04o -> %04o' % (rel, cur, cur | 0o755))
                 stack.append(e.path)
     return changes
 
@@ -346,7 +519,7 @@ def repair_dpkg(root):
     directories exist with the right owner and mode, their lock files exist, the dpkg database is readable and
     the maintainer scripts are executable.  Returns human readable descriptions of what was changed."""
     changes = []
-    keep = set(special_owners(root)[0])
+    owners = special_owners(root)[0]
     for rel, mode in DPKG_DIRS:
         path = _p(root, rel)
         if not os.path.lexists(path):
@@ -356,12 +529,14 @@ def repair_dpkg(root):
         if os.path.islink(path) or not os.path.isdir(path):
             continue                                        # verify_dpkg() reports it: never replace what the image put there
         st = os.lstat(path)
-        if (st.st_uid, st.st_gid) != (0, 0) and rel not in keep:
+        override = owners.get(rel)
+        if override is None and (st.st_uid, st.st_gid) != (0, 0):
             os.chown(path, 0, 0)
             changes.append('/%s owner %d:%d -> 0:0' % (rel, st.st_uid, st.st_gid))
-        if stat.S_IMODE(st.st_mode) != mode:
-            os.chmod(path, mode)
-            changes.append('/%s %04o -> %04o' % (rel, stat.S_IMODE(st.st_mode), mode))
+        want_mode = override[2] if (override is not None and override[2] is not None) else mode
+        if stat.S_IMODE(st.st_mode) != want_mode:
+            os.chmod(path, want_mode)
+            changes.append('/%s %04o -> %04o' % (rel, stat.S_IMODE(st.st_mode), want_mode))
     for rel, mode in DPKG_FILES:
         path = _p(root, rel)
         if os.path.lexists(path):
@@ -406,14 +581,14 @@ def fix_special_dirs(root):
 
 
 def enforce_root_ownership(root):
-    """Everything outside /home/<user> belongs to root:root.  Returns the list of paths that had to change."""
+    """Everything outside /home/<user> and special_owners rules belongs to root:root.  Returns the list of paths that had to change."""
     os.chown(root, 0, 0)
     os.chmod(root, 0o755)
     changed = []
     stack = [root]
     home = tpath(root, HOME_ROOT, follow=True)
     rootdev = os.lstat(root).st_dev
-    keep = set(special_owners(root)[0])                      # deliberately not root:root (see SPECIAL_OWNERS)
+    rules = _special_owner_rules(root)[0]
     while stack:
         d = stack.pop()
         try:
@@ -427,22 +602,27 @@ def enforce_root_ownership(root):
                 st = e.stat(follow_symlinks=False)
                 if st.st_dev != rootdev:                      # a mounted filesystem (/proc, /sys, /dev ...): not ours
                     continue
-                if (st.st_uid, st.st_gid) != (0, 0) and os.path.relpath(e.path, root) not in keep:
+                rel = os.path.relpath(e.path, root)
+                if (st.st_uid, st.st_gid) != (0, 0) and _matched_owner_rule(rel, rules) is None:
                     os.lchown(e.path, 0, 0)
-                    changed.append(os.path.relpath(e.path, root))
+                    changed.append(rel)
                 if stat.S_ISDIR(st.st_mode) and not e.is_symlink():
                     stack.append(e.path)
     return changed
 
 
 def apply_baseline_permissions(root):
-    """Tighten secrets, restore setuid on the essentials.  Returns human readable change descriptions."""
+    """Tighten secrets, restore setuid on the essentials (respecting special_owners overrides).  Returns human readable change descriptions."""
     changes = []
+    owners = special_owners(root)[0]
     items = dict(TIGHTEN)
     for pattern, mode in TIGHTEN_GLOBS.items():
         for f in glob.glob(_p(root, pattern)):
             items[os.path.relpath(f, root)] = mode
     for rel, std in sorted(items.items()):
+        override = owners.get(rel)
+        if override is not None and override[2] is not None:
+            continue
         path = _p(root, rel)
         if os.path.islink(path) or not os.path.exists(path):
             continue
@@ -451,6 +631,9 @@ def apply_baseline_permissions(root):
             os.chmod(path, cur & std)
             changes.append('%s %04o -> %04o' % (rel, cur, cur & std))
     for rel in SETUID:
+        override = owners.get(rel)
+        if override is not None and override[2] is not None:
+            continue
         path = _p(root, rel)
         if os.path.islink(path) or not os.path.isfile(path):
             continue
@@ -497,7 +680,7 @@ def verify_dpkg(root):
     problems = []
     if not os.path.exists(tpath(root, 'usr/bin/dpkg', follow=True)):
         return problems
-    keep = set(special_owners(root)[0])                     # owner checked by verify_policy against SPECIAL_OWNERS
+    owners = special_owners(root)[0]
     for rel, mode in DPKG_DIRS:
         path = _p(root, rel)
         try:
@@ -505,11 +688,13 @@ def verify_dpkg(root):
         except OSError:
             problems.append('/%s is missing (dpkg needs it)' % rel)
             continue
+        override = owners.get(rel)
+        want_mode = override[2] if (override is not None and override[2] is not None) else mode
         if not stat.S_ISDIR(st.st_mode):
             problems.append('/%s must be a directory (dpkg needs it)' % rel)
-        elif ((st.st_uid, st.st_gid) != (0, 0) and rel not in keep) or stat.S_IMODE(st.st_mode) != mode:
+        elif ((st.st_uid, st.st_gid) != (0, 0) and override is None) or stat.S_IMODE(st.st_mode) != want_mode:
             problems.append('/%s must be root:root %04o (is %d:%d %04o)' % (
-                rel, mode, st.st_uid, st.st_gid, stat.S_IMODE(st.st_mode)))
+                rel, want_mode, st.st_uid, st.st_gid, stat.S_IMODE(st.st_mode)))
     for rel, _ in DPKG_FILES:
         if not os.path.isfile(tpath(root, rel, follow=True)):
             problems.append('/%s is missing (dpkg needs it)' % rel)
@@ -545,7 +730,7 @@ def verify_policy(root, username=None):
     bad = []
     home = tpath(root, HOME_ROOT, follow=True)
     rootdev = st.st_dev
-    owners, _skipped = special_owners(root)
+    rules, _skipped = _special_owner_rules(root)
     stack = [root]
     while stack and len(bad) < 10:
         d = stack.pop()
@@ -560,13 +745,14 @@ def verify_policy(root, username=None):
                 s = e.stat(follow_symlinks=False)
                 if s.st_dev != rootdev:                       # mounted filesystem (chroot bind mounts): skip
                     continue
-                if (s.st_uid, s.st_gid) != (0, 0) and os.path.relpath(e.path, root) not in owners:
-                    bad.append(os.path.relpath(e.path, root))
+                rel = os.path.relpath(e.path, root)
+                if (s.st_uid, s.st_gid) != (0, 0) and _matched_owner_rule(rel, rules) is None:
+                    bad.append(rel)
                 if stat.S_ISDIR(s.st_mode) and not e.is_symlink():
                     stack.append(e.path)
     if bad:
         problems.append('entries not owned by root:root: ' + ', '.join(bad))
-    for rel, (uid, gid, mode) in sorted(owners.items()):    # the deliberate exceptions must be exactly as declared
+    for rel, (uid, gid, mode, _rec) in sorted(rules.items()):    # the deliberate exceptions must be exactly as declared
         path = _p(root, rel)
         if not os.path.lexists(path) or os.path.islink(path):
             continue
@@ -601,7 +787,8 @@ def verify_policy(root, username=None):
             except OSError:
                 problems.append('/home/%s does not exist' % username)
     try:
-        mid = open(tpath(root, 'etc/machine-id', follow=True)).read()
+        with open(tpath(root, 'etc/machine-id', follow=True)) as f:
+            mid = f.read()
         if not re.fullmatch(r'[0-9a-f]{32}\n', mid) or mid.strip('0\n') == '':
             problems.append('/etc/machine-id is not a valid machine ID')
     except OSError:

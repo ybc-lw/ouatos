@@ -76,9 +76,6 @@ jobs:
         run: python3 tests/test_gui.py
 
       - name: Ownership / permission policy (needs root)
-        run: sudo python3 tests/test_policy.py
-
-      - name: Ownership / permission policy (needs root)
         run: |
           sudo python3 tests/test_policy.py
           sudo python3 tests/test_policy_image_listing.py
