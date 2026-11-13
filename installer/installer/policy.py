@@ -84,8 +84,8 @@ SETUID = [
 HOME_ROOT = 'home'
 
 # Entries that are deliberately NOT root:root (or require specific setgid/directory permissions).
-# Tuple: (path, owner, group, mode_or_None) or (path, owner, group, mode_or_None, recursive_bool).
-# Names are looked up in the TARGET's /etc/passwd and /etc/group; missing users/groups are skipped and logged.
+# Tuple: (path, owner, group_or_candidates, mode_or_None) or (..., recursive_bool).
+# Each path is unique; candidate tuples pick the first matching name in the TARGET's /etc/passwd or /etc/group.
 # Target tmpfiles.d and dpkg's statoverride database are layered on top (statoverride has highest priority).
 SPECIAL_OWNERS = [
     ('usr/lib/dbus-1.0/dbus-daemon-launch-helper', 'root', 'messagebus', 0o4754),
@@ -98,10 +98,8 @@ SPECIAL_OWNERS = [
     ('usr/bin/crontab', 'root', 'crontab', 0o2755),
     ('var/spool/cron/crontabs', 'root', 'crontab', 0o1730),
     ('var/mail', 'root', 'mail', 0o2775),
-    ('usr/bin/ssh-agent', 'root', '_ssh', 0o2755),
-    ('usr/bin/ssh-agent', 'root', 'ssh', 0o2755),
-    ('usr/lib/openssh/ssh-keysign', 'root', '_ssh', 0o2755),
-    ('usr/lib/openssh/ssh-keysign', 'root', 'ssh', 0o2755),
+    ('usr/bin/ssh-agent', 'root', ('_ssh', 'ssh'), 0o2755),
+    ('usr/lib/openssh/ssh-keysign', 'root', ('_ssh', 'ssh'), 0o2755),
     ('usr/lib/utempter/utempter', 'root', 'utmp', 0o2755),
     ('var/log/wtmp', 'root', 'utmp', 0o664),
     ('var/log/btmp', 'root', 'utmp', 0o660),
@@ -273,31 +271,47 @@ def _id_tables(root):
     return users, user_gids, groups
 
 
-def _lookup_owner_group(owner, group, users, user_gids, groups):
-    if owner in ('-', ''):
-        uid, default_gid = 0, 0
-    elif owner.startswith('#') and owner[1:].isdigit():          # dpkg writes numeric ids as #1234
-        uid, default_gid = int(owner[1:]), 0
-    elif owner.isdigit():
-        uid, default_gid = int(owner), 0
-    else:
-        uid = users.get(owner)
-        default_gid = user_gids.get(owner, 0)
+def _lookup_one(name, table):
+    if name.startswith('#') and name[1:].isdigit():          # dpkg writes numeric ids as #1234
+        return int(name[1:])
+    if name.isdigit():
+        return int(name)
+    return table.get(name)
 
-    if group in ('-', ''):
-        gid = default_gid
-    elif group.startswith('#') and group[1:].isdigit():
-        gid = int(group[1:])
-    elif group.isdigit():
-        gid = int(group)
-    else:
-        gid = groups.get(group)
+
+def _lookup_owner_group(owner, group, users, user_gids, groups):
+    owners = owner if isinstance(owner, (tuple, list)) else (owner,)
+    uid, default_gid = None, 0
+    for cand in owners:
+        if cand in ('-', ''):
+            uid, default_gid = 0, 0
+            break
+        val = _lookup_one(cand, users)
+        if val is not None:
+            uid = val
+            default_gid = user_gids.get(cand, 0)
+            break
+
+    grp_list = group if isinstance(group, (tuple, list)) else (group,)
+    gid = None
+    for cand in grp_list:
+        if cand in ('-', ''):
+            gid = default_gid
+            break
+        val = _lookup_one(cand, groups)
+        if val is not None:
+            gid = val
+            break
     return uid, gid
+
+
+def _fmt_names(val):
+    return '|'.join(val) if isinstance(val, (tuple, list)) else str(val)
 
 
 def _iter_tmpfiles_entries(root):
     """Yield (rel, owner, group, mode, recursive, src) from target's usr/lib/tmpfiles.d and etc/tmpfiles.d."""
-    conf_files = {}
+    conf_rels = {}
     for base in ('usr/lib/tmpfiles.d', 'etc/tmpfiles.d'):
         try:
             d = tpath(root, base, follow=True)
@@ -307,11 +321,12 @@ def _iter_tmpfiles_entries(root):
             continue
         for name in sorted(os.listdir(d)):
             if name.endswith('.conf'):
-                conf_files[name] = os.path.join(d, name)         # etc/tmpfiles.d overrides usr/lib/tmpfiles.d
+                conf_rels[name] = base + '/' + name             # etc/tmpfiles.d overrides usr/lib/tmpfiles.d
 
-    for name in sorted(conf_files):
+    for name in sorted(conf_rels):
         try:
-            with open(conf_files[name]) as f:
+            conf_path = tpath(root, conf_rels[name], follow=True)
+            with open(conf_path) as f:
                 lines = f.readlines()
         except OSError:
             continue
@@ -372,7 +387,7 @@ def _special_owner_rules(root):
         uid, gid = _lookup_owner_group(owner, group, users, user_gids, groups)
         if uid is None or gid is None:
             skipped.append('/%s (%s %s:%s: no such %s in the target)' % (
-                rel, src, owner, group, 'user' if uid is None else 'group'))
+                rel, src, _fmt_names(owner), _fmt_names(group), 'user' if uid is None else 'group'))
             continue
         out[rel] = (uid, gid, mode, rec)                            # a later entry replaces an earlier one
     return out, skipped
@@ -386,16 +401,26 @@ def special_owners(root):
 
 
 def _matched_owner_rule(rel, rules):
-    """Return exact rule for `rel`, or nearest recursive ancestor rule, or None."""
+    """Return (rule_tuple, is_exact) for `rel` via exact match or nearest recursive ancestor, else (None, False)."""
     if rel in rules:
-        return rules[rel]
+        return rules[rel], True
     cur = os.path.dirname(rel)
     while cur and cur != '.':
         rule = rules.get(cur)
         if rule and rule[3]:
-            return rule
+            return rule, False
         cur = os.path.dirname(cur)
-    return None
+    return None, False
+
+
+def _expected_rule_mode(rule_mode, st_mode, is_exact):
+    """Compute target mode from a rule: exact rules apply `rule_mode` directly; recursive descendants apply
+    `rule_mode` to directories and strip directory-only/execute bits (`& 0o666`) for regular files."""
+    if rule_mode is None:
+        return None
+    if is_exact or stat.S_ISDIR(st_mode):
+        return rule_mode
+    return rule_mode & 0o666
 
 
 def apply_special_owners(root):
@@ -425,13 +450,30 @@ def apply_special_owners(root):
                 for name in ds + fs:
                     sub = os.path.join(r, name)
                     sub_rel = os.path.relpath(sub, root)
-                    matched = _matched_owner_rule(sub_rel, rules)
-                    if matched is not None and matched[:2] != (uid, gid):
+                    matched, is_exact = _matched_owner_rule(sub_rel, rules)
+                    if matched is None or matched != (uid, gid, mode, rec) or is_exact:
                         continue
                     sst = os.lstat(sub)
-                    if (sst.st_uid, sst.st_gid) != (uid, gid):
+                    sub_chowned = (sst.st_uid, sst.st_gid) != (uid, gid)
+                    if sub_chowned:
                         os.lchown(sub, uid, gid)
+                    if stat.S_ISLNK(sst.st_mode):
+                        if sub_chowned:
+                            changes.append('/%s -> %d:%d' % (sub_rel, uid, gid))
+                        continue
+                    want_sub_mode = _expected_rule_mode(mode, sst.st_mode, False)
+                    cur_sub_mode = stat.S_IMODE(os.lstat(sub).st_mode)
+                    mode_changed = False
+                    if want_sub_mode is not None and (sub_chowned or cur_sub_mode != want_sub_mode):
+                        os.chmod(sub, want_sub_mode)
+                        mode_changed = stat.S_IMODE(sst.st_mode) != want_sub_mode
+                        cur_sub_mode = want_sub_mode
+                    if sub_chowned and mode_changed:
+                        changes.append('/%s -> %d:%d %04o' % (sub_rel, uid, gid, cur_sub_mode))
+                    elif sub_chowned:
                         changes.append('/%s -> %d:%d' % (sub_rel, uid, gid))
+                    elif mode_changed:
+                        changes.append('/%s -> %04o' % (sub_rel, cur_sub_mode))
     return changes, skipped
 
 
@@ -474,8 +516,8 @@ def repair_dir_modes(root):
                 st = e.stat(follow_symlinks=False)
                 if st.st_dev != rootdev or not stat.S_ISDIR(st.st_mode):
                     continue
-                rule = rules.get(rel)
-                if rule is None or rule[2] is None:
+                matched, _ = _matched_owner_rule(rel, rules)
+                if matched is None or matched[2] is None:
                     cur = stat.S_IMODE(st.st_mode)
                     if 0o755 & ~cur:
                         os.chmod(e.path, cur | 0o755)
@@ -582,7 +624,8 @@ def enforce_root_ownership(root):
                 if st.st_dev != rootdev:                      # a mounted filesystem (/proc, /sys, /dev ...): not ours
                     continue
                 rel = os.path.relpath(e.path, root)
-                if (st.st_uid, st.st_gid) != (0, 0) and _matched_owner_rule(rel, rules) is None:
+                matched, _ = _matched_owner_rule(rel, rules)
+                if (st.st_uid, st.st_gid) != (0, 0) and matched is None:
                     os.lchown(e.path, 0, 0)
                     changed.append(rel)
                 if stat.S_ISDIR(st.st_mode) and not e.is_symlink():
@@ -707,11 +750,12 @@ def verify_policy(root, username=None):
             problems.append('/%s must be a root:root directory with mode 1777 (is %s %d:%d %04o)' % (
                 rel, 'dir' if stat.S_ISDIR(s.st_mode) else 'not a dir', s.st_uid, s.st_gid, stat.S_IMODE(s.st_mode)))
     bad = []
+    recursive_bad = []
     home = tpath(root, HOME_ROOT, follow=True)
     rootdev = st.st_dev
     rules, _skipped = _special_owner_rules(root)
     stack = [root]
-    while stack and len(bad) < 10:
+    while stack and (len(bad) < 10 or len(recursive_bad) < 10):
         d = stack.pop()
         try:
             it = os.scandir(d)
@@ -725,12 +769,23 @@ def verify_policy(root, username=None):
                 if s.st_dev != rootdev:                       # mounted filesystem (chroot bind mounts): skip
                     continue
                 rel = os.path.relpath(e.path, root)
-                if (s.st_uid, s.st_gid) != (0, 0) and _matched_owner_rule(rel, rules) is None:
-                    bad.append(rel)
+                matched, is_exact = _matched_owner_rule(rel, rules)
+                if matched is None:
+                    if (s.st_uid, s.st_gid) != (0, 0) and len(bad) < 10:
+                        bad.append(rel)
+                elif not is_exact and len(recursive_bad) < 10:
+                    want_uid, want_gid, rule_mode, _rec = matched
+                    want_mode = None if stat.S_ISLNK(s.st_mode) else _expected_rule_mode(rule_mode, s.st_mode, False)
+                    if (s.st_uid, s.st_gid) != (want_uid, want_gid) or (
+                            want_mode is not None and stat.S_IMODE(s.st_mode) != want_mode):
+                        recursive_bad.append('/%s must be %d:%d%s (is %d:%d %04o)' % (
+                            rel, want_uid, want_gid, '' if want_mode is None else ' %04o' % want_mode,
+                            s.st_uid, s.st_gid, stat.S_IMODE(s.st_mode)))
                 if stat.S_ISDIR(s.st_mode) and not e.is_symlink():
                     stack.append(e.path)
     if bad:
         problems.append('entries not owned by root:root: ' + ', '.join(bad))
+    problems += recursive_bad
     for rel, (uid, gid, mode, _rec) in sorted(rules.items()):    # the deliberate exceptions must be exactly as declared
         try:
             path = _p(root, rel)
