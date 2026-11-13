@@ -14,6 +14,7 @@ security-critical modes, and (3) restores the setuid bit and package-specific ow
 tmpfiles.d, and dpkg statoverride.
 """
 import errno
+import fnmatch
 import glob
 import os
 import re
@@ -327,8 +328,46 @@ def _parse_tmpfiles_mode(raw_mode):
     return int(digits, 8), ('~' in prefix)
 
 
+def _glob_in_root(root, rel_pattern):
+    """Expand shell-style globs (*, ?, [...]) strictly inside `root`."""
+    parts = [p for p in rel_pattern.split('/') if p and p != '.']
+    if not parts or '..' in parts:
+        return []
+    matches = ['']
+    for part in parts:
+        next_matches = []
+        has_magic = any(ch in part for ch in ('*', '?', '['))
+        for base_rel in matches:
+            try:
+                base_abs = tpath(root, base_rel, follow=True)
+            except OSError:
+                continue
+            if not os.path.isdir(base_abs):
+                continue
+            if has_magic:
+                try:
+                    it = os.scandir(base_abs)
+                except OSError:
+                    continue
+                with it:
+                    names = sorted(e.name for e in it if fnmatch.fnmatchcase(e.name, part))
+                for name in names:
+                    next_matches.append(base_rel + '/' + name if base_rel else name)
+            else:
+                cand_abs = os.path.join(base_abs, part)
+                if os.path.lexists(cand_abs):
+                    next_matches.append(base_rel + '/' + part if base_rel else part)
+        matches = next_matches
+        if not matches:
+            break
+    return matches
+
+
 def _iter_tmpfiles_entries(root):
-    """Yield (rel, owner, group, mode, masked, recursive, src) from target's usr/lib/tmpfiles.d and etc/tmpfiles.d."""
+    """Yield (rel, owner, group, mode, masked, recursive, src) from target's usr/lib/tmpfiles.d and etc/tmpfiles.d.
+    Only ownership/permission adjustment types ('d', 'D', 'e', 'z', 'Z') are processed; file creation/write types
+    ('f', 'F', 'w') are excluded.  Per systemd-tmpfiles semantics, configs are read in sorted filename order
+    (etc/tmpfiles.d overrides same-named usr/lib/tmpfiles.d) and the first matching rule for a path wins."""
     conf_rels = {}
     for base in ('usr/lib/tmpfiles.d', 'etc/tmpfiles.d'):
         try:
@@ -341,6 +380,7 @@ def _iter_tmpfiles_entries(root):
             if name.endswith('.conf'):
                 conf_rels[name] = base + '/' + name             # etc/tmpfiles.d overrides usr/lib/tmpfiles.d
 
+    seen_paths = set()
     for name in sorted(conf_rels):
         try:
             conf_path = tpath(root, conf_rels[name], follow=True)
@@ -356,23 +396,36 @@ def _iter_tmpfiles_entries(root):
             if len(parts) < 5:
                 continue
             rtype, raw_path, raw_mode, owner, group = parts[:5]
-            if rtype not in ('d', 'D', 'z', 'Z', 'f', 'F', 'w'):
+            if rtype not in ('d', 'D', 'e', 'z', 'Z'):
                 continue
-            if any(ch in raw_path for ch in ('%', '*', '?', '[')):
+            if '%' in raw_path:
                 continue
-            rel = os.path.normpath(raw_path).lstrip('/')
-            if not rel or rel == '.' or rel.startswith('..'):
-                continue
-            # Only apply tmpfiles entries for paths that already exist in the extracted rootfs image
-            try:
-                if not os.path.lexists(_p(root, rel)):
-                    continue
-            except OSError:
+            rel_pattern = os.path.normpath(raw_path).lstrip('/')
+            if not rel_pattern or rel_pattern == '.' or rel_pattern.startswith('..'):
                 continue
             mode, masked = _parse_tmpfiles_mode(raw_mode)
             if owner == '-' and group == '-' and mode is None:
                 continue
-            yield (rel, owner, group, mode, masked, rtype == 'Z', 'tmpfiles.d/%s' % name)
+
+            if any(ch in rel_pattern for ch in ('*', '?', '[')):
+                if rtype not in ('e', 'z', 'Z'):
+                    continue
+                rels = _glob_in_root(root, rel_pattern)
+            else:
+                rels = [rel_pattern]
+
+            for rel in rels:
+                if rel in seen_paths:
+                    continue
+                try:
+                    entry_path = _p(root, rel)
+                    st = os.lstat(entry_path)
+                except OSError:
+                    continue
+                if rtype == 'e' and not stat.S_ISDIR(st.st_mode):
+                    continue
+                seen_paths.add(rel)
+                yield (rel, owner, group, mode, masked, rtype == 'Z', 'tmpfiles.d/%s' % name)
 
 
 def _special_owner_rules(root):
@@ -420,7 +473,8 @@ def _special_owner_rules(root):
 
 def _expected_rule_mode(rule_mode, masked, st_mode, is_exact):
     """Compute target mode from a rule against an entry's existing `st_mode`:
-      - When `masked` (`~` in tmpfiles.d), clear r/w/x bits that are completely absent in `st_mode`.
+      - When `masked` (`~` in tmpfiles.d), clear r/w/x bits that are completely absent in `st_mode`,
+        and clear sticky/SUID/SGID bits (`0o7000`) unless the entry is a directory.
       - Otherwise, exact rules apply `rule_mode` directly; recursive descendants apply `rule_mode` to directories
         and strip directory-only/execute bits (`& 0o666`) for regular files."""
     if rule_mode is None:
@@ -434,6 +488,8 @@ def _expected_rule_mode(rule_mode, masked, st_mode, is_exact):
             m &= ~0o222
         if (cur & 0o111) == 0:
             m &= ~0o111
+        if not stat.S_ISDIR(st_mode):
+            m &= ~0o7000
         return m
     if is_exact or stat.S_ISDIR(st_mode):
         return rule_mode

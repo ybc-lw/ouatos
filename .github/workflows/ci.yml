@@ -100,11 +100,23 @@ jobs:
     timeout-minutes: 90
     env:
       TAR: /tmp/ouatos-rootfs.tar.xz
-      ISO: /tmp/ouatos-installer.iso
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true          # rootfs/usr/local/bin/node is stored in Git LFS
+
+      - name: Resolve ISO version from os-release
+        run: |
+          VERSION_ID=$(grep -E '^VERSION_ID=' rootfs/usr/lib/os-release | head -n1 | cut -d= -f2- | tr -d "\"'")
+          if [ -z "$VERSION_ID" ]; then
+            echo "::error::VERSION_ID not found in rootfs/usr/lib/os-release"
+            exit 1
+          fi
+          ISO_NAME="ouatos-${VERSION_ID}-installer-amd64.iso"
+          echo "VERSION_ID=$VERSION_ID" >> "$GITHUB_ENV"
+          echo "ISO_NAME=$ISO_NAME" >> "$GITHUB_ENV"
+          echo "ISO=/tmp/$ISO_NAME" >> "$GITHUB_ENV"
+          echo "Resolved ISO filename: $ISO_NAME"
 
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y python3-pil fonts-dejavu-core e2fsprogs xz-utils initramfs-tools-core zstd
@@ -186,6 +198,6 @@ jobs:
         if: ${{ inputs.upload_iso == true }}
         uses: actions/upload-artifact@v4
         with:
-          name: ouatos-xxx-installer-amd64-iso
+          name: ${{ env.ISO_NAME }}
           path: ${{ env.ISO }}
           retention-days: 3
