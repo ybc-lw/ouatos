@@ -260,15 +260,14 @@ def standard_dir_conflicts(root):
 
 
 def _id_tables(root):
-    users, user_gids, groups = {}, {}, {}
+    users, groups = {}, {}
     for r in parse_colon_file(tpath(root, 'etc/passwd', follow=True)):
-        if len(r) > 3 and r[2].isdigit() and r[3].isdigit():
+        if len(r) > 2 and r[2].isdigit():
             users[r[0]] = int(r[2])
-            user_gids[r[0]] = int(r[3])
     for r in parse_colon_file(tpath(root, 'etc/group', follow=True)):
         if len(r) > 2 and r[2].isdigit():
             groups[r[0]] = int(r[2])
-    return users, user_gids, groups
+    return users, groups
 
 
 def _lookup_one(name, table):
@@ -279,38 +278,57 @@ def _lookup_one(name, table):
     return table.get(name)
 
 
-def _lookup_owner_group(owner, group, users, user_gids, groups):
+def _lookup_owner_group(owner, group, users, groups):
+    """Resolve owner and group names/IDs.  A '-' or '' means 'leave unchanged' and resolves to (True, None)."""
     owners = owner if isinstance(owner, (tuple, list)) else (owner,)
-    uid, default_gid = None, 0
+    uid_ok, uid = False, None
     for cand in owners:
         if cand in ('-', ''):
-            uid, default_gid = 0, 0
+            uid_ok, uid = True, None
             break
         val = _lookup_one(cand, users)
         if val is not None:
-            uid = val
-            default_gid = user_gids.get(cand, 0)
+            uid_ok, uid = True, val
             break
 
     grp_list = group if isinstance(group, (tuple, list)) else (group,)
-    gid = None
+    gid_ok, gid = False, None
     for cand in grp_list:
         if cand in ('-', ''):
-            gid = default_gid
+            gid_ok, gid = True, None
             break
         val = _lookup_one(cand, groups)
         if val is not None:
-            gid = val
+            gid_ok, gid = True, val
             break
-    return uid, gid
+    return uid_ok, uid, gid_ok, gid
 
 
 def _fmt_names(val):
     return '|'.join(val) if isinstance(val, (tuple, list)) else str(val)
 
 
+def _parse_tmpfiles_mode(raw_mode):
+    """Parse systemd tmpfiles.d mode field.
+    Returns (mode_or_None, masked_bool):
+      - '-' -> (None, False)
+      - ':' prefix -> mode applies only when creating a new entry; for existing entries returns (None, False)
+      - '~' prefix -> mode is masked dynamically against existing r/w/x bits (masked_bool=True)
+    """
+    if raw_mode == '-':
+        return None, False
+    prefix_len = len(raw_mode) - len(raw_mode.lstrip('~:'))
+    prefix = raw_mode[:prefix_len]
+    digits = raw_mode[prefix_len:]
+    if not re.fullmatch(r'[0-7]{3,4}', digits):
+        return None, False
+    if ':' in prefix:
+        return None, False
+    return int(digits, 8), ('~' in prefix)
+
+
 def _iter_tmpfiles_entries(root):
-    """Yield (rel, owner, group, mode, recursive, src) from target's usr/lib/tmpfiles.d and etc/tmpfiles.d."""
+    """Yield (rel, owner, group, mode, masked, recursive, src) from target's usr/lib/tmpfiles.d and etc/tmpfiles.d."""
     conf_rels = {}
     for base in ('usr/lib/tmpfiles.d', 'etc/tmpfiles.d'):
         try:
@@ -351,28 +369,24 @@ def _iter_tmpfiles_entries(root):
                     continue
             except OSError:
                 continue
-            mode = None
-            if raw_mode != '-':
-                m = raw_mode.lstrip('~:')
-                if re.fullmatch(r'[0-7]{3,4}', m):
-                    mode = int(m, 8)
+            mode, masked = _parse_tmpfiles_mode(raw_mode)
             if owner == '-' and group == '-' and mode is None:
                 continue
-            yield (rel, owner, group, mode, rtype == 'Z', 'tmpfiles.d/%s' % name)
+            yield (rel, owner, group, mode, masked, rtype == 'Z', 'tmpfiles.d/%s' % name)
 
 
 def _special_owner_rules(root):
     """Resolve package-specific ownership/permission rules from SPECIAL_OWNERS, tmpfiles.d, and statoverride.
-    Returns ({rel: (uid, gid, mode_or_None, recursive)}, [skipped descriptions])."""
-    users, user_gids, groups = _id_tables(root)
+    Returns ({rel: (uid_or_None, gid_or_None, mode_or_None, masked, recursive)}, [skipped descriptions])."""
+    users, groups = _id_tables(root)
     out, skipped = {}, []
     wanted = []
     for item in SPECIAL_OWNERS:
         rel, o, g, m = item[:4]
         rec = bool(item[4]) if len(item) > 4 else False
-        wanted.append((rel, o, g, m, rec, 'built-in'))
-    for rel, o, g, m, rec, src in _iter_tmpfiles_entries(root):
-        wanted.append((rel, o, g, m, rec, src))
+        wanted.append((rel, o, g, m, False, rec, 'built-in'))
+    for rel, o, g, m, masked, rec, src in _iter_tmpfiles_entries(root):
+        wanted.append((rel, o, g, m, masked, rec, src))
     try:                                                       # owner group mode path, as dpkg-statoverride --list
         with open(tpath(root, 'var/lib/dpkg/statoverride', follow=True)) as f:
             for line in f:
@@ -380,24 +394,68 @@ def _special_owner_rules(root):
                 if len(parts) == 4 and re.fullmatch(r'[0-7]{3,4}', parts[2]):
                     rel = os.path.normpath(parts[3].strip()).lstrip('/')
                     if rel and rel != '.' and not rel.startswith('..'):
-                        wanted.append((rel, parts[0], parts[1], int(parts[2], 8), False, 'statoverride'))
+                        wanted.append((rel, parts[0], parts[1], int(parts[2], 8), False, False, 'statoverride'))
     except OSError:
         pass
-    for rel, owner, group, mode, rec, src in wanted:
-        uid, gid = _lookup_owner_group(owner, group, users, user_gids, groups)
-        if uid is None or gid is None:
+    for rel, owner, group, mode, masked, rec, src in wanted:
+        uid_ok, uid, gid_ok, gid = _lookup_owner_group(owner, group, users, groups)
+        if not uid_ok or not gid_ok:
             skipped.append('/%s (%s %s:%s: no such %s in the target)' % (
-                rel, src, _fmt_names(owner), _fmt_names(group), 'user' if uid is None else 'group'))
+                rel, src, _fmt_names(owner), _fmt_names(group), 'user' if not uid_ok else 'group'))
             continue
-        out[rel] = (uid, gid, mode, rec)                            # a later entry replaces an earlier one
+        prev = out.get(rel)
+        if prev is not None:
+            merged_uid = prev[0] if uid is None else uid
+            merged_gid = prev[1] if gid is None else gid
+            if mode is None:
+                merged_mode, merged_masked = prev[2], prev[3]
+            else:
+                merged_mode, merged_masked = mode, masked
+            merged_rec = prev[4] or rec
+            out[rel] = (merged_uid, merged_gid, merged_mode, merged_masked, merged_rec)
+        else:
+            out[rel] = (uid, gid, mode, masked, rec)
     return out, skipped
+
+
+def _expected_rule_mode(rule_mode, masked, st_mode, is_exact):
+    """Compute target mode from a rule against an entry's existing `st_mode`:
+      - When `masked` (`~` in tmpfiles.d), clear r/w/x bits that are completely absent in `st_mode`.
+      - Otherwise, exact rules apply `rule_mode` directly; recursive descendants apply `rule_mode` to directories
+        and strip directory-only/execute bits (`& 0o666`) for regular files."""
+    if rule_mode is None:
+        return None
+    if masked:
+        cur = stat.S_IMODE(st_mode)
+        m = rule_mode
+        if (cur & 0o444) == 0:
+            m &= ~0o444
+        if (cur & 0o222) == 0:
+            m &= ~0o222
+        if (cur & 0o111) == 0:
+            m &= ~0o111
+        return m
+    if is_exact or stat.S_ISDIR(st_mode):
+        return rule_mode
+    return rule_mode & 0o666
 
 
 def special_owners(root):
     """The entries that are not root:root, resolved against the TARGET's passwd/group files.
-    Returns ({rel: (uid, gid, mode or None)}, [descriptions of entries that were skipped])."""
+    Returns ({rel: (uid_or_None, gid_or_None, mode_or_None)}, [descriptions of entries that were skipped])."""
     rules, skipped = _special_owner_rules(root)
-    return {rel: (uid, gid, mode) for rel, (uid, gid, mode, _rec) in rules.items()}, skipped
+    out = {}
+    for rel, (uid, gid, mode, masked, _rec) in rules.items():
+        eff_mode = mode
+        if mode is not None and masked:
+            try:
+                path = _p(root, rel)
+                if os.path.lexists(path) and not os.path.islink(path):
+                    eff_mode = _expected_rule_mode(mode, True, os.lstat(path).st_mode, True)
+            except OSError:
+                pass
+        out[rel] = (uid, gid, eff_mode)
+    return out, skipped
 
 
 def _matched_owner_rule(rel, rules):
@@ -407,20 +465,10 @@ def _matched_owner_rule(rel, rules):
     cur = os.path.dirname(rel)
     while cur and cur != '.':
         rule = rules.get(cur)
-        if rule and rule[3]:
+        if rule and rule[4]:
             return rule, False
         cur = os.path.dirname(cur)
     return None, False
-
-
-def _expected_rule_mode(rule_mode, st_mode, is_exact):
-    """Compute target mode from a rule: exact rules apply `rule_mode` directly; recursive descendants apply
-    `rule_mode` to directories and strip directory-only/execute bits (`& 0o666`) for regular files."""
-    if rule_mode is None:
-        return None
-    if is_exact or stat.S_ISDIR(st_mode):
-        return rule_mode
-    return rule_mode & 0o666
 
 
 def apply_special_owners(root):
@@ -428,7 +476,7 @@ def apply_special_owners(root):
     Returns (changes, skipped)."""
     rules, skipped = _special_owner_rules(root)
     changes = []
-    for rel, (uid, gid, mode, rec) in sorted(rules.items()):
+    for rel, (uid, gid, mode, masked, rec) in sorted(rules.items()):
         try:
             path = _p(root, rel)
         except OSError:
@@ -436,32 +484,37 @@ def apply_special_owners(root):
         if not os.path.lexists(path) or os.path.islink(path):
             continue
         st = os.lstat(path)
-        chowned = (st.st_uid, st.st_gid) != (uid, gid)
+        want_uid = st.st_uid if uid is None else uid
+        want_gid = st.st_gid if gid is None else gid
+        chowned = (st.st_uid, st.st_gid) != (want_uid, want_gid)
         if chowned:
-            os.chown(path, uid, gid)
+            os.chown(path, want_uid, want_gid)
+        want_mode = _expected_rule_mode(mode, masked, st.st_mode, True)
         cur = stat.S_IMODE(os.lstat(path).st_mode)
-        if mode is not None and (chowned or cur != mode):
-            os.chmod(path, mode)
-            cur = mode
-        if chowned or (mode is not None and stat.S_IMODE(st.st_mode) != mode):
-            changes.append('/%s -> %d:%d %04o' % (rel, uid, gid, cur))
+        if want_mode is not None and (chowned or cur != want_mode):
+            os.chmod(path, want_mode)
+            cur = want_mode
+        if chowned or (want_mode is not None and stat.S_IMODE(st.st_mode) != want_mode):
+            changes.append('/%s -> %d:%d %04o' % (rel, want_uid, want_gid, cur))
         if rec and stat.S_ISDIR(st.st_mode):
             for r, ds, fs in os.walk(path):
                 for name in ds + fs:
                     sub = os.path.join(r, name)
                     sub_rel = os.path.relpath(sub, root)
                     matched, is_exact = _matched_owner_rule(sub_rel, rules)
-                    if matched is None or matched != (uid, gid, mode, rec) or is_exact:
+                    if matched is None or matched != (uid, gid, mode, masked, rec) or is_exact:
                         continue
                     sst = os.lstat(sub)
-                    sub_chowned = (sst.st_uid, sst.st_gid) != (uid, gid)
+                    sub_want_uid = sst.st_uid if uid is None else uid
+                    sub_want_gid = sst.st_gid if gid is None else gid
+                    sub_chowned = (sst.st_uid, sst.st_gid) != (sub_want_uid, sub_want_gid)
                     if sub_chowned:
-                        os.lchown(sub, uid, gid)
+                        os.lchown(sub, sub_want_uid, sub_want_gid)
                     if stat.S_ISLNK(sst.st_mode):
                         if sub_chowned:
-                            changes.append('/%s -> %d:%d' % (sub_rel, uid, gid))
+                            changes.append('/%s -> %d:%d' % (sub_rel, sub_want_uid, sub_want_gid))
                         continue
-                    want_sub_mode = _expected_rule_mode(mode, sst.st_mode, False)
+                    want_sub_mode = _expected_rule_mode(mode, masked, sst.st_mode, False)
                     cur_sub_mode = stat.S_IMODE(os.lstat(sub).st_mode)
                     mode_changed = False
                     if want_sub_mode is not None and (sub_chowned or cur_sub_mode != want_sub_mode):
@@ -469,9 +522,9 @@ def apply_special_owners(root):
                         mode_changed = stat.S_IMODE(sst.st_mode) != want_sub_mode
                         cur_sub_mode = want_sub_mode
                     if sub_chowned and mode_changed:
-                        changes.append('/%s -> %d:%d %04o' % (sub_rel, uid, gid, cur_sub_mode))
+                        changes.append('/%s -> %d:%d %04o' % (sub_rel, sub_want_uid, sub_want_gid, cur_sub_mode))
                     elif sub_chowned:
-                        changes.append('/%s -> %d:%d' % (sub_rel, uid, gid))
+                        changes.append('/%s -> %d:%d' % (sub_rel, sub_want_uid, sub_want_gid))
                     elif mode_changed:
                         changes.append('/%s -> %04o' % (sub_rel, cur_sub_mode))
     return changes, skipped
@@ -625,7 +678,7 @@ def enforce_root_ownership(root):
                     continue
                 rel = os.path.relpath(e.path, root)
                 matched, _ = _matched_owner_rule(rel, rules)
-                if (st.st_uid, st.st_gid) != (0, 0) and matched is None:
+                if matched is None and (st.st_uid, st.st_gid) != (0, 0):
                     os.lchown(e.path, 0, 0)
                     changed.append(rel)
                 if stat.S_ISDIR(st.st_mode) and not e.is_symlink():
@@ -774,19 +827,27 @@ def verify_policy(root, username=None):
                     if (s.st_uid, s.st_gid) != (0, 0) and len(bad) < 10:
                         bad.append(rel)
                 elif not is_exact and len(recursive_bad) < 10:
-                    want_uid, want_gid, rule_mode, _rec = matched
-                    want_mode = None if stat.S_ISLNK(s.st_mode) else _expected_rule_mode(rule_mode, s.st_mode, False)
-                    if (s.st_uid, s.st_gid) != (want_uid, want_gid) or (
-                            want_mode is not None and stat.S_IMODE(s.st_mode) != want_mode):
-                        recursive_bad.append('/%s must be %d:%d%s (is %d:%d %04o)' % (
-                            rel, want_uid, want_gid, '' if want_mode is None else ' %04o' % want_mode,
+                    want_uid, want_gid, rule_mode, masked, _rec = matched
+                    want_mode = (
+                        None if stat.S_ISLNK(s.st_mode)
+                        else _expected_rule_mode(rule_mode, masked, s.st_mode, False)
+                    )
+                    uid_mismatch = want_uid is not None and s.st_uid != want_uid
+                    gid_mismatch = want_gid is not None and s.st_gid != want_gid
+                    mode_mismatch = want_mode is not None and stat.S_IMODE(s.st_mode) != want_mode
+                    if uid_mismatch or gid_mismatch or mode_mismatch:
+                        recursive_bad.append('/%s must be %s:%s%s (is %d:%d %04o)' % (
+                            rel,
+                            '-' if want_uid is None else str(want_uid),
+                            '-' if want_gid is None else str(want_gid),
+                            '' if want_mode is None else ' %04o' % want_mode,
                             s.st_uid, s.st_gid, stat.S_IMODE(s.st_mode)))
                 if stat.S_ISDIR(s.st_mode) and not e.is_symlink():
                     stack.append(e.path)
     if bad:
         problems.append('entries not owned by root:root: ' + ', '.join(bad))
     problems += recursive_bad
-    for rel, (uid, gid, mode, _rec) in sorted(rules.items()):    # the deliberate exceptions must be exactly as declared
+    for rel, (uid, gid, mode, masked, _rec) in sorted(rules.items()):    # the deliberate exceptions must be exactly as declared
         try:
             path = _p(root, rel)
         except OSError:
@@ -794,9 +855,17 @@ def verify_policy(root, username=None):
         if not os.path.lexists(path) or os.path.islink(path):
             continue
         s = os.lstat(path)
-        if (s.st_uid, s.st_gid) != (uid, gid) or (mode is not None and stat.S_IMODE(s.st_mode) != mode):
-            problems.append('/%s must be %d:%d%s (is %d:%d %04o)' % (
-                rel, uid, gid, '' if mode is None else ' %04o' % mode, s.st_uid, s.st_gid, stat.S_IMODE(s.st_mode)))
+        want_mode = _expected_rule_mode(mode, masked, s.st_mode, True)
+        uid_mismatch = uid is not None and s.st_uid != uid
+        gid_mismatch = gid is not None and s.st_gid != gid
+        mode_mismatch = want_mode is not None and stat.S_IMODE(s.st_mode) != want_mode
+        if uid_mismatch or gid_mismatch or mode_mismatch:
+            problems.append('/%s must be %s:%s%s (is %d:%d %04o)' % (
+                rel,
+                '-' if uid is None else str(uid),
+                '-' if gid is None else str(gid),
+                '' if want_mode is None else ' %04o' % want_mode,
+                s.st_uid, s.st_gid, stat.S_IMODE(s.st_mode)))
     problems += verify_dpkg(root)
     if username:
         pw = next((r for r in parse_colon_file(tpath(root, 'etc/passwd', follow=True)) if r and r[0] == username), None)
