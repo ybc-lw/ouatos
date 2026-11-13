@@ -9,7 +9,7 @@ Rules implemented here:
 
 The OS image is an archive that has lost information: it contains no empty directories (no /dev /proc /sys
 /run /tmp /home ...), every entry is owned by 0:0 and its modes are flattened (no setuid bits, /etc/shadow is
-0644 ...).  So the installer (1) creates/repairs the standard directories, (2) tightens -- never loosens -- the few
+0644 ...).  So the installer (1) creates the standard directories, (2) tightens -- never loosens -- the few
 security-critical modes, and (3) restores the setuid bit and package-specific owners/modes from SPECIAL_OWNERS,
 tmpfiles.d, and dpkg statoverride.
 """
@@ -20,7 +20,7 @@ import re
 import stat
 import uuid
 
-# (path relative to /, mode).  Created when missing, or repaired if a non-directory / broken symlink is in the way.
+# (path relative to /, mode).  Created only when missing; existing entries are left for standard_dir_conflicts().
 STANDARD_DIRS = [
     # top level and mount points
     ('dev', 0o755), ('proc', 0o755), ('sys', 0o755), ('run', 0o755), ('mnt', 0o755), ('media', 0o755),
@@ -157,8 +157,6 @@ PRIVATE_DIRS = ['root', 'home', 'etc/ssl/private', 'etc/credstore', 'etc/credsto
                 'var/spool/cron/crontabs', 'etc/polkit-1/rules.d', 'usr/share/polkit-1/rules.d', 'etc/cups/ssl',
                 'etc/security/opasswd', 'tmp', 'var/tmp', 'lost+found']
 
-_EPHEMERAL_ROOTS = ('run', 'tmp', 'proc', 'sys', 'dev')
-
 
 def tpath(root, rel, follow=False):
     """The real path, on the machine the installer runs on, of `rel` inside the target at `root`.
@@ -185,51 +183,25 @@ def _p(root, rel):
     return tpath(root, rel)
 
 
-def _is_valid_target_dir(root, path):
-    """True if `path` is a real directory, a symlink resolving to an existing in-root directory,
-    or an intentional symlink into an ephemeral runtime mount (/run, /tmp, /proc, /sys, /dev)."""
-    if not os.path.lexists(path):
-        return False
-    if not os.path.islink(path):
-        return os.path.isdir(path)
-    real = resolve_in_root(root, path)
-    if real is None:
-        return False
-    norm_root = os.path.normpath(root)
-    if real != norm_root and not real.startswith(norm_root + os.sep):
-        return False
-    if os.path.lexists(real):
-        return not os.path.islink(real) and os.path.isdir(real)
-    rel_target = os.path.relpath(real, norm_root)
-    top = rel_target.split(os.sep, 1)[0]
-    return top in _EPHEMERAL_ROOTS
-
-
-def _mkdir(root, rel, mode=0o755, replace_invalid=False):
+def _mkdir(root, rel, mode=0o755):
     """mkdir -p that never depends on the process umask: every missing component becomes root:root, and the
     components above the last one get 0755 (os.makedirs would give them 0777 & ~umask).  Returns True if the
-    last component was created.  Safely traverses valid in-root directory symlinks; if `replace_invalid` is True,
-    removes non-directories or broken/wrong symlinks blocking any path component."""
+    last component was created.  Never walks through a symlink (an absolute one would leave the target)."""
     parts = [p for p in rel.split('/') if p]
-    cur = os.path.normpath(root)
-    created_last = False
+    cur = root
     for i, part in enumerate(parts):
-        nxt = os.path.join(cur, part)
+        cur = os.path.join(cur, part)
         last = i == len(parts) - 1
-        if os.path.lexists(nxt):
-            if _is_valid_target_dir(root, nxt):
-                cur = resolve_in_root(root, nxt) if os.path.islink(nxt) else nxt
-                continue
-            if not replace_invalid:
+        if os.path.lexists(cur):
+            if not last and (os.path.islink(cur) or not os.path.isdir(cur)):
                 return False                                # a symlink or a file in the way: never walk through it
-            os.unlink(nxt)
-        os.mkdir(nxt)
-        os.chown(nxt, 0, 0)
-        os.chmod(nxt, mode if last else 0o755)
-        cur = nxt
+            continue
+        os.mkdir(cur)
+        os.chown(cur, 0, 0)
+        os.chmod(cur, mode if last else 0o755)
         if last:
-            created_last = True
-    return created_last
+            return True
+    return False
 
 
 def resolve_in_root(root, path, limit=40):
@@ -464,18 +436,16 @@ def apply_special_owners(root):
 
 
 def ensure_standard_dirs(root):
-    """Create missing standard directories (owner root:root) and repair existing paths that are not real
-    directories or valid in-root directory symlinks (such as regular files or broken/wrong symlinks).
-    Returns the list of created/repaired relative directory paths."""
+    """Create missing standard directories (owner root:root).  Returns the list created.  A path that already exists
+    is left alone whatever it is -- standard_dir_conflicts() reports the ones that are not directories."""
     created = []
     for rel, mode in STANDARD_DIRS:
         try:
-            path = _p(root, rel)
-            if _is_valid_target_dir(root, path):
-                continue
+            if os.path.lexists(_p(root, rel)):
+                continue                                    # already there (or something else is): leave it
         except OSError:
-            pass                                            # symlink loop in parent; _mkdir(replace_invalid=True) fixes it
-        if _mkdir(root, rel, mode, replace_invalid=True):
+            continue                                        # symlink loop in parent; standard_dir_conflicts() reports it
+        if _mkdir(root, rel, mode):
             created.append(rel)
     return created
 
@@ -521,7 +491,10 @@ def repair_dpkg(root):
     changes = []
     owners = special_owners(root)[0]
     for rel, mode in DPKG_DIRS:
-        path = _p(root, rel)
+        try:
+            path = _p(root, rel)
+        except OSError:
+            continue
         if not os.path.lexists(path):
             if _mkdir(root, rel, mode):
                 changes.append('/%s created (%04o)' % (rel, mode))
@@ -538,7 +511,10 @@ def repair_dpkg(root):
             os.chmod(path, want_mode)
             changes.append('/%s %04o -> %04o' % (rel, stat.S_IMODE(st.st_mode), want_mode))
     for rel, mode in DPKG_FILES:
-        path = _p(root, rel)
+        try:
+            path = _p(root, rel)
+        except OSError:
+            continue
         if os.path.lexists(path):
             continue
         if not os.path.isdir(os.path.dirname(path)):
@@ -549,7 +525,10 @@ def repair_dpkg(root):
         os.chmod(path, mode)
         changes.append('/%s created (%04o)' % (rel, mode))
     for rel in DPKG_DB_READABLE:                            # root-owned, readable by all, writable by root only
-        path = _p(root, rel)
+        try:
+            path = _p(root, rel)
+        except OSError:
+            continue
         if os.path.islink(path) or not os.path.isfile(path):
             continue
         cur = stat.S_IMODE(os.lstat(path).st_mode)
@@ -682,8 +661,8 @@ def verify_dpkg(root):
         return problems
     owners = special_owners(root)[0]
     for rel, mode in DPKG_DIRS:
-        path = _p(root, rel)
         try:
+            path = _p(root, rel)
             st = os.lstat(path)
         except OSError:
             problems.append('/%s is missing (dpkg needs it)' % rel)
@@ -753,7 +732,10 @@ def verify_policy(root, username=None):
     if bad:
         problems.append('entries not owned by root:root: ' + ', '.join(bad))
     for rel, (uid, gid, mode, _rec) in sorted(rules.items()):    # the deliberate exceptions must be exactly as declared
-        path = _p(root, rel)
+        try:
+            path = _p(root, rel)
+        except OSError:
+            continue
         if not os.path.lexists(path) or os.path.islink(path):
             continue
         s = os.lstat(path)
