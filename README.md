@@ -2,6 +2,10 @@
 
 ouatos is a lightweight Linux distribution based on Debian, designed to minimize operating system resource usage so that ample resources remain available for running language models.
 
+[![License](https://img.shields.io/github/license/ybc-lw/ouatos)](LICENSE)
+[![Releases](https://img.shields.io/github/v/release/ybc-lw/ouatos)](https://github.com/ybc-lw/ouatos/releases)
+[![CI](https://github.com/ybc-lw/ouatos/actions/workflows/ci.yml/badge.svg)](https://github.com/ybc-lw/ouatos/actions/workflows/ci.yml)
+
 ## Included software
 
 The current system image includes the following software and components:
@@ -36,3 +40,4 @@ The installation image performs the following setup tasks:
 ## License
 
 ouatos is released under the MIT License. See LICENSE for the full license text.
+
