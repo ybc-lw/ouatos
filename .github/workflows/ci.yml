@@ -3,20 +3,33 @@ name: CI
 on:
   push:
     branches: [main]
+    paths:
+      - 'installer/**'
+
   pull_request:
+    paths:
+      - 'installer/**'
   workflow_dispatch:
     inputs:
+      run_ci:
+        description: "Run CI checks (uncheck to skip CI)"
+        type: boolean
+        required: true
+        default: false
+
       upload_iso:
         description: "Upload the built installer ISO as a workflow artifact (3 days)"
         type: boolean
+        required: true
         default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}-${{ github.event_name }}-${{ inputs.upload_iso == true && 'upload' || 'no-upload' }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
+
 
 defaults:
   run:
@@ -28,6 +41,8 @@ jobs:
   # ---------------------------------------------------------------------------
   unit-tests:
     name: Unit tests
+    if: ${{ inputs.run_ci == true }}
+    environment: ci-approval
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -96,6 +111,7 @@ jobs:
   build-iso:
     name: Build ISO and validate it
     needs: unit-tests
+    if: ${{ inputs.run_ci == true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:

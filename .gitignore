@@ -32,3 +32,4 @@ LICENSE
 rootfs/var/log
 *.log
 *.crdownload
+todo*
