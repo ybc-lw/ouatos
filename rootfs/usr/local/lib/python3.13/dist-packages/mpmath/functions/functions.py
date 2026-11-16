@@ -1,6 +1,4 @@
-from ..libmp.backend import xrange
-
-class SpecialFunctions(object):
+class SpecialFunctions:
     """
     This class implements special functions using high-level code.
 
@@ -20,24 +18,6 @@ class SpecialFunctions(object):
         for name in cls.defined_functions:
             f, wrap = cls.defined_functions[name]
             cls._wrap_specfun(name, f, wrap)
-
-        self.mpq_1 = self._mpq((1,1))
-        self.mpq_0 = self._mpq((0,1))
-        self.mpq_1_2 = self._mpq((1,2))
-        self.mpq_3_2 = self._mpq((3,2))
-        self.mpq_1_4 = self._mpq((1,4))
-        self.mpq_1_16 = self._mpq((1,16))
-        self.mpq_3_16 = self._mpq((3,16))
-        self.mpq_5_2 = self._mpq((5,2))
-        self.mpq_3_4 = self._mpq((3,4))
-        self.mpq_7_4 = self._mpq((7,4))
-        self.mpq_5_4 = self._mpq((5,4))
-        self.mpq_1_3 = self._mpq((1,3))
-        self.mpq_2_3 = self._mpq((2,3))
-        self.mpq_4_3 = self._mpq((4,3))
-        self.mpq_1_6 = self._mpq((1,6))
-        self.mpq_5_6 = self._mpq((5,6))
-        self.mpq_5_3 = self._mpq((5,3))
 
         self._misc_const_cache = {}
 
@@ -113,20 +93,20 @@ def acot(ctx, z):
     if not z:
         return ctx.pi * 0.5
     else:
-        return ctx.atan(ctx.one / z)
+        return ctx.atan(ctx.zero if ctx.isinf(z) else ctx.one / z)
 
 @defun_wrapped
-def asec(ctx, z): return ctx.acos(ctx.one / z)
+def asec(ctx, z): return ctx.acos(ctx.zero if ctx.isinf(z) else ctx.one / z)
 
 @defun_wrapped
-def acsc(ctx, z): return ctx.asin(ctx.one / z)
+def acsc(ctx, z): return ctx.asin(ctx.zero if ctx.isinf(z) else ctx.one / z)
 
 @defun_wrapped
 def acoth(ctx, z):
     if not z:
         return ctx.pi * 0.5j
     else:
-        return ctx.atanh(ctx.one / z)
+        return ctx.atanh(ctx.zero if ctx.isinf(z) else ctx.one / z)
 
 
 @defun_wrapped
@@ -186,9 +166,80 @@ def expm1(ctx, x):
 def log1p(ctx, x):
     if not x:
         return ctx.zero
-    if ctx.mag(x) < -ctx.prec:
-        return x - 0.5*x**2
-    return ctx.log(ctx.fadd(1, x, prec=2*ctx.prec))
+    LOG1P_EXTRAPREC = 10  # ctx._wrap_specfun()
+    # Note that all cases could by handled by log(1+c) provided the
+    # add is done exactly. Our aim here is to be much faster than that,
+    # especially when |c| is small.
+    c = ctx.convert(x)
+    cmag = ctx.mag(c)
+    a, b = c.real, c.imag
+    wp = ctx.prec
+    if cmag >= -wp:
+        # |c| isn't very small. We call log(1+c) instead, but
+        # are careful about the precision used by the add. The
+        # real part of the result is log(|c+1|). That's
+        # determined by 1 + 2*a + a**2 + b**2, and the add has
+        # to preserve enough info so that no important bits of
+        # that sum are lost. It doesn't matter to this that 2*a,
+        # a**2, etc, are not computed explicitly here: we're
+        # deducing how many bits have to be present in the sum
+        # for log() to "reverse engineer" the value of 2*a +
+        # a**2 + b**2 to `prec` good bits,
+        if cmag < 4:
+            # |c| isn't very small, or large.
+            if ctx.mag(a) > ctx.mag(b):
+                # `a` already contributes the most to c's norm.
+                # After adding 1, it will utterly dominate it.
+                # We only need enough extra precision to avoid
+                # losing any of a's `prec` most significant bits
+                # when addiog, `b**2` is too small to matter.
+                wp *= 2
+            else:
+                # b**2 is the larger of the square terms. The
+                # smallest b can be is about 2**-prec, so the
+                # smallest b**2 can be is about 2**(-2*prec). So
+                # for a bit to matter compared to b**2, it has
+                # to be at least about 2**(-3*prec). Bits of 2*a
+                # (if any) >= 2**(-3*prec) will be preserved if
+                # we use 3*prec bits for the add.
+                wp *= 3
+        # Else (cmag >= 4), |c+1| >= |c| - 1 is so large that
+        # working precision is fine (although that takes some
+        # careful analysis for cmag=4, given that .mag() _may_
+        # return a rexult too large by 2), So leave wp alone.
+        arg = ctx.fadd(1.0, c, prec=wp)
+        result = ctx.log(arg)
+    else:
+        # Else c is "very small", and we use a series expansion,
+        # c - c**2/2. The real part of that is a+(b*b-a*a)/2,
+        # and the imag part b-a*b. Given that cmag < -prec, it
+        # can be shown that "a*b" is numerically insignifcant in
+        # the imag part, and _usually_ the "a*a/2" in the real
+        # part. What remains is cheap to compute. In the real
+        # part, though, if `a` is negative, the remaining
+        # a+b**2/2 can suffer massive cancellation - even total.
+        real = a + b*b*0.5 # usually the real part of the result
+        if (a < 0.0
+            and ctx.mag(real) <= ctx.mag(a) - LOG1P_EXTRAPREC):
+            # The guard bits were lost to cancellation. Rare. At
+            # the contrived
+            # -1.999999873062092e-40+1.999999936531045e-20j
+            # _all_ bits cancel out. Since a ~= -b*b/2 in this
+            # case, and |b| is at largest (worst case) about
+            # 2**-prec, |a| is about 2**(-2*prec), and the true
+            # result may be as small as a**2/2, which is about
+            # 2**(-4*prec), of which we want the leading prec
+            # bits. To get the leading prec bits starting at
+            # 2**(-4**prec) from addends starting at
+            # 2**-(2*prec), we need the subtraction to handle
+            # 3*prec bits (the first 2*prec of which may cancel
+            # to exactly 0).
+            a2 = a*a # only need at worst prec bits
+            b2 = ctx.fmul(b, b, prec=2*wp)
+            diff = ctx.fsub(b2, a2, prec=3*wp)
+            real = a + ctx.ldexp(diff, -1)
+        result = real if ctx._is_real_type(x) else ctx.mpc(real, b)
+    return result
 
 @defun_wrapped
 def powm1(ctx, x, y):
@@ -274,16 +325,12 @@ def fabs(ctx, x):
 @defun
 def re(ctx, x):
     x = ctx.convert(x)
-    if hasattr(x, "real"):    # py2.5 doesn't have .real/.imag for all numbers
-        return x.real
-    return x
+    return x.real
 
 @defun
 def im(ctx, x):
     x = ctx.convert(x)
-    if hasattr(x, "imag"):    # py2.5 doesn't have .real/.imag for all numbers
-        return x.imag
-    return ctx.zero
+    return x.imag
 
 @defun
 def conj(ctx, x):
@@ -311,6 +358,14 @@ def log(ctx, x, b=None):
 @defun
 def log10(ctx, x):
     return ctx.log(x, 10)
+
+@defun
+def log2(ctx, x):
+    return ctx.log(x, 2)
+
+@defun
+def exp2(ctx, x):
+    return ctx.power(2, x)
 
 @defun
 def fmod(ctx, x, y):
@@ -345,16 +400,11 @@ import cmath
 
 def _lambertw_approx_hybrid(z, k):
     imag_sign = 0
-    if hasattr(z, "imag"):
-        x = float(z.real)
-        y = z.imag
-        if y:
-            imag_sign = (-1) ** (y < 0)
-        y = float(y)
-    else:
-        x = float(z)
-        y = 0.0
-        imag_sign = 0
+    x = float(z.real)
+    y = z.imag
+    if y:
+        imag_sign = (-1) ** (y < 0)
+    y = float(y)
     # hack to work regardless of whether Python supports -0.0
     if not y:
         y = 0.0
@@ -432,9 +482,9 @@ def _lambertw_series(ctx, z, k, tol):
                 # The series converges, so we could use it directly, but unless
                 # *extremely* close, it is better to just use the first few
                 # terms to get a good approximation for the iteration
-                for l in xrange(max(2,cancellation)):
+                for l in range(max(2, cancellation)):
                     if l not in u:
-                        a[l] = ctx.fsum(u[j]*u[l+1-j] for j in xrange(2,l))
+                        a[l] = ctx.fsum(u[j]*u[l+1-j] for j in range(2, l))
                         u[l] = (l-1)*(u[l-2]/2+a[l-2]/4)/(l+1)-a[l]/2-u[l-1]/(l+1)
                     term = u[l] * p**l
                     s += term
@@ -474,7 +524,7 @@ def lambertw(ctx, z, k=0):
     if not done:
         # Use Halley iteration to solve w*exp(w) = z
         two = ctx.mpf(2)
-        for i in xrange(100):
+        for i in range(100):
             ew = ctx.exp(w)
             wew = w*ew
             wewz = wew-z
@@ -495,7 +545,7 @@ def bell(ctx, n, x=1):
     if not n:
         if ctx.isnan(x):
             return x
-        return type(x)(1)
+        return ctx.one
     if ctx.isinf(x) or ctx.isinf(n) or ctx.isnan(x) or ctx.isnan(n):
         return x**n
     if n == 1: return x
@@ -576,8 +626,9 @@ def mangoldt(ctx, n):
 
     **Examples**
 
-        >>> from mpmath import *
-        >>> mp.dps = 25; mp.pretty = True
+        >>> from mpmath import mp, mangoldt, fsum
+        >>> mp.dps = 25
+        >>> mp.pretty = True
         >>> [mangoldt(n) for n in range(-2,3)]
         [0.0, 0.0, 0.0, 0.0, 0.6931471805599453094172321]
         >>> mangoldt(6)

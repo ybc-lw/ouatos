@@ -1,9 +1,24 @@
-import math
+import platform
+
 import pytest
-from mpmath import *
+
+from mpmath import (agm, airyai, airybi, appellf1, bei, ber, besseli, besselj,
+                    besseljzero, besselk, bessely, besselyzero, betainc,
+                    chebyt, chebyu, chi, ci, clsin, convert, coulombg, e, e1,
+                    ei, ellipe, ellipk, eps, erf, erfc, erfi, erfinv, exp,
+                    expint, fadd, fmul, foxh, fp, fraction, fresnelc, fresnels,
+                    fsub, fsum, gamma, gammainc, gegenbauer, hankel1, hankel2,
+                    hermite, hyp0f1, hyp1f1, hyp1f2, hyp2f0, hyp2f1, hyp2f2,
+                    hyp2f3, hyper, hypercomb, hyperu, inf, isnan, j, j0, j1,
+                    jacobi, kei, ker, laguerre, lambertw, ldexp, legendre,
+                    legenp, legenq, lerchphi, li, log, lower_gamma, meijerg,
+                    mp, mpc, mpf, nan, ncdf, npdf, nthroot, pi, polylog, qp,
+                    quadts, shi, si, spherharm, spherical_jn, spherical_yn,
+                    sqrt, struveh, struvel, upper_gamma, whitm, whitw, zeta)
+from mpmath.libmp import BACKEND, NoConvergence
+
 
 def test_bessel():
-    mp.dps = 15
     assert j0(1).ae(0.765197686557966551)
     assert j0(pi).ae(-0.304242177644093864)
     assert j0(1000).ae(0.0247866861524201746)
@@ -72,13 +87,21 @@ def test_bessel():
     assert besselk(0,3+4j).ae(-0.007239051213570155013+0.026510418350267677215j)
     assert besselk(0,j).ae(-0.13863371520405399968-1.20196971531720649914j)
     assert (besselk(3, 10**10) * mpf(10)**4342944824).ae(1.1628981033356187851)
+    assert besselk(1,inf) == 0
+    assert spherical_jn(0, 1).ae(0.841470984807896)
+    assert spherical_yn(0, 1).ae(-0.54030230586814)
     # test for issue 331, bug reported by Michael Hartmann
     for n in range(10,100,10):
         mp.dps = n
         assert besseli(91.5,24.7708).ae("4.00830632138673963619656140653537080438462342928377020695738635559218797348548092636896796324190271316137982810144874264e-41")
 
+def test_issue_877():
+    mp.dps = 64
+    r = besseli(-127, 2)
+    assert besseli(127, 2) == r
+    assert r.ae("3.345358761443415013354345973251886375421555647081543375756063117036e-214")
+
 def test_bessel_zeros():
-    mp.dps = 15
     assert besseljzero(0,1).ae(2.40482555769577276869)
     assert besseljzero(2,1).ae(5.1356223018406825563)
     assert besseljzero(1,50).ae(157.86265540193029781)
@@ -93,7 +116,6 @@ def test_bessel_zeros():
     assert besselyzero(2,1,1).ae(5.0025829314460639452)
 
 def test_hankel():
-    mp.dps = 15
     assert hankel1(0,0.5).ae(0.93846980724081290423-0.44451873350670655715j)
     assert hankel1(1,0.5).ae(0.2422684576748738864-1.4714723926702430692j)
     assert hankel1(-1,0.5).ae(-0.2422684576748738864+1.4714723926702430692j)
@@ -106,19 +128,16 @@ def test_hankel():
     assert hankel2(1.5,3+4j).ae(14.783528526098567526-7.397390270853446512j)
 
 def test_struve():
-    mp.dps = 15
     assert struveh(2,3).ae(0.74238666967748318564)
     assert struveh(-2.5,3).ae(0.41271003220971599344)
     assert struvel(2,3).ae(1.7476573277362782744)
     assert struvel(-2.5,3).ae(1.5153394466819651377)
 
 def test_whittaker():
-    mp.dps = 15
     assert whitm(2,3,4).ae(49.753745589025246591)
     assert whitw(2,3,4).ae(14.111656223052932215)
 
 def test_kelvin():
-    mp.dps = 15
     assert ber(2,3).ae(0.80836846563726819091)
     assert ber(3,4).ae(-0.28262680167242600233)
     assert ber(-3,2).ae(-0.085611448496796363669)
@@ -132,7 +151,6 @@ def test_kelvin():
     assert kei(0.5,3).ae(0.013633041571314302948)
 
 def test_hyper_misc():
-    mp.dps = 15
     assert hyp0f1(1,0) == 1
     assert hyp1f1(1,2,0) == 1
     assert hyp1f2(1,2,3,0) == 1
@@ -151,10 +169,10 @@ def test_hyper_misc():
     mp.dps = 25
     v = mpc('1.2282306665029814734863026', '-0.1225033830118305184672133')
     assert hyper([(3,4),2+j,1],[1,5,j/3],mpf(1)/5+j/8).ae(v)
-    mp.dps = 15
+    pytest.raises(ZeroDivisionError, lambda: mp.hyper([1, 2, -2], [-1, 3], 1.1))
+    pytest.raises(ZeroDivisionError, lambda: fp.hyper([1, 2, -2], [-1, 3], 1.1))
 
 def test_elliptic_integrals():
-    mp.dps = 15
     assert ellipk(0).ae(pi/2)
     assert ellipk(0.5).ae(gamma(0.25)**2/(4*sqrt(pi)))
     assert ellipk(1) == inf
@@ -211,10 +229,8 @@ def test_elliptic_integrals():
     v = ellipe(pi)
     assert v.real.ae('0.4632848917264710404078033487934663562998345622611263332')
     assert v.imag.ae('1.0637961621753130852473300451583414489944099504180510966')
-    mp.dps = 15
 
 def test_exp_integrals():
-    mp.dps = 15
     x = +e
     z = e + sqrt(3)*j
     assert ei(x).ae(8.21168165538361560)
@@ -261,7 +277,6 @@ def test_exp_integrals():
     assert chi(inf) == inf
 
 def test_ei():
-    mp.dps = 15
     assert ei(0) == -inf
     assert ei(inf) == inf
     assert ei(-inf) == -0.0
@@ -283,7 +298,6 @@ def test_ei():
     # More asymptotic expansions
     assert chi(-10**6+100j).ae('1.3077239389562548386e+434288 + 7.6808956999707408158e+434287j')
     assert shi(-10**6+100j).ae('-1.3077239389562548386e+434288 - 7.6808956999707408158e+434287j')
-    mp.dps = 15
     assert ei(10j).ae(-0.0454564330044553726+3.2291439210137706686j)
     assert ei(100j).ae(-0.0051488251426104921+3.1330217936839529126j)
     u = ei(fmul(10**20, j, exact=True))
@@ -300,7 +314,6 @@ def test_ei():
     assert u.imag.ae(3.141595611735621062025)
 
 def test_e1():
-    mp.dps = 15
     assert e1(0) == inf
     assert e1(inf) == 0
     assert e1(-inf) == mpc(-inf, -pi)
@@ -312,7 +325,6 @@ def test_e1():
     assert e1(fmul(-10**20, j, exact=True)).ae(6.4525128526578084421e-21 + 7.6397040444172830039e-21j, abs_eps=0, rel_eps=8*eps)
 
 def test_expint():
-    mp.dps = 15
     assert expint(0,0) == inf
     assert expint(0,1).ae(1/e)
     assert expint(0,1.5).ae(2/exp(1.5)/3)
@@ -444,7 +456,6 @@ def test_trig_integrals():
     assert ae(fp.shi(2+50j), -0.017515007378437448+1.497884414277228461j)
 
 def test_airy():
-    mp.dps = 15
     assert (airyai(10)*10**10).ae(1.1047532552898687)
     assert (airybi(10)/10**9).ae(0.45564115354822515)
     assert (airyai(1000)*10**9158).ae(9.306933063179556004)
@@ -455,7 +466,6 @@ def test_airy():
     assert (airybi(100+100j)/10**185).ae(1.7086751714463652039 - 3.1416590020830804578j)
 
 def test_hyper_0f1():
-    mp.dps = 15
     v = 8.63911136507950465
     assert hyper([],[(1,3)],1.5).ae(v)
     assert hyper([],[1/3.],1.5).ae(v)
@@ -466,7 +476,6 @@ def test_hyper_0f1():
     assert hyp0f1(3,1e9j).ae('-2.1222788784457702157e+19410 + 5.0840597555401854116e+19410j')
 
 def test_hyper_1f1():
-    mp.dps = 15
     v = 1.2917526488617656673
     assert hyper([(1,2)],[(3,2)],0.7).ae(v)
     assert hyper([(1,2)],[(3,2)],0.7+0j).ae(v)
@@ -486,9 +495,14 @@ def test_hyper_1f1():
     assert hyp1f1(-2, 1, 10000).ae(49980001)
     # Bug
     assert hyp1f1(1j,fraction(1,3),0.415-69.739j).ae(25.857588206024346592 + 15.738060264515292063j)
+    # issue 522
+    assert hyp1f1(0, 1, +inf) == 1
+    assert hyp1f1(0, 1, -inf) == 1
+    assert hyp1f1(1, 2, -inf) == 0
+    assert hyp1f1(2, 2, -inf) == 0
+    assert hyp1f1(1, 5, -inf) == 0
 
 def test_hyper_2f1():
-    mp.dps = 15
     v = 1.0652207633823291032
     assert hyper([(1,2), (3,4)], [2], 0.3).ae(v)
     assert hyper([(1,2), 0.75], [2], 0.3).ae(v)
@@ -518,9 +532,9 @@ def test_hyper_2f1():
     assert hyper([0.2,(3,10)],[(4,10)],4+2j).ae(v)
 
 def test_hyper_2f1_hard():
-    mp.dps = 15
     # Singular cases
     assert hyp2f1(2,-1,-1,3).ae(7)
+    pytest.raises(NotImplementedError, lambda: fp.hyp2f1(2,-1,-1,3))
     assert hyp2f1(2,-1,-1,3,eliminate_all=True).ae(0.25)
     assert hyp2f1(2,-2,-2,3).ae(34)
     assert hyp2f1(2,-2,-2,3,eliminate_all=True).ae(0.25)
@@ -590,14 +604,13 @@ def test_hyper_3f2_etc():
     #assert hyper([1,1,1],[2,3],0.9999).ae(1.2897972005319693905)
 
 def test_hyper_u():
-    mp.dps = 15
     assert hyperu(2,-3,0).ae(0.05)
     assert hyperu(2,-3.5,0).ae(4./99)
     assert hyperu(2,0,0) == 0.5
     assert hyperu(-5,1,0) == -120
     assert hyperu(-5,2,0) == inf
     assert hyperu(-5,-2,0) == 0
-    assert hyperu(7,7,3).ae(0.00014681269365593503986)  #exp(3)*gammainc(-6,3)
+    assert hyperu(7,7,3).ae(0.00014681269365593503986)  #exp(3)*upper_gamma(-6,3)
     assert hyperu(2,-3,4).ae(0.011836478100271995559)
     assert hyperu(3,4,5).ae(1./125)
     assert hyperu(2,3,0.0625) == 256
@@ -606,13 +619,9 @@ def test_hyper_u():
     assert hyperu(2,6,pi).ae(0.55804439825913399130)
     assert (hyperu((3,2),8,100+201j)*10**4).ae(-0.3797318333856738798 - 2.9974928453561707782j)
     assert (hyperu((5,2),(-1,2),-5000)*10**10).ae(-5.6681877926881664678j)
-    # XXX: fails because of undetected cancellation in low level series code
-    # Alternatively: could use asymptotic series here, if convergence test
-    # tweaked back to recognize this one
-    #assert (hyperu((5,2),(-1,2),-500)*10**7).ae(-1.82526906001593252847j)
+    assert (hyperu((5,2),(-1,2),-500)*10**7).ae(-1.82526906001593252847j)
 
 def test_hyper_2f0():
-    mp.dps = 15
     assert hyper([1,2],[],3) == hyp2f0(1,2,3)
     assert hyp2f0(2,3,7).ae(0.0116108068639728714668 - 0.0073727413865865802130j)
     assert hyp2f0(2,3,0) == 1
@@ -631,10 +640,10 @@ def test_hyper_2f0():
     # There used to be a bug in thresholds that made one of the following hang
     for d in [15, 50, 80]:
         mp.dps = d
-        assert hyp2f0(1.5, 0.5, 0.009).ae('1.006867007239309717945323585695344927904000945829843527398772456281301440034218290443367270629519483 + 1.238277162240704919639384945859073461954721356062919829456053965502443570466701567100438048602352623e-46j')
+        assert hyp2f0(1.5, 0.5, 0.009).ae('1.006867007239309717945323585695344927904000945829843527398772456281301440034218290443367270629519483 +'
+                                          ' 1.238277162240704919639384945859073461954721356062919829456053965502443570466701567100438048602352623e-46j')
 
 def test_hyper_1f2():
-    mp.dps = 15
     assert hyper([1],[2,3],4) == hyp1f2(1,2,3,4)
     a1,b1,b2 = (1,10),(2,3),1./16
     assert hyp1f2(a1,b1,b2,10).ae(298.7482725554557568)
@@ -657,7 +666,6 @@ def test_hyper_1f2():
     assert hyp1f2(a1,b1,b2,10**20*j).ae('-1.1734497974795488504e+6141851462 + 1.1498106965385471542e+6141851462j')
 
 def test_hyper_2f3():
-    mp.dps = 15
     assert hyper([1,2],[3,4,5],6) == hyp2f3(1,2,3,4,5,6)
     a1,a2,b1,b2,b3 = (1,10),(2,3),(3,10), 2, 1./16
     # Check asymptotic expansion
@@ -680,7 +688,6 @@ def test_hyper_2f3():
     assert hyp2f3(a1,a2,b1,b2,b3,10**20*j).ae('-2.0988815677627225449e+6141851451 + 5.7708223542739208681e+6141851452j')
 
 def test_hyper_2f2():
-    mp.dps = 15
     assert hyper([1,2],[3,4],5) == hyp2f2(1,2,3,4,5)
     a1,a2,b1,b2 = (3,10),4,(1,2),1./16
     assert hyp2f2(a1,a2,b1,b2,10).ae(448225936.3377556696)
@@ -689,7 +696,6 @@ def test_hyper_2f2():
     assert hyp2f2(a1,a2,b1,b2,10**20).ae('1.1148680024303263661e+43429448190325182840')
 
 def test_orthpoly():
-    mp.dps = 15
     assert jacobi(-4,2,3,0.7).ae(22800./4913)
     assert jacobi(3,2,4,5.5) == 4133.125
     assert jacobi(1.5,5/6.,4,0).ae(-1.0851951434075508417)
@@ -708,6 +714,11 @@ def test_orthpoly():
     assert legendre(j,-j).ae(2.4448182735671431011 + 0.6928881737669934843j)
     assert chebyu(5,1) == 6
     assert chebyt(3,2) == 26
+    assert chebyu(5,inf) == inf  # issue 469
+    assert chebyt(5,inf) == inf
+    assert chebyt(10**3, 1j, force_series=False) == chebyt(10**3, 1j)
+    pytest.raises(NoConvergence, lambda: chebyt(10**6, 1j))  # issue 852
+    assert chebyu(10**3, 1j, force_series=False) == chebyu(10**3, 1j)
     assert legendre(3.5,-1) == inf
     assert legendre(4.5,-1) == -inf
     assert legendre(3.5+1j,-1) == mpc(inf,inf)
@@ -716,7 +727,6 @@ def test_orthpoly():
     assert laguerre(3, 1+j, 0.5).ae(0.2291666666666666667 + 2.5416666666666666667j)
 
 def test_hermite():
-    mp.dps = 15
     assert hermite(-2, 0).ae(0.5)
     assert hermite(-1, 0).ae(0.88622692545275801365)
     assert hermite(0, 0).ae(1)
@@ -747,7 +757,6 @@ def test_hermite():
     assert hermite(2+3j, -1-j).ae(851.3677063883687676 - 1496.4373467871007997j)
 
 def test_gegenbauer():
-    mp.dps = 15
     assert gegenbauer(1,2,3).ae(12)
     assert gegenbauer(2,3,4).ae(381)
     assert gegenbauer(0,0,0) == 0
@@ -759,9 +768,15 @@ def test_gegenbauer():
     assert gegenbauer(-0.5, -0.5, 3).ae(-2.6383553159023906245)
     assert gegenbauer(2+3j, 1-j, 3+4j).ae(14.880536623203696780 + 20.022029711598032898j)
     #assert gegenbauer(-2, -0.5, 3).ae(-12)
+    assert gegenbauer(0, 0, 2.2) == 0  # issue 494
+    assert gegenbauer(0, 1, 2.2) == 1
+    assert gegenbauer(0, 4, 2.2) == 1
+    assert gegenbauer(0, 0, 1.8) == 0
+    assert gegenbauer(0, 1, 1.8) == 1
+    mp.dps = 200
+    assert gegenbauer(2,-1.0, 27397079.00297188) == 0  # issue 461
 
 def test_legenp():
-    mp.dps = 15
     assert legenp(2,0,4) == legendre(2,4)
     assert legenp(-2, -1, 0.5).ae(0.43301270189221932338)
     assert legenp(-2, -1, 0.5, type=3).ae(0.43301270189221932338j)
@@ -781,7 +796,6 @@ def test_legenp():
     assert legenp(-2,0.5,-0.5).ae(-0.85738275810499171286)
 
 def test_legenq():
-    mp.dps = 15
     f = legenq
     # Evaluation at poles
     assert isnan(f(3,2,1))
@@ -841,7 +855,6 @@ def test_legenq():
     assert f(-2.5,1,1.5,type=3).ae(-0.29932356550447017254)
 
 def test_agm():
-    mp.dps = 15
     assert agm(0,0) == 0
     assert agm(0,1) == 0
     assert agm(1,1) == 1
@@ -855,38 +868,37 @@ def test_agm():
     assert agm(-3,4).ae(0.63468509766550907+1.3443087080896272j)
 
 def test_gammainc():
-    mp.dps = 15
-    assert gammainc(2,5).ae(6*exp(-5))
-    assert gammainc(2,0,5).ae(1-6*exp(-5))
+    assert upper_gamma(2,5).ae(6*exp(-5))
+    assert lower_gamma(2,5).ae(1-6*exp(-5))
     assert gammainc(2,3,5).ae(-6*exp(-5)+4*exp(-3))
-    assert gammainc(-2.5,-0.5).ae(-0.9453087204829418812-5.3164237738936178621j)
+    assert upper_gamma(-2.5,-0.5).ae(-0.9453087204829418812-5.3164237738936178621j)
     assert gammainc(0,2,4).ae(0.045121158298212213088)
-    assert gammainc(0,3).ae(0.013048381094197037413)
+    assert upper_gamma(0,3).ae(0.013048381094197037413)
     assert gammainc(0,2+j,1-j).ae(0.00910653685850304839-0.22378752918074432574j)
-    assert gammainc(0,1-j).ae(0.00028162445198141833+0.17932453503935894015j)
+    assert upper_gamma(0,1-j).ae(0.00028162445198141833+0.17932453503935894015j)
     assert gammainc(3,4,5,True).ae(0.11345128607046320253)
-    assert gammainc(3.5,0,inf).ae(gamma(3.5))
-    assert gammainc(-150.5,500).ae('6.9825435345798951153e-627')
-    assert gammainc(-150.5,800).ae('4.6885137549474089431e-788')
-    assert gammainc(-3.5, -20.5).ae(0.27008820585226911 - 1310.31447140574997636j)
-    assert gammainc(-3.5, -200.5).ae(0.27008820585226911 - 5.3264597096208368435e76j) # XXX real part
-    assert gammainc(0,0,2) == inf
+    assert gammainc(3.5,0).ae(gamma(3.5))
+    assert upper_gamma(-150.5,500).ae('6.9825435345798951153e-627')
+    assert upper_gamma(-150.5,800).ae('4.6885137549474089431e-788')
+    assert upper_gamma(-3.5,-20.5).ae(0.27008820585226911 - 1310.31447140574997636j)
+    assert upper_gamma(-3.5,-200.5).ae(0.27008820585226911 - 5.3264597096208368435e76j) # XXX real part
+    assert lower_gamma(0,2) == inf
     assert gammainc(1,b=1).ae(0.6321205588285576784)
     assert gammainc(3,2,2) == 0
     assert gammainc(2,3+j,3-j).ae(-0.28135485191849314194j)
-    assert gammainc(4+0j,1).ae(5.8860710587430771455)
+    assert upper_gamma(4+0j,1).ae(5.8860710587430771455)
     # GH issue #301
-    assert gammainc(-1,-1).ae(-0.8231640121031084799 + 3.1415926535897932385j)
-    assert gammainc(-2,-1).ae(1.7707229202810768576 - 1.5707963267948966192j)
-    assert gammainc(-3,-1).ae(-1.4963349162467073643 + 0.5235987755982988731j)
-    assert gammainc(-4,-1).ae(1.05365418617643814992 - 0.13089969389957471827j)
+    assert upper_gamma(-1,-1).ae(-0.8231640121031084799 + 3.1415926535897932385j)
+    assert upper_gamma(-2,-1).ae(1.7707229202810768576 - 1.5707963267948966192j)
+    assert upper_gamma(-3,-1).ae(-1.4963349162467073643 + 0.5235987755982988731j)
+    assert upper_gamma(-4,-1).ae(1.05365418617643814992 - 0.13089969389957471827j)
     # Regularized upper gamma
     assert isnan(gammainc(0, 0, regularized=True))
     assert gammainc(-1, 0, regularized=True) == inf
     assert gammainc(1, 0, regularized=True) == 1
-    assert gammainc(0, 5, regularized=True) == 0
-    assert gammainc(0, 2+3j, regularized=True) == 0
-    assert gammainc(0, 5000, regularized=True) == 0
+    assert upper_gamma(0,5, regularized=True) == 0
+    assert upper_gamma(0,2+3j, regularized=True) == 0
+    assert upper_gamma(0,5000, regularized=True) == 0
     assert gammainc(0, 10**30, regularized=True) == 0
     assert gammainc(-1, 5, regularized=True) == 0
     assert gammainc(-1, 5000, regularized=True) == 0
@@ -895,16 +907,16 @@ def test_gammainc():
     assert gammainc(-1, -5000, regularized=True) == 0
     assert gammainc(-1, -10**30, regularized=True) == 0
     assert gammainc(-1, 3+4j, regularized=True) == 0
-    assert gammainc(1, 5, regularized=True).ae(exp(-5))
-    assert gammainc(1, 5000, regularized=True).ae(exp(-5000))
+    assert upper_gamma(1,5, regularized=True).ae(exp(-5))
+    assert upper_gamma(1,5000, regularized=True).ae(exp(-5000))
     assert gammainc(1, 10**30, regularized=True).ae(exp(-10**30))
-    assert gammainc(1, 3+4j, regularized=True).ae(exp(-3-4j))
-    assert gammainc(-1000000,2).ae('1.3669297209397347754e-301037', abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(1,3+4j, regularized=True).ae(exp(-3-4j))
+    assert upper_gamma(-1000000,2).ae('1.3669297209397347754e-301037', abs_eps=0, rel_eps=8*eps)
     assert gammainc(-1000000,2,regularized=True) == 0
-    assert gammainc(-1000000,3+4j).ae('-1.322575609404222361e-698979 - 4.9274570591854533273e-698978j', abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(-1000000,3+4j).ae('-1.322575609404222361e-698979 - 4.9274570591854533273e-698978j', abs_eps=0, rel_eps=8*eps)
     assert gammainc(-1000000,3+4j,regularized=True) == 0
-    assert gammainc(2+3j, 4+5j, regularized=True).ae(0.085422013530993285774-0.052595379150390078503j)
-    assert gammainc(1000j, 1000j, regularized=True).ae(0.49702647628921131761 + 0.00297355675013575341j)
+    assert upper_gamma(2+3j,4+5j, regularized=True).ae(0.085422013530993285774-0.052595379150390078503j)
+    assert upper_gamma(1000j,1000j, regularized=True).ae(0.49702647628921131761 + 0.00297355675013575341j)
     # Generalized
     assert gammainc(3,4,2) == -gammainc(3,2,4)
     assert gammainc(4, 2, 3).ae(1.2593494302978947396)
@@ -920,11 +932,11 @@ def test_gammainc():
     # Should use lower gammas
     assert gammainc(10000, 2, 3).ae('8.1244514125995785934e4765')
     # GH issue 306
-    assert gammainc(3,-1-1j) == 0
-    assert gammainc(3,-1+1j) == 0
-    assert gammainc(2,-1) == 0
-    assert gammainc(2,-1+0j) == 0
-    assert gammainc(2+0j,-1) == 0
+    assert upper_gamma(3,-1-1j) == 0
+    assert upper_gamma(3,-1+1j) == 0
+    assert upper_gamma(2,-1) == 0
+    assert upper_gamma(2,-1+0j) == 0
+    assert upper_gamma(2+0j,-1) == 0
 
 def test_gammainc_expint_n():
     # These tests are intended to check all cases of the low-level code
@@ -932,7 +944,6 @@ def test_gammainc_expint_n():
     # Need to cover positive/negative arguments; small/large/huge arguments
     # for both positive and negative indices, as well as indices 0 and 1
     # which may be special-cased
-    mp.dps = 15
     assert expint(-3,3.5).ae(0.021456366563296693987)
     assert expint(-2,3.5).ae(0.014966633183073309405)
     assert expint(-1,3.5).ae(0.011092916359219041088)
@@ -988,83 +999,81 @@ def test_gammainc_expint_n():
     assert u.imag.ae(-1.9242255003237483586e+47)
     assert u.ae('-3.7805306852415755699e+152003068666138139677871')
     # Small case; no branch cut
-    assert gammainc(-3,3.5).ae(0.00010020262545203707109)
-    assert gammainc(-2,3.5).ae(0.00040370427343557393517)
-    assert gammainc(-1,3.5).ae(0.0016576839773997501492)
-    assert gammainc(0,3.5).ae(0.0069701398575483929193)
-    assert gammainc(1,3.5).ae(0.03019738342231850074)
-    assert gammainc(2,3.5).ae(0.13588822540043325333)
-    assert gammainc(3,3.5).ae(0.64169439772426814072)
+    assert upper_gamma(-3,3.5).ae(0.00010020262545203707109)
+    assert upper_gamma(-2,3.5).ae(0.00040370427343557393517)
+    assert upper_gamma(-1,3.5).ae(0.0016576839773997501492)
+    assert upper_gamma(0,3.5).ae(0.0069701398575483929193)
+    assert upper_gamma(1,3.5).ae(0.03019738342231850074)
+    assert upper_gamma(2,3.5).ae(0.13588822540043325333)
+    assert upper_gamma(3,3.5).ae(0.64169439772426814072)
     # Small case; with branch cut
-    assert gammainc(-3,-3.5).ae(0.03595832954467563286 + 0.52359877559829887308j)
-    assert gammainc(-2,-3.5).ae(-0.88024704597962022221 - 1.5707963267948966192j)
-    assert gammainc(-1,-3.5).ae(4.4637962926688170771 + 3.1415926535897932385j)
-    assert gammainc(0,-3.5).ae(-13.925353995152335292 - 3.1415926535897932385j)
-    assert gammainc(1,-3.5).ae(33.115451958692313751)
-    assert gammainc(2,-3.5).ae(-82.788629896730784377)
-    assert gammainc(3,-3.5).ae(240.08702670051927469)
+    assert upper_gamma(-3,-3.5).ae(0.03595832954467563286 + 0.52359877559829887308j)
+    assert upper_gamma(-2,-3.5).ae(-0.88024704597962022221 - 1.5707963267948966192j)
+    assert upper_gamma(-1,-3.5).ae(4.4637962926688170771 + 3.1415926535897932385j)
+    assert upper_gamma(0,-3.5).ae(-13.925353995152335292 - 3.1415926535897932385j)
+    assert upper_gamma(1,-3.5).ae(33.115451958692313751)
+    assert upper_gamma(2,-3.5).ae(-82.788629896730784377)
+    assert upper_gamma(3,-3.5).ae(240.08702670051927469)
     # Asymptotic case; no branch cut
-    assert gammainc(-3,350).ae(6.5424095113340358813e-163, abs_eps=0, rel_eps=8*eps)
-    assert gammainc(-2,350).ae(2.296312222489899769e-160, abs_eps=0, rel_eps=8*eps)
-    assert gammainc(-1,350).ae(8.059861834133858573e-158, abs_eps=0, rel_eps=8*eps)
-    assert gammainc(0,350).ae(2.8289659656701459404e-155, abs_eps=0, rel_eps=8*eps)
-    assert gammainc(1,350).ae(9.9295903962649792963e-153, abs_eps=0, rel_eps=8*eps)
-    assert gammainc(2,350).ae(3.485286229089007733e-150, abs_eps=0, rel_eps=8*eps)
-    assert gammainc(3,350).ae(1.2233453960006379793e-147, abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(-3,350).ae(6.5424095113340358813e-163, abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(-2,350).ae(2.296312222489899769e-160, abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(-1,350).ae(8.059861834133858573e-158, abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(0,350).ae(2.8289659656701459404e-155, abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(1,350).ae(9.9295903962649792963e-153, abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(2,350).ae(3.485286229089007733e-150, abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(3,350).ae(1.2233453960006379793e-147, abs_eps=0, rel_eps=8*eps)
     # Asymptotic case; branch cut
-    u = gammainc(-3,-350)
+    u = upper_gamma(-3,-350)
     assert u.ae(6.7889565783842895085e+141)
     assert u.imag.ae(0.52359877559829887308)
-    u = gammainc(-2,-350)
+    u = upper_gamma(-2,-350)
     assert u.ae(-2.3692668977889832121e+144)
     assert u.imag.ae(-1.5707963267948966192)
-    u = gammainc(-1,-350)
+    u = upper_gamma(-1,-350)
     assert u.ae(8.2685354361441858669e+146)
     assert u.imag.ae(3.1415926535897932385)
-    u = gammainc(0,-350)
+    u = upper_gamma(0,-350)
     assert u.ae(-2.8856710698020863568e+149)
     assert u.imag.ae(-3.1415926535897932385)
-    u = gammainc(1,-350)
+    u = upper_gamma(1,-350)
     assert u.ae(1.0070908870280797598e+152)
     assert u.imag == 0
-    u = gammainc(2,-350)
+    u = upper_gamma(2,-350)
     assert u.ae(-3.5147471957279983618e+154)
     assert u.imag == 0
-    u = gammainc(3,-350)
+    u = upper_gamma(3,-350)
     assert u.ae(1.2266568422179417091e+157)
     assert u.imag == 0
     # Extreme asymptotic case
-    assert gammainc(-3,350000000000000000000000).ae('5.0362468738874738859e-152003068666138139677990', abs_eps=0, rel_eps=8*eps)
-    assert gammainc(-2,350000000000000000000000).ae('1.7626864058606158601e-152003068666138139677966', abs_eps=0, rel_eps=8*eps)
-    assert gammainc(-1,350000000000000000000000).ae('6.1694024205121555102e-152003068666138139677943', abs_eps=0, rel_eps=8*eps)
-    assert gammainc(0,350000000000000000000000).ae('2.1592908471792544286e-152003068666138139677919', abs_eps=0, rel_eps=8*eps)
-    assert gammainc(1,350000000000000000000000).ae('7.5575179651273905e-152003068666138139677896', abs_eps=0, rel_eps=8*eps)
-    assert gammainc(2,350000000000000000000000).ae('2.645131287794586675e-152003068666138139677872', abs_eps=0, rel_eps=8*eps)
-    assert gammainc(3,350000000000000000000000).ae('9.2579595072810533625e-152003068666138139677849', abs_eps=0, rel_eps=8*eps)
-    u = gammainc(-3,-350000000000000000000000)
+    assert upper_gamma(-3,350000000000000000000000).ae('5.0362468738874738859e-152003068666138139677990', abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(-2,350000000000000000000000).ae('1.7626864058606158601e-152003068666138139677966', abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(-1,350000000000000000000000).ae('6.1694024205121555102e-152003068666138139677943', abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(0,350000000000000000000000).ae('2.1592908471792544286e-152003068666138139677919', abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(1,350000000000000000000000).ae('7.5575179651273905e-152003068666138139677896', abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(2,350000000000000000000000).ae('2.645131287794586675e-152003068666138139677872', abs_eps=0, rel_eps=8*eps)
+    assert upper_gamma(3,350000000000000000000000).ae('9.2579595072810533625e-152003068666138139677849', abs_eps=0, rel_eps=8*eps)
+    u = upper_gamma(-3,-350000000000000000000000)
     assert u.ae('8.8175642804468234866e+152003068666138139677800')
     assert u.imag.ae(0.52359877559829887308)
-    u = gammainc(-2,-350000000000000000000000)
+    u = upper_gamma(-2,-350000000000000000000000)
     assert u.ae('-3.0861474981563882203e+152003068666138139677824')
     assert u.imag.ae(-1.5707963267948966192)
-    u = gammainc(-1,-350000000000000000000000)
+    u = upper_gamma(-1,-350000000000000000000000)
     assert u.ae('1.0801516243547358771e+152003068666138139677848')
     assert u.imag.ae(3.1415926535897932385)
-    u = gammainc(0,-350000000000000000000000)
+    u = upper_gamma(0,-350000000000000000000000)
     assert u.ae('-3.7805306852415755699e+152003068666138139677871')
     assert u.imag.ae(-3.1415926535897932385)
-    assert gammainc(1,-350000000000000000000000).ae('1.3231857398345514495e+152003068666138139677895')
-    assert gammainc(2,-350000000000000000000000).ae('-4.6311500894209300731e+152003068666138139677918')
-    assert gammainc(3,-350000000000000000000000).ae('1.6209025312973255256e+152003068666138139677942')
+    assert upper_gamma(1,-350000000000000000000000).ae('1.3231857398345514495e+152003068666138139677895')
+    assert upper_gamma(2,-350000000000000000000000).ae('-4.6311500894209300731e+152003068666138139677918')
+    assert upper_gamma(3,-350000000000000000000000).ae('1.6209025312973255256e+152003068666138139677942')
 
 def test_incomplete_beta():
-    mp.dps = 15
     assert betainc(-2,-3,0.5,0.75).ae(63.4305673311255413583969)
     assert betainc(4.5,0.5+2j,2.5,6).ae(0.2628801146130621387903065 + 0.5162565234467020592855378j)
     assert betainc(4,5,0,6).ae(90747.77142857142857142857)
 
 def test_erf():
-    mp.dps = 15
     assert erf(0) == 0
     assert erf(1).ae(0.84270079294971486934)
     assert erf(3+4j).ae(-120.186991395079444098 - 27.750337293623902498j)
@@ -1127,7 +1136,6 @@ def test_erf():
     assert erfc(100+100j).ae(0.00065234366376857698698 - 0.0039357263629214118437j)
 
 def test_pdf():
-    mp.dps = 15
     assert npdf(-inf) == 0
     assert npdf(inf) == 0
     assert npdf(5,0,2).ae(npdf(5+4,4,2))
@@ -1141,7 +1149,6 @@ def test_pdf():
     assert (ncdf(-10)*10**24).ae(7.619853024160526)
 
 def test_lambertw():
-    mp.dps = 15
     assert lambertw(0) == 0
     assert lambertw(0+0j) == 0
     assert lambertw(inf) == inf
@@ -1336,7 +1343,6 @@ def test_lambertw_hard():
     assert lambertw(x).ae(ans)
 
 def test_meijerg():
-    mp.dps = 15
     assert meijerg([[2,3],[1]],[[0.5,2],[3,4]], 2.5).ae(4.2181028074787439386)
     assert meijerg([[],[1+j]],[[1],[1]], 3+4j).ae(271.46290321152464592 - 703.03330399954820169j)
     assert meijerg([[0.25],[1]],[[0.5],[2]],0) == 0
@@ -1354,8 +1360,25 @@ def test_meijerg():
         assert x1.ae(x2)
         assert x1.ae(x3)
 
+def test_foxh():
+    # from Mathematica, https://reference.wolfram.com/language/ref/FoxH.html
+    assert foxh([[(mpf('1/2'),1)],[(mpf('1/3'),2)]],[[(mpf('1/4'),3)],[(pi,4)]],mpf('0.2')).ae(0.014549867809356231)
+    assert foxh([[(mpf('1/10'),(6,5)), (mpf('13/10'),1)],[(mpf('17/5'),2)]],[[(mpf('7/5'),2)],[(mpf('1/5'),1)]],mpf('0.2')).ae(0.27964621202572)
+    # Equivalent by definition
+    b = 1
+    B = 2
+    z = mpf('0.2')
+    x1 = mpf(1)/B * (z ** (mpf(b)/B)) * exp(-z ** (mpf(1)/B))
+    x2 = foxh([[],[]],[[(b,B)],[]],z)
+    x3 = meijerg([[],[]],[[b],[]],z,r=B)/B
+    assert x1.ae(x2)
+    assert x1.ae(x3)
+    # Test foxh with r != 1
+    x2 = foxh([[],[]],[[(b,B)],[]],z,r=3)
+    x3 = meijerg([[],[]],[[b],[]],z,r=(3*B))/B
+    assert x2.ae(x3)
+
 def test_appellf1():
-    mp.dps = 15
     assert appellf1(2,-2,1,1,2,3).ae(-1.75)
     assert appellf1(2,1,-2,1,2,3).ae(-8)
     assert appellf1(2,1,-2,1,0.5,0.25).ae(1.5)
@@ -1365,11 +1388,9 @@ def test_appellf1():
 def test_coulomb():
     # Note: most tests are doctests
     # Test for a bug:
-    mp.dps = 15
     assert coulombg(mpc(-5,0),2,3).ae(20.087729487721430394)
 
 def test_hyper_param_accuracy():
-    mp.dps = 15
     As = [n+1e-10 for n in range(-5,-1)]
     Bs = [n+1e-10 for n in range(-12,-5)]
     assert hyper(As,Bs,10).ae(-381757055858.652671927)
@@ -1380,8 +1401,11 @@ def test_hyper_param_accuracy():
     assert hyp2f1(-5, 10, 3, 0.5, zeroprec=500) == 0
     assert (hyp1f1(-10000, 1000, 100)*10**424).ae(-3.1046080515824859974)
     assert (hyp2f1(1000,1.5,-3.5,-0.75,maxterms=100000)*10**231).ae(-4.0534790813913998643)
+    assert (hyp2f1(1000,1.5,-3.5,-0.75,maxterms=10000)*10**231).ae(-4.0534790813913998643)
+    pytest.raises(mp.NoConvergence, lambda: mp.hyp2f1(1000,1.5,-3.5,-0.75,maxterms=10000,force_series=True))
+    pytest.raises(fp.NoConvergence, lambda: fp.hyp2f1(1000,1.5,-3.5,-0.75,maxterms=10000,force_series=True))
     assert legenp(2, 3, 0.25) == 0
-    pytest.raises(ValueError, lambda: hypercomb(lambda a: [([],[],[],[],[a],[-a],0.5)], [3]))
+    pytest.raises(mp.NoConvergence, lambda: hypercomb(lambda a: [([],[],[],[],[a],[-a],0.5)], [3]))
     assert hypercomb(lambda a: [([],[],[],[],[a],[-a],0.5)], [3], infprec=200) == inf
     assert meijerg([[],[]],[[0,0,0,0],[]],0.1).ae(1.5680822343832351418)
     assert (besselk(400,400)*10**94).ae(1.4387057277018550583)
@@ -1400,7 +1424,6 @@ def test_hypercomb_zero_pow():
     assert meijerg([[-1.5],[]],[[0],[-0.75]],0).ae(1.4464090846320771425)
 
 def test_spherharm():
-    mp.dps = 15
     t = 0.5; r = 0.25
     assert spherharm(0,0,t,r).ae(0.28209479177387814347)
     assert spherharm(1,-1,t,r).ae(0.16048941205971996369 - 0.04097967481096344271j)
@@ -1442,7 +1465,6 @@ def test_spherharm():
     assert spherharm(3,-2,1,1).ae(-0.16270707338254028971 - 0.35552144137546777097j)
 
 def test_qfunctions():
-    mp.dps = 15
     assert qp(2,3,100).ae('2.7291482267247332183e2391')
 
 def test_issue_239():
@@ -1450,7 +1472,13 @@ def test_issue_239():
     x = ldexp(2476979795053773,-52)
     assert betainc(206, 385, 0, 0.55, 1).ae('0.99999999999999999999996570910644857895771110649954')
     mp.dps = 15
-    pytest.raises(ValueError, lambda: hyp2f1(-5,5,0.5,0.5))
+    expected_exc = ValueError
+    if platform.machine() == 's390x':
+        # This case has recursion depth beyond platform capabilities, that
+        # could be controlled with sys.setrecursionlimit().  See issue #1046
+        # for details.
+        expected_exc = RecursionError
+    pytest.raises(expected_exc, lambda: hyp2f1(-5,5,0.5,0.5))
 
 # Extra stress testing for Bessel functions
 # Reference zeros generated with the aid of scipy.special
@@ -2369,10 +2397,8 @@ ynp_small_zeros = \
 
 @pytest.mark.slow
 def test_bessel_zeros_extra():
-    mp.dps = 15
     for v in range(V):
         for m in range(1,M+1):
-            print(v, m, "of", V, M)
             # Twice to test cache (if used)
             assert besseljzero(v,m).ae(jn_small_zeros[v][m-1])
             assert besseljzero(v,m).ae(jn_small_zeros[v][m-1])
@@ -2382,3 +2408,83 @@ def test_bessel_zeros_extra():
             assert besselyzero(v,m).ae(yn_small_zeros[v][m-1])
             assert besselyzero(v,m,1).ae(ynp_small_zeros[v][m-1])
             assert besselyzero(v,m,1).ae(ynp_small_zeros[v][m-1])
+
+def test_issue_569():
+    r = betainc(1, 2, 1, 1)
+    assert isinstance(r, mp.mpf) and r == 0
+
+@pytest.mark.skipif(BACKEND != 'gmpy', reason="gmpy isn't used")
+def test_issue_274():
+    with pytest.raises(ValueError):
+        mp.fraction(1, 100).func(1000, 0xdead)
+
+def test_issue_523():
+    assert mp.hermite(0, inf) == 1.0
+
+def test_issue_512():
+    assert mp.hyperu(0, 1, inf) == 1.0
+    assert mp.hyperu(0, 2, inf) == 1.0
+
+def test_issue_251():
+    assert lerchphi(1.0000000, 4.1+1j,
+                    1.0).ae(1.0497861493928464 - 0.053190918836910267j)
+    assert lerchphi(1.00000001, 4.1+1j,
+                    1.0).ae(1.0497861498996701 - 0.053190919646660638j)
+    assert zeta(4.1+1j, 1.0).ae(1.0497861493928464 - 0.053190918836910267j)
+
+def test_issue_505():
+    assert mp.isnan(mp.polylog(mp.inf, 2.2))
+    assert mp.isnan(mp.polylog(mp.ninf, 2.2))
+    assert mp.isnan(mp.polylog(mp.nan, 2.2))
+
+def test_issue_653():
+    pytest.raises(ValueError, lambda: zeta(2, -2))
+
+def test_issue_511():
+    assert mp.laguerre(1, 2, mp.inf) == -mp.inf
+    assert mp.laguerre(1, 7.2, mp.inf) == -mp.inf
+    assert fp.laguerre(1, 7.2, fp.inf) == -fp.inf
+
+def test_issue_473():
+    assert mp.polylog(1, -mp.inf) == -mp.inf
+    assert mp.polylog(2, -mp.inf) == -mp.inf
+    assert mp.polylog(3, -mp.inf) == -mp.inf
+    assert mp.polylog(4, -mp.inf) == -mp.inf
+    assert mp.polylog(5, -mp.inf) == -mp.inf
+
+def test_issue_1033():
+    assert isnan(mp.polylog(2, mp.inf))
+    assert isnan(mp.polylog(3, mp.inf))
+    assert mp.polylog(2, mp.inf).real == -mp.inf
+    assert mp.polylog(3, mp.inf).real == -mp.inf
+
+def test_issue_634():
+    assert mp.polylog(1+1e-15, -2).ae(mp.mpf('-1.09861228866811'))
+
+def test_issue_908():
+    assert mp.besselj(-10+0j, 0+0j) == 0
+
+def test_issue_637():
+    assert hankel1(1, 1 + 30j).ae(-7.25495e-15 - 1.17346e-14j)
+    assert hankel2(1, 1 - 30j).ae(-7.25495e-15 + 1.17346e-14j)
+
+def test_issue_991():
+    assert spherical_jn(0, 1.3).ae(0.74119860416707)
+    assert spherical_yn(0, 1.3).ae(-0.20576832971122)
+
+def test_issue_545():
+    x = 100+j
+    assert erfc(x).ae(mpc('8.634691205220881e-4346',
+                          '1.5120569745187501e-4345'))
+    assert erfc(-x).ae(mpc(2, '-1.5120569745187501e-4345'),
+                       rel_eps=mpf('1e-4346'))
+    assert erf(x).ae(mpc(1, '-1.5120569745187501e-4345'),
+                     rel_eps=mpf('1e-4346'))
+    assert erf(-x).ae(mpc(-1, '1.5120569745187501e-4345'),
+                      rel_eps=mpf('1e-4346'))
+
+def test_issue_459():
+    assert isnan(clsin(1, mp.inf))
+    assert isnan(clsin(2, mp.inf))
+    assert isnan(clsin(2, mp.nan))
+    assert isnan(polylog(-2, mp.nan))

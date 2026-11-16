@@ -1,10 +1,12 @@
 # TODO: don't use round
 
-from __future__ import division
-
 import pytest
-from mpmath import *
-xrange = libmp.backend.xrange
+
+from mpmath import (cond, det, diag, exp, expm, extend, extradps, eye, fp,
+                    hilbert, inf, inverse, iv, j, lu, lu_solve, matrix, mnorm,
+                    mp, mpc, mpf, nint, norm, pi, qr, qr_solve, rand, rank,
+                    randmatrix, residual, zeros, absmin, eps)
+
 
 # XXX: these shouldn't be visible(?)
 LU_decomp = mp.LU_decomp
@@ -68,6 +70,19 @@ A10 = matrix([[1.0 + 1.0j, 2.0, 2.0],
             [7.0, 8.0, 9.0]])
 b10 = [1.0, 1.0 + 1.0j, 1.0]
 
+A11 = matrix([[4, 0, -2],
+             [2, 0, -4],
+             [2, 0, 5.5]])
+
+A12 = matrix([[1,0,0],
+              [0,1,0],
+              [0,0,1.0j]])
+
+A13 = matrix([[2, 6, 4],
+              [3, 8, 6],
+              [1, 1, 2]])
+
+A14 = matrix(0, 0)
 
 def test_LU_decomp():
     A = A3.copy()
@@ -91,13 +106,14 @@ def test_LU_decomp():
     LU_decomp(A, overwrite=1)
     assert A != bak
 
+    pytest.raises(ZeroDivisionError, LU_decomp, A11)
+
 def test_inverse():
     for A in [A1, A2, A5]:
         inv = inverse(A)
         assert mnorm(A*inv - eye(A.rows), 1) < 1.e-14
 
 def test_householder():
-    mp.dps = 15
     A, b = A8, b8
     H, p, x, r = householder(extend(A, b))
     assert H == matrix(
@@ -172,7 +188,6 @@ def test_solve_overdet_complex():
     assert norm(residual(A, lu_solve(A, b), b)) < 1.0208
 
 def test_singular():
-    mp.dps = 15
     A = [[5.6, 1.2], [7./15, .1]]
     B = repr(zeros(2))
     b = [1, 2]
@@ -185,6 +200,11 @@ def test_cholesky():
     x = fp.cholesky_solve(A9, b9)
     assert fp.norm(fp.residual(A9, x, b9), fp.inf) == 0
 
+    a = fp.matrix([[1, 0.5j], [-0.5j, 0.5]])
+    b = fp.ones(2, 1)
+    x = fp.cholesky_solve(a, b)
+    assert fp.norm(fp.residual(a, x, b), fp.inf) == 0
+
 def test_det():
     assert det(A1) == 1
     assert round(det(A2), 14) == 8
@@ -193,9 +213,11 @@ def test_det():
     assert det(A5) == 1
     assert round(det(A6)) == 78356463
     assert det(zeros(3)) == 0
+    assert det(A11) == 0
+    assert absmin(det(A12*1e-30) - 1e-30) < eps
+    assert det(A14) == 1
 
 def test_cond():
-    mp.dps = 15
     A = matrix([[1.2969, 0.8648], [0.2161, 0.1441]])
     assert cond(A, lambda x: mnorm(x,1)) == mpf('327065209.73817754')
     assert cond(A, lambda x: mnorm(x,inf)) == mpf('327065209.73817754')
@@ -207,8 +229,6 @@ def test_precision():
     assert mnorm(inverse(inverse(A)) - A, 1) < 1.e-45
 
 def test_interval_matrix():
-    mp.dps = 15
-    iv.dps = 15
     a = iv.matrix([['0.1','0.3','1.0'],['7.1','5.5','4.8'],['3.2','4.4','5.6']])
     b = iv.matrix(['4','0.6','0.5'])
     c = iv.lu_solve(a, b)
@@ -256,20 +276,17 @@ def test_exp_pade():
         e1 = expm(a1, method='pade')
         mp.dps = dps + extra
         d = e2 - e1
-        #print d
         mp.dps = dps
         assert norm(d, inf).ae(0)
-    mp.dps = 15
 
 def test_qr():
-    mp.dps = 15                     # used default value for dps
     lowlimit = -9                   # lower limit of matrix element value
     uplimit = 9                     # uppter limit of matrix element value
     maxm = 4                        # max matrix size
     flg = False                     # toggle to create real vs complex matrix
     zero = mpf('0.0')
 
-    for k in xrange(0,10):
+    for k in range(10):
         exdps = 0
         mode = 'full'
         flg = bool(k % 2)
@@ -287,46 +304,51 @@ def test_qr():
         if flg:
             flg = False
             dtype = 'complex'
-            for j in xrange(0,n):
-                for i in xrange(0,m):
+            for j in range(n):
+                for i in range(m):
                     val = nint(lowlimit + (uplimit-lowlimit)*rand())
                     val2 = nint(lowlimit + (uplimit-lowlimit)*rand())
                     A[i,j] = mpc(val, val2)
         else:
             flg = True
             dtype = 'real'
-            for j in xrange(0,n):
-                for i in xrange(0,m):
+            for j in range(n):
+                for i in range(m):
                     val = nint(lowlimit + (uplimit-lowlimit)*rand())
                     A[i,j] = mpf(val)
 
         # perform A -> QR decomposition
         Q, R = qr(A, mode, edps = exdps)
 
-        #print('\n\n A = \n', nstr(A, 4))
-        #print('\n Q = \n', nstr(Q, 4))
-        #print('\n R = \n', nstr(R, 4))
-        #print('\n Q*R = \n', nstr(Q*R, 4))
-
         maxnorm = mpf('1.0E-11')
         n1 = norm(A - Q * R)
-        #print '\n Norm of A - Q * R = ', n1
         assert n1 <= maxnorm
 
         if dtype == 'real':
             n1 = norm(eye(m) - Q.T * Q)
-            #print ' Norm of I - Q.T * Q = ', n1
             assert n1 <= maxnorm
 
             n1 = norm(eye(m) - Q * Q.T)
-            #print ' Norm of I - Q * Q.T = ', n1
             assert n1 <= maxnorm
 
         if dtype == 'complex':
             n1 = norm(eye(m) - Q.T * Q.conjugate())
-            #print ' Norm of I - Q.T * Q.conjugate() = ', n1
             assert n1 <= maxnorm
 
             n1 = norm(eye(m) - Q.conjugate() * Q.T)
-            #print ' Norm of I - Q.conjugate() * Q.T = ', n1
             assert n1 <= maxnorm
+
+def test_rank():
+    assert rank(A1) == 3
+    assert rank(A2) == 4
+    assert rank(A3) == 5
+    assert rank(A4) == 5
+    assert rank(A5) == 3
+    assert rank(A6) == 3
+    assert rank(zeros(3)) == 0
+    assert rank(A11) == 2
+    assert rank(A1*A11) == 2
+    assert rank(A11*A11) == 2
+    iszerofunc = lambda x: not bool(x)
+    assert rank(A13) == 2
+    assert rank(A13, iszerofunc) == 3

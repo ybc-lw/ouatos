@@ -7,10 +7,12 @@ here from settings.py
 """
 
 import math
-from bisect import bisect
+import sys
+import warnings
+from functools import lru_cache
 
-from .backend import xrange
-from .backend import BACKEND, gmpy, sage, sage_utils, MPZ, MPZ_ONE, MPZ_ZERO
+from .backend import MPZ, MPZ_ONE, MPZ_ZERO, gmpy
+
 
 small_trailing = [0] * 256
 for j in range(1,8):
@@ -54,12 +56,7 @@ def lshift(x, n):
     if n >= 0: return x << n
     else:      return x >> (-n)
 
-if BACKEND == 'sage':
-    import operator
-    rshift = operator.rshift
-    lshift = operator.lshift
-
-def python_trailing(n):
+def trailing(n):
     """Count the number of trailing zero bits in abs(n)."""
     if not n:
         return 0
@@ -73,64 +70,25 @@ def python_trailing(n):
         t += 8
     return t + small_trailing[n & 0xff]
 
-if BACKEND == 'gmpy':
-    if gmpy.version() >= '2':
-        def gmpy_trailing(n):
-            """Count the number of trailing zero bits in abs(n) using gmpy."""
-            if n: return MPZ(n).bit_scan1()
-            else: return 0
-    else:
-        def gmpy_trailing(n):
-            """Count the number of trailing zero bits in abs(n) using gmpy."""
-            if n: return MPZ(n).scan1()
-            else: return 0
+def bitcount(n):
+    """Calculate bit size of abs(n)."""
+    warnings.warn("bitcount function is deprecated",
+                  DeprecationWarning)
+    return MPZ(n).bit_length()
 
-# Small powers of 2
-powers = [1<<_ for _ in range(300)]
-
-def python_bitcount(n):
-    """Calculate bit size of the nonnegative integer n."""
-    bc = bisect(powers, n)
-    if bc != 300:
-        return bc
-    bc = int(math.log(n, 2)) - 4
-    return bc + bctable[n>>bc]
-
-def gmpy_bitcount(n):
-    """Calculate bit size of the nonnegative integer n."""
-    if n: return MPZ(n).numdigits(2)
-    else: return 0
-
-#def sage_bitcount(n):
-#    if n: return MPZ(n).nbits()
-#    else: return 0
-
-def sage_trailing(n):
-    return MPZ(n).trailing_zero_bits()
-
-if BACKEND == 'gmpy':
-    bitcount = gmpy_bitcount
-    trailing = gmpy_trailing
-elif BACKEND == 'sage':
-    sage_bitcount = sage_utils.bitcount
-    bitcount = sage_bitcount
-    trailing = sage_trailing
-else:
-    bitcount = python_bitcount
-    trailing = python_trailing
-
-if BACKEND == 'gmpy' and 'bit_length' in dir(gmpy):
-    bitcount = gmpy.bit_length
+if gmpy and hasattr(MPZ, 'bit_scan1'):
+    def trailing(n):
+        return MPZ(n).bit_scan1() if n else MPZ(0)
 
 # Used to avoid slow function calls as far as possible
 trailtable = [trailing(n) for n in range(256)]
-bctable = [bitcount(n) for n in range(1024)]
+bctable = [n.bit_length() for n in range(1024)]
 
 # TODO: speed up for bases 2, 4, 8, 16, ...
 
 def bin_to_radix(x, xbits, base, bdigits):
     """Changes radix of a fixed-point number; i.e., converts
-    x * 2**xbits to floor(x * 10**bdigits)."""
+    x * 2**xbits to floor(x * base**bdigits)."""
     return x * (MPZ(base)**bdigits) >> xbits
 
 stddigits = '0123456789abcdefghijklmnopqrstuvwxyz'
@@ -182,7 +140,7 @@ def numeral_gmpy(n, base=10, size=0, digits=stddigits):
     # extremely large values to a string. The size limit may need to be
     # adjusted on some platforms, but 1500000 works on Windows and Linux.
     if size < 1500000:
-        return gmpy.digits(n, base)
+        return MPZ(n).digits(base)
     # Divide in half
     half = (size // 2) + (size & 1)
     A, B = divmod(n, MPZ(base)**half)
@@ -190,10 +148,10 @@ def numeral_gmpy(n, base=10, size=0, digits=stddigits):
     bd = numeral(B, base, half, digits).rjust(half, "0")
     return ad + bd
 
-if BACKEND == "gmpy":
+numeral = numeral_python
+
+if gmpy:
     numeral = numeral_gmpy
-else:
-    numeral = numeral_python
 
 _1_800 = 1<<800
 _1_600 = 1<<600
@@ -209,16 +167,12 @@ def isqrt_small_python(x):
     """
     if not x:
         return x
-    if x < _1_800:
-        # Exact with IEEE double precision arithmetic
-        if x < _1_50:
-            return int(x**0.5)
-        # Initial estimate can be any integer >= the true root; round up
-        r = int(x**0.5 * 1.00000000000001) + 1
-    else:
-        bc = bitcount(x)
-        n = bc//2
-        r = int((x>>(2*n-100))**0.5+2)<<(n-50)  # +2 is to round up
+    assert x < _1_800
+    # Exact with IEEE double precision arithmetic
+    if x < _1_50:
+        return int(x**0.5)
+    # Initial estimate can be any integer >= the true root; round up
+    r = int(x**0.5 * 1.00000000000001) + 1
     # The following iteration now precisely computes floor(sqrt(x))
     # See e.g. Crandall & Pomerance, "Prime Numbers: A Computational
     # Perspective"
@@ -255,7 +209,7 @@ def isqrt_fast_python(x):
                 if x >= _1_400:
                     y = (y + x//y) >> 1
         return y
-    bc = bitcount(x)
+    bc = x.bit_length()
     guard_bits = 10
     x <<= 2*guard_bits
     bc += 2*guard_bits
@@ -305,31 +259,30 @@ def sqrt_fixed(x, prec):
 
 sqrt_fixed2 = sqrt_fixed
 
-if BACKEND == 'gmpy':
-    if gmpy.version() >= '2':
-        isqrt_small = isqrt_fast = isqrt = gmpy.isqrt
-        sqrtrem = gmpy.isqrt_rem
-    else:
-        isqrt_small = isqrt_fast = isqrt = gmpy.sqrt
-        sqrtrem = gmpy.sqrtrem
-elif BACKEND == 'sage':
-    isqrt_small = isqrt_fast = isqrt = \
-        getattr(sage_utils, "isqrt", lambda n: MPZ(n).isqrt())
-    sqrtrem = lambda n: MPZ(n).sqrtrem()
+if gmpy:
+    isqrt_small = isqrt_fast = isqrt = gmpy.isqrt
+    sqrtrem = gmpy.isqrt_rem
 else:
-    isqrt_small = isqrt_small_python
-    isqrt_fast = isqrt_fast_python
-    isqrt = isqrt_python
+    if sys.version_info >= (3, 12):
+        isqrt_small = isqrt_fast = isqrt = math.isqrt
+    else:
+        isqrt_small = isqrt_small_python
+        isqrt_fast = isqrt_fast_python
+        isqrt = isqrt_python
     sqrtrem = sqrtrem_python
+    _gcd2 = math.gcd
+
+gcd = math.gcd
+if gmpy:
+    gcd = gmpy.gcd
 
 
-def ifib(n, _cache={}):
+@lru_cache(maxsize=250)
+def ifib(n):
     """Computes the nth Fibonacci number as an integer, for
     integer n."""
     if n < 0:
         return (-1)**(-n+1) * ifib(-n)
-    if n in _cache:
-        return _cache[n]
     m = n
     # Use Dijkstra's logarithmic algorithm
     # The following implementation is basically equivalent to
@@ -344,26 +297,10 @@ def ifib(n, _cache={}):
             qq = q*q
             p, q = p*p+qq, qq+2*p*q
             n >>= 1
-    if m < 250:
-        _cache[m] = b
     return b
+ifib_python = ifib
 
 MAX_FACTORIAL_CACHE = 1000
-
-def ifac(n, memo={0:1, 1:1}):
-    """Return n factorial (for integers n >= 0 only)."""
-    f = memo.get(n)
-    if f:
-        return f
-    k = len(memo)
-    p = memo[k-1]
-    MAX = MAX_FACTORIAL_CACHE
-    while k <= n:
-        p *= k
-        if k <= MAX:
-            memo[k] = p
-        k += 1
-    return p
 
 def ifac2(n, memo_pair=[{0:1}, {1:1}]):
     """Return n!! (double factorial), integers n >= 0 only."""
@@ -380,28 +317,27 @@ def ifac2(n, memo_pair=[{0:1}, {1:1}]):
         if k <= MAX:
             memo[k] = p
     return p
+ifac2_python = ifac2
+ifac = math.factorial
 
-if BACKEND == 'gmpy':
+if gmpy:
     ifac = gmpy.fac
-elif BACKEND == 'sage':
-    ifac = lambda n: int(sage.factorial(n))
-    ifib = sage.fibonacci
+    if hasattr(gmpy, 'double_fac'):
+        ifac2 = gmpy.double_fac
+    if hasattr(gmpy, 'fib'):
+        ifib = gmpy.fib
+
+ifac = lru_cache(maxsize=1024)(ifac)
 
 def list_primes(n):
     n = n + 1
-    sieve = list(xrange(n))
+    sieve = list(range(n))
     sieve[:2] = [0, 0]
-    for i in xrange(2, int(n**0.5)+1):
+    for i in range(2, int(n**0.5)+1):
         if sieve[i]:
-            for j in xrange(i**2, n, i):
+            for j in range(i**2, n, i):
                 sieve[j] = 0
     return [p for p in sieve if p]
-
-if BACKEND == 'sage':
-    # Note: it is *VERY* important for performance that we convert
-    # the list to Python ints.
-    def list_primes(n):
-        return [int(_) for _ in sage.primes(n+1)]
 
 small_odd_primes = (3,5,7,11,13,17,19,23,29,31,37,41,43,47)
 small_odd_primes_set = set(small_odd_primes)
@@ -433,7 +369,7 @@ def isprime(n):
         x = pow(a,d,n)
         if x == 1 or x == m:
             return True
-        for r in xrange(1,s):
+        for r in range(1,s):
             x = x**2 % n
             if x == m:
                 return True
@@ -449,6 +385,10 @@ def isprime(n):
         if not test(a):
             return False
     return True
+isprime_python = isprime
+
+if gmpy and hasattr(gmpy, 'is_prime'):
+    isprime = gmpy.is_prime
 
 def moebius(n):
     """
@@ -461,23 +401,13 @@ def moebius(n):
     if n < 2:
         return n
     factors = []
-    for p in xrange(2, n+1):
+    for p in range(2, n+1):
         if not (n % p):
             if not (n % p**2):
                 return 0
             if not sum(p % f for f in factors):
                 factors.append(p)
     return (-1)**len(factors)
-
-def gcd(*args):
-    a = 0
-    for b in args:
-        if a:
-            while b:
-                a, b = b, a % b
-        else:
-            a = b
-    return a
 
 
 #  Comment by Juan Arias de Reyna:
@@ -506,9 +436,8 @@ def gcd(*args):
 #     computes first all
 #     the previous ones, and keeps them in the CACHE
 
-MAX_EULER_CACHE = 500
-
-def eulernum(m, _cache={0:MPZ_ONE}):
+@lru_cache(maxsize=500)
+def eulernum(m):
     r"""
     Computes the Euler numbers `E(n)`, which can be defined as
     coefficients of the Taylor expansion of `1/cosh x`:
@@ -528,12 +457,9 @@ def eulernum(m, _cache={0:MPZ_ONE}):
     # for odd m > 1, the Euler numbers are zero
     if m & 1:
         return MPZ_ZERO
-    f = _cache.get(m)
-    if f:
-        return f
-    MAX = MAX_EULER_CACHE
     n = m
     a = [MPZ(_) for _ in [0,0,1,0,0,0]]
+    suma = MPZ(1)
     for  n in range(1, m+1):
         for j in range(n+1, -1, -2):
             a[j+1] = (j-1)*a[j] + (j+1)*a[j+2]
@@ -541,10 +467,7 @@ def eulernum(m, _cache={0:MPZ_ONE}):
         suma = 0
         for k in range(n+1, -1, -2):
             suma += a[k+1]
-            if n <= MAX:
-                _cache[n] = ((-1)**(n//2))*(suma // 2**n)
-        if n == m:
-            return ((-1)**(n//2))*suma // 2**n
+    return ((-1)**(n//2))*suma // 2**n
 
 def stirling1(n, k):
     """
@@ -558,8 +481,8 @@ def stirling1(n, k):
         return MPZ_ZERO
     L = [MPZ_ZERO] * (k+1)
     L[1] = MPZ_ONE
-    for m in xrange(2, n+1):
-        for j in xrange(min(k, m), 0, -1):
+    for m in range(2, n+1):
+        for j in range(min(k, m), 0, -1):
             L[j] = (m-1) * L[j] + L[j-1]
     return (-1)**(n+k) * L[k]
 
@@ -575,7 +498,7 @@ def stirling2(n, k):
         return MPZ(k == 1)
     s = MPZ_ZERO
     t = MPZ_ONE
-    for j in xrange(k+1):
+    for j in range(k+1):
         if (k + j) & 1:
             s -= t * MPZ(j)**n
         else:

@@ -1,6 +1,11 @@
-import pytest
 import sys
-from mpmath import *
+
+import pytest
+
+from mpmath import (convert, diag, extend, eye, fp, hilbert, inf, inverse, iv,
+                    j, matrix, mnorm, mp, mpc, mpf, mpi, norm, nstr, ones,
+                    randmatrix, sqrt, swap_row, zeros)
+
 
 def test_matrix_basic():
     A1 = matrix(3)
@@ -9,11 +14,11 @@ def test_matrix_basic():
     assert A1 == eye(3)
     assert A1 == matrix(A1)
     A2 = matrix(3, 2)
-    assert not A2._matrix__data
+    assert not A2._data
     A3 = matrix([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
     assert list(A3) == list(range(1, 10))
     A3[1,1] = 0
-    assert not (1, 1) in A3._matrix__data
+    assert (1, 1) not in A3._data
     A4 = matrix([[1, 2, 3], [4, 5, 6]])
     A5 = matrix([[6, -1], [3, 2], [0, -3]])
     assert A4 * A5 == matrix([[12, -6], [39, -12]])
@@ -31,7 +36,7 @@ def test_matrix_basic():
     assert A2.cols == 2
     A3.rows = 2
     A3.cols = 2
-    assert len(A3._matrix__data) == 3
+    assert len(A3._data) == 3
     assert A4 + A4 == 2*A4
     pytest.raises(ValueError, lambda: A4 + A2)
     assert sum(A1 - A1) == 0
@@ -48,19 +53,38 @@ def test_matrix_basic():
     A9[0,0] = -100
     assert A9 != A10
     assert nstr(A9)
+    assert A9 != None  # issue 283
+    pytest.raises(IndexError, lambda: zeros(1,1)[:, 1])  # issue 318
+    pytest.raises(IndexError, lambda: zeros(1,1)[1, :])
+
+    A10 = matrix([[1,2], [3,4], [5,6]])
+    assert A10[0, -1] == 2
+    assert A10[-1, -1] == 6
+    assert A10[1, -2] == 3
+    assert A10[-3, -2] == 1
+
+    A10[0, -1] = 3
+    assert A10[0, -1] == 3
+
+    A10[-1, -1] = 4
+    assert A10[-1, -1] == 4
+
+    A10[1, -2] = 5
+    assert A10[1, -2] == 5
+
+    A10[-3, -2] = 1
+    assert A10[-3, -2] == 1
+
+    pytest.raises(ValueError, lambda: matrix(-2))
+    pytest.raises(ValueError, lambda: matrix(2, -3))
 
 def test_matmul():
     """
     Test the PEP465 "@" matrix multiplication syntax.
-    To avoid syntax errors when importing this file in Python 3.5 and below, we have to use exec() - sorry for that.
     """
-    # TODO remove exec() wrapper as soon as we drop support for Python <= 3.5
-    if sys.hexversion < 0x30500f0:
-        # we are on Python < 3.5
-        pytest.skip("'@' (__matmul__) is only supported in Python 3.5 or newer")
     A4 = matrix([[1, 2, 3], [4, 5, 6]])
     A5 = matrix([[6, -1], [3, 2], [0, -3]])
-    exec("assert A4 @ A5 == A4 * A5")
+    assert A4 @ A5 == A4 * A5
 
 def test_matrix_slices():
     A = matrix([    [1, 2, 3],
@@ -73,7 +97,14 @@ def test_matrix_slices():
     assert A[:,1] == matrix([[2],[5],[8]])
     assert A[2,:] == matrix([[7, 8 ,9]])
     assert A[1:3,1:3] == matrix([[5,6],[8,9]])
+    assert A[0:2,0:2] == matrix([[1,2],[4,5]])  # issue 267
+    assert A[:2,:2] == matrix([[1,2],[4,5]])
     assert V[2:4] == matrix([3,4])
+    assert A[-1, :] == A[2, :]
+    assert A[:, -1] == A[:, 2]
+
+    pytest.raises(IndexError, lambda: A[-4, 0])
+    pytest.raises(IndexError, lambda: A[0, -4])
     pytest.raises(IndexError, lambda: A[:,1:6])
 
     # Assign slice with matrix
@@ -111,6 +142,27 @@ def test_matrix_slices():
     for x in A1:
         assert x == 40
 
+    # test negative indexes
+    A2 = matrix(3)
+    A2[:,:] = A
+
+    A2[-3, :] = matrix([[10, 11, 12]])
+    assert A2 == matrix([[10, 11, 12],
+                         [4, 5, 6],
+                         [7, 8, 9]])
+    A2[:,-1] = matrix([[13], [14], [15]])
+    assert A2 == matrix([[10, 11, 13],
+                         [4, 5, 14],
+                         [7, 8, 15]])
+    A2[:-1,:-1] = matrix([[16, 17], [18, 19]])
+    assert A2 == matrix([[16, 17, 13],
+                         [18, 19, 14],
+                         [7, 8 ,15]])
+
+    with pytest.raises(IndexError):
+        A2[-123,1] = 123
+    with pytest.raises(IndexError):
+        A2[1,-123] = 123
 
 def test_matrix_power():
     A = matrix([[1, 2], [3, 4]])
@@ -169,7 +221,7 @@ def test_vector():
     x = matrix([0, 1, 2, 3, 4])
     assert x == matrix([[0], [1], [2], [3], [4]])
     assert x[3] == 3
-    assert len(x._matrix__data) == 4
+    assert len(x._data) == 4
     assert list(x) == list(range(5))
     x[0] = -10
     x[4] = 0
@@ -189,13 +241,14 @@ def test_matrix_copy():
     assert A != C
 
 def test_matrix_numpy():
-    try:
-        import numpy
-    except ImportError:
-        return
+    numpy = pytest.importorskip("numpy")
     l = [[1, 2], [3, 4], [5, 6]]
     a = numpy.array(l)
     assert matrix(l) == matrix(a)
+    assert (numpy.array(matrix(l)) == numpy.array(matrix(l).tolist(),
+                                                  dtype=object)).all()
+    if numpy.__version__ >= '2':
+        pytest.raises(ValueError, lambda: numpy.array(matrix(l), copy=False))
 
 def test_interval_matrix_scalar_mult():
     """Multiplication of iv.matrix and any scalar type"""
@@ -251,3 +304,7 @@ def test_interval_matrix_mult_bug():
     assert mp.mpf('1.00000000000001998401444325291756783368705994138804689654') in C[0, 0]
     # the following caused an error before the bug was fixed
     assert iv.matrix(mp.eye(2)) * (iv.ones(2) + mpi(1, 2)) == iv.matrix([[mpi(2, 3), mpi(2, 3)], [mpi(2, 3), mpi(2, 3)]])
+
+def test_issue_156():
+    with pytest.deprecated_call():
+        matrix([[1, 2], [3, 4]], force_type=float)

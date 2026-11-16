@@ -1,11 +1,15 @@
 import pytest
-from mpmath import *
-from mpmath.calculus.optimization import Secant, Muller, Bisection, Illinois, \
-    Pegasus, Anderson, Ridder, ANewton, Newton, MNewton, MDNewton
+
+from mpmath import (cos, eps, findroot, fp, inf, iv, jacobian, matrix, mnorm,
+                    mp, mpc, mpf, multiplicity, norm, pi, polyval, sin, sqrt,
+                    workprec)
+from mpmath.calculus.optimization import (Anderson, ANewton, Bisection,
+                                          Illinois, MDNewton, MNewton, Muller,
+                                          Newton, Pegasus, Ridder, Secant)
+
 
 def test_findroot():
     # old tests, assuming secant
-    mp.dps = 15
     assert findroot(lambda x: 4*x-3, mpf(5)).ae(0.75)
     assert findroot(sin, mpf(3)).ae(pi)
     assert findroot(sin, (mpf(3), mpf(3.14))).ae(pi)
@@ -47,7 +51,7 @@ def test_bisection():
     assert findroot(lambda x: x**2-1,(0,2),solver='bisect') == 1
 
 def test_mnewton():
-    f = lambda x: polyval([1,3,3,1],x)
+    f = lambda x: polyval([1,3,3,1],x,asc=True)
     x = findroot(f, -0.9, solver='mnewton')
     assert abs(f(x)) < eps
 
@@ -66,7 +70,7 @@ def test_multiplicity():
         assert multiplicity(lambda x: (x - 1)**i, 1) == i
     assert multiplicity(lambda x: x**2, 1) == 0
 
-def test_multidimensional():
+def test_multidimensional(capsys):
     def f(*x):
         return [3*x[0]**2-2*x[1]**2-1, x[0]**2-2*x[0]+x[1]**2+2*x[1]-8]
     assert mnorm(jacobian(f, (1,-2)) - matrix([[6,8],[0,-2]]),1) < 1.e-7
@@ -74,6 +78,12 @@ def test_multidimensional():
                              norm=lambda x: norm(x, inf)):
         pass
     assert norm(f(*x), 2) < 1e-14
+    for x, error in MDNewton(mp, f, (1,-2), verbose=1,
+                             norm=lambda x: norm(x, inf)):
+        pass
+    assert norm(f(*x), 2) < 1e-14
+    captured = capsys.readouterr()
+    assert captured.out.find("canceled, won't get more exact") >= 0
     # The Chinese mathematician Zhu Shijie was the very first to solve this
     # nonlinear system 700 years ago
     f1 = lambda x, y: -x + 2*y
@@ -89,3 +99,7 @@ def test_trivial():
     assert findroot(lambda x: 0, 1) == 1
     assert findroot(lambda x: x, 0) == 0
     #assert findroot(lambda x, y: x + y, (1, -1)) == (1, -1)
+
+def test_issue_869():
+    f = [lambda x: sqrt(x) + 1]
+    pytest.raises(mp.ComplexResult, lambda: findroot(f, [-1]))

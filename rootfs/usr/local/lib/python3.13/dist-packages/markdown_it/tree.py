@@ -6,10 +6,14 @@ This module is not part of upstream JavaScript markdown-it.
 from __future__ import annotations
 
 from collections.abc import Generator, Sequence
+import operator
 import textwrap
-from typing import Any, NamedTuple, TypeVar, overload
+from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar, overload
 
 from .token import Token
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 
 class _NesterTokens(NamedTuple):
@@ -84,18 +88,39 @@ class SyntaxTreeNode:
     @overload
     def __getitem__(self: _NodeType, item: slice) -> list[_NodeType]: ...
 
-    def __getitem__(self: _NodeType, item: int | slice) -> _NodeType | list[_NodeType]:
+    def __getitem__(self, item: int | slice) -> Self | list[Self]:
         return self.children[item]
 
-    def to_tokens(self: _NodeType) -> list[Token]:
-        """Recover the linear token stream."""
+    def to_tokens(self) -> list[Token]:
+        """Recover the linear token stream, including changes to the tree.
 
-        def recursive_collect_tokens(node: _NodeType, token_list: list[Token]) -> None:
+        The tree's ``children`` are the source of truth:
+        changes made directly to a token's ``children`` list
+        do not appear in the output.
+
+        Unchanged tokens are reused as they are.
+        A token whose children were edited, such as an inline or image token,
+        is returned as a shallow copy with the new children,
+        so this method does not modify the tokens the tree was built from.
+        Nodes do share their ``Token`` objects with that token stream, though,
+        so setting a field such as ``node.token.content`` changes both.
+        """
+
+        def recursive_collect_tokens(node: Self, token_list: list[Token]) -> None:
             if node.type == "root":
                 for child in node.children:
                     recursive_collect_tokens(child, token_list)
             elif node.token:
-                token_list.append(node.token)
+                token = node.token
+                if token.children is not None:
+                    children: list[Token] = []
+                    for child in node.children:
+                        recursive_collect_tokens(child, children)
+                    if len(children) != len(token.children) or not all(
+                        map(operator.is_, children, token.children)
+                    ):
+                        token = token.copy(children=children)
+                token_list.append(token)
             else:
                 assert node.nester_tokens
                 token_list.append(node.nester_tokens.opening)
@@ -108,19 +133,19 @@ class SyntaxTreeNode:
         return tokens
 
     @property
-    def children(self: _NodeType) -> list[_NodeType]:
+    def children(self) -> list[Self]:
         return self._children
 
     @children.setter
-    def children(self: _NodeType, value: list[_NodeType]) -> None:
+    def children(self, value: list[Self]) -> None:
         self._children = value
 
     @property
-    def parent(self: _NodeType) -> _NodeType | None:
+    def parent(self) -> Self | None:
         return self._parent  # type: ignore
 
     @parent.setter
-    def parent(self: _NodeType, value: _NodeType | None) -> None:
+    def parent(self, value: Self | None) -> None:
         self._parent = value
 
     @property
@@ -139,7 +164,7 @@ class SyntaxTreeNode:
         return bool(self.nester_tokens)
 
     @property
-    def siblings(self: _NodeType) -> Sequence[_NodeType]:
+    def siblings(self) -> Sequence[Self]:
         """Get siblings of the node.
 
         Gets the whole group of siblings, including self.
@@ -165,7 +190,7 @@ class SyntaxTreeNode:
         return self.nester_tokens.opening.type.removesuffix("_open")
 
     @property
-    def next_sibling(self: _NodeType) -> _NodeType | None:
+    def next_sibling(self) -> Self | None:
         """Get the next node in the sequence of siblings.
 
         Returns `None` if this is the last sibling.
@@ -176,7 +201,7 @@ class SyntaxTreeNode:
         return None
 
     @property
-    def previous_sibling(self: _NodeType) -> _NodeType | None:
+    def previous_sibling(self) -> Self | None:
         """Get the previous node in the sequence of siblings.
 
         Returns `None` if this is the first sibling.
@@ -241,9 +266,7 @@ class SyntaxTreeNode:
             )
         return text
 
-    def walk(
-        self: _NodeType, *, include_self: bool = True
-    ) -> Generator[_NodeType, None, None]:
+    def walk(self, *, include_self: bool = True) -> Generator[Self, None, None]:
         """Recursively yield all descendant nodes in the tree starting at self.
 
         The order mimics the order of the underlying linear token
@@ -282,7 +305,7 @@ class SyntaxTreeNode:
         """Html attributes."""
         return self._attribute_token().attrs
 
-    def attrGet(self, name: str) -> None | str | int | float:
+    def attrGet(self, name: str) -> str | int | float | None:
         """Get the value of attribute `name`, or null if it does not exist."""
         return self._attribute_token().attrGet(name)
 

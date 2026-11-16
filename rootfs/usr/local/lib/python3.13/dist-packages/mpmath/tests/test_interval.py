@@ -1,7 +1,9 @@
-from mpmath import *
+import pytest
+
+from mpmath import inf, iv, mp, mpf, mpi, pi, sqrt, workprec
+
 
 def test_interval_identity():
-    iv.dps = 15
     assert mpi(2) == mpi(2, 2)
     assert mpi(2) != mpi(-2, 2)
     assert not (mpi(2) != mpi(2, 2))
@@ -22,7 +24,7 @@ def test_interval_identity():
     assert mpi(-5, 5) in w
     assert mpi(2, inf) in w
     assert mpi(0, 2) in mpi(0, 10)
-    assert not (3 in mpi(-inf, 0))
+    assert 3 not in mpi(-inf, 0)
 
 def test_interval_hash():
     assert hash(mpi(3)) == hash(3)
@@ -33,7 +35,6 @@ def test_interval_hash():
     assert hash(iv.mpc((1,3),(2,4))) == hash(iv.mpc((1,3),(2,4)))
 
 def test_interval_arithmetic():
-    iv.dps = 15
     assert mpi(2) + mpi(3,4) == mpi(5,6)
     assert mpi(1, 2)**2 == mpi(1, 4)
     assert mpi(1) + mpi(0, 1e-50) == mpi(1, mpf('1.0000000000000002'))
@@ -193,7 +194,6 @@ def test_interval_div():
     assert mpi(0, 0) / mpi(0, 1) == mpi(-inf, inf)
 
 def test_interval_cos_sin():
-    iv.dps = 15
     cos = iv.cos
     sin = iv.sin
     tan = iv.tan
@@ -271,8 +271,6 @@ def test_interval_cos_sin():
 
 def test_interval_complex():
     # TODO: many more tests
-    iv.dps = 15
-    mp.dps = 15
     assert iv.mpc(2,3) == 2+3j
     assert iv.mpc(2,3) != 2+4j
     assert iv.mpc(2,3) != 1+3j
@@ -307,12 +305,11 @@ def test_interval_complex():
     assert iv.mpc(2,2) ** (-2) == (2+2j) ** (-2)
     assert iv.cos(2).ae(mp.cos(2))
     assert iv.sin(2).ae(mp.sin(2))
-    assert iv.cos(2+3j).ae(mp.cos(2+3j))
-    assert iv.sin(2+3j).ae(mp.sin(2+3j))
+    with workprec(54):
+        assert iv.cos(2+3j).ae(mp.cos(2+3j))
+        assert iv.sin(2+3j).ae(mp.sin(2+3j))
 
 def test_interval_complex_arg():
-    mp.dps = 15
-    iv.dps = 15
     assert iv.arg(3) == 0
     assert iv.arg(0) == 0
     assert iv.arg([0,3]) == 0
@@ -356,11 +353,10 @@ def test_interval_complex_arg():
     assert t.b.ae(mp.pi)
 
 def test_interval_ae():
-    iv.dps = 15
     x = iv.mpf([1,2])
-    assert x.ae(1) is None
-    assert x.ae(1.5) is None
-    assert x.ae(2) is None
+    pytest.raises(ValueError, lambda: x.ae(1))
+    pytest.raises(ValueError, lambda: x.ae(1.5))
+    pytest.raises(ValueError, lambda: x.ae(2))
     assert x.ae(2.01) is False
     assert x.ae(0.99) is False
     x = iv.mpf(3.5)
@@ -369,15 +365,14 @@ def test_interval_ae():
     assert x.ae(3.5-1e-15) is True
     assert x.ae(3.501) is False
     assert x.ae(3.499) is False
-    assert x.ae(iv.mpf([3.5,3.501])) is None
-    assert x.ae(iv.mpf([3.5,4.5+1e-15])) is None
+    pytest.raises(ValueError, lambda: x.ae(iv.mpf([3.5,3.501])))
+    pytest.raises(ValueError, lambda: x.ae(iv.mpf([3.5,4.5+1e-15])))
 
 def test_interval_nstr():
     iv.dps = n = 30
     x = mpi(1, 2)
-    # FIXME: error_dps should not be necessary
-    assert iv.nstr(x, n, mode='plusminus', error_dps=6) == '1.5 +- 0.5'
-    assert iv.nstr(x, n, mode='plusminus', use_spaces=False, error_dps=6) == '1.5+-0.5'
+    assert iv.nstr(x, n, mode='plusminus') == '1.5 +- 0.5'
+    assert iv.nstr(x, n, mode='plusminus', use_spaces=False) == '1.5+-0.5'
     assert iv.nstr(x, n, mode='percent') == '1.5 (33.33%)'
     assert iv.nstr(x, n, mode='brackets', use_spaces=False) == '[1.0,2.0]'
     assert iv.nstr(x, n, mode='brackets' , brackets=('<', '>')) == '<1.0, 2.0>'
@@ -387,10 +382,8 @@ def test_interval_nstr():
     assert iv.nstr(mpi('1e123', '1e129'), n, mode='diff') == '[1.0e+123, 1.0e+129]'
     exp = iv.exp
     assert iv.nstr(iv.exp(mpi('5000.1')), n, mode='diff') == '3.2797365856787867069110487[0926, 1191]e+2171'
-    iv.dps = 15
 
 def test_mpi_from_str():
-    iv.dps = 15
     assert iv.convert('1.5 +- 0.5') == mpi(mpf('1.0'), mpf('2.0'))
     assert mpi(1, 2) in iv.convert('1.5 (33.33333333333333333333333333333%)')
     assert iv.convert('[1, 2]') == mpi(1, 2)
@@ -399,8 +392,6 @@ def test_mpi_from_str():
     assert iv.convert('12[3.4,5.9]e4') == mpi('123.4e+4', '125.9e4')
 
 def test_interval_gamma():
-    mp.dps = 15
-    iv.dps = 15
     # TODO: need many more tests
     assert iv.rgamma(0) == 0
     assert iv.fac(0) == 1
@@ -412,6 +403,7 @@ def test_interval_gamma():
     assert iv.gamma(2) == 1
     assert iv.gamma(3) == 2
     assert -3.5449077018110320546 in iv.gamma(-0.5)
+    assert 0.49801566811835601-0.1549498283018107j in iv.gamma(1+1j)
     assert iv.loggamma(1) == 0
     assert iv.loggamma(2) == 0
     assert 0.69314718055994530942 in iv.loggamma(3)
@@ -441,8 +433,6 @@ def test_interval_gamma():
         assert z.d.ae(max_imag)
 
 def test_interval_conversions():
-    mp.dps = 15
-    iv.dps = 15
     for a, b in ((-0.0, 0), (0.0, 0.5), (1.0, 1), \
                  ('-inf', 20.5), ('-inf', float(sqrt(2)))):
         r = mpi(a, b)
@@ -451,3 +441,9 @@ def test_interval_conversions():
         assert float(r.b) == float(b)
         assert complex(r.a) == complex(a)
         assert complex(r.b) == complex(b)
+
+def test_issue_258():
+    a = iv.mpf([0, 1])
+    b = 0.5
+    pytest.raises(ValueError, lambda: min(a, b))
+    pytest.raises(ValueError, lambda: max(a, b))

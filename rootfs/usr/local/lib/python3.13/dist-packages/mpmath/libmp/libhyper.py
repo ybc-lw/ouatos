@@ -5,40 +5,24 @@ of hypergeometric series. Optimized versions for various special
 cases are also provided.
 """
 
-import operator
 import math
 
-from .backend import MPZ_ZERO, MPZ_ONE, BACKEND, xrange, exec_
+from .backend import MPZ, MPZ_ONE, MPZ_ZERO
+from .gammazeta import euler_fixed, mpf_euler, mpf_gamma_int
+from .libelefun import (agm_fixed, mpf_cos_sin, mpf_exp, mpf_ln, mpf_pi,
+                        mpf_sin, mpf_sqrt, pi_fixed)
+from .libintmath import ifac, sqrt_fixed
+from .libmpc import (complex_int_pow, mpc_abs, mpc_add, mpc_add_mpf, mpc_div,
+                     mpc_exp, mpc_is_infnan, mpc_ln, mpc_mpf_div, mpc_mul,
+                     mpc_neg, mpc_one, mpc_pos, mpc_shift, mpc_sqrt, mpc_sub,
+                     mpc_zero)
+from .libmpf import (ComplexResult, finf, fnan, fninf, fnone, fone, from_int,
+                     from_man_exp, from_rational, ftwo, fzero, mpf_abs,
+                     mpf_add, mpf_div, mpf_le, mpf_lt, mpf_min_max, mpf_mul,
+                     mpf_neg, mpf_perturb, mpf_pos, mpf_pow_int, mpf_shift,
+                     mpf_sign, mpf_sqrt, mpf_sub, negative_rnd, round_fast,
+                     to_fixed, to_int)
 
-from .libintmath import gcd
-
-from .libmpf import (\
-    ComplexResult, round_fast, round_nearest,
-    negative_rnd, bitcount, to_fixed, from_man_exp, from_int, to_int,
-    from_rational,
-    fzero, fone, fnone, ftwo, finf, fninf, fnan,
-    mpf_sign, mpf_add, mpf_abs, mpf_pos,
-    mpf_cmp, mpf_lt, mpf_le, mpf_gt, mpf_min_max,
-    mpf_perturb, mpf_neg, mpf_shift, mpf_sub, mpf_mul, mpf_div,
-    sqrt_fixed, mpf_sqrt, mpf_rdiv_int, mpf_pow_int,
-    to_rational,
-)
-
-from .libelefun import (\
-    mpf_pi, mpf_exp, mpf_log, pi_fixed, mpf_cos_sin, mpf_cos, mpf_sin,
-    mpf_sqrt, agm_fixed,
-)
-
-from .libmpc import (\
-    mpc_one, mpc_sub, mpc_mul_mpf, mpc_mul, mpc_neg, complex_int_pow,
-    mpc_div, mpc_add_mpf, mpc_sub_mpf,
-    mpc_log, mpc_add, mpc_pos, mpc_shift,
-    mpc_is_infnan, mpc_zero, mpc_sqrt, mpc_abs,
-    mpc_mpf_div, mpc_square, mpc_exp
-)
-
-from .libintmath import ifac
-from .gammazeta import mpf_gamma_int, mpf_euler, euler_fixed
 
 class NoConvergence(Exception):
     pass
@@ -127,7 +111,7 @@ def make_hyp_summator(key):
             add("%sINT_%i = coeffs[%i]" % (W, i, i))
         elif flag == 'Q':
             ([arat,brat][i >= p]).append(i)
-            add("%sP_%i, %sQ_%i = coeffs[%i]._mpq_" % (W, i, W, i, i))
+            add("%sP_%i, %sQ_%i = coeffs[%i].numerator, coeffs[%i].denominator" % (W, i, W, i, i, i))
         elif flag == 'R':
             ([areal,breal][i >= p]).append(i)
             add("xsign, xm, xe, xbc = coeffs[%i]._mpf_" % i)
@@ -165,12 +149,12 @@ def make_hyp_summator(key):
     noncancellable_real_den = breal[cancellable_real:]
 
     # LOOP
-    add("for n in xrange(1,10**8):")
+    add("for n in range(1,10**8):")
 
     add("    if n in magnitude_check:")
-    add("        p_mag = bitcount(abs(PRE))")
+    add("        p_mag = PRE.bit_length()")
     if have_complex:
-        add("        p_mag = max(p_mag, bitcount(abs(PIM)))")
+        add("        p_mag = max(p_mag, PIM.bit_length())")
     add("        magnitude_check[n] = wp-p_mag")
 
     # Real factors
@@ -301,26 +285,10 @@ def make_hyp_summator(key):
 
     namespace = {}
 
-    exec_(source, globals(), namespace)
+    exec(source, globals(), namespace)
 
     #print source
     return source, namespace[fname]
-
-
-if BACKEND == 'sage':
-
-    def make_hyp_summator(key):
-        """
-        Returns a function that sums a generalized hypergeometric series,
-        for given parameter types (integer, rational, real, complex).
-        """
-        from sage.libs.mpmath.ext_main import hypsum_internal
-        p, q, param_types, ztype = key
-        def _hypsum(coeffs, z, prec, wp, epsshift, magnitude_check, **kwargs):
-            return hypsum_internal(p, q, param_types, ztype, coeffs, z,
-                prec, wp, epsshift, magnitude_check, kwargs)
-
-        return "(none)", _hypsum
 
 
 #-----------------------------------------------------------------------#
@@ -512,7 +480,7 @@ def mpf_ei(x, prec, rnd=round_fast, e1=False):
             u = to_fixed(x, wp)
             v = ei_taylor(u, wp) + euler_fixed(wp)
             t1 = from_man_exp(v,-wp)
-            t2 = mpf_log(xabs,wp)
+            t2 = mpf_ln(xabs,wp)
             v = mpf_add(t1, t2, prec, rnd)
     else:
         if x == fzero: v = fninf
@@ -580,9 +548,9 @@ def mpc_ei(z, prec, rnd=round_fast, e1=False):
     vre += euler_fixed(wp)
     v = from_man_exp(vre,-wp), from_man_exp(vim,-wp)
     if e1:
-        u = mpc_log(mpc_neg(z),wp)
+        u = mpc_ln(mpc_neg(z),wp)
     else:
-        u = mpc_log(z,wp)
+        u = mpc_ln(z,wp)
     v = mpc_add(v, u, prec, rnd)
     if e1:
         v = mpc_neg(v)
@@ -633,7 +601,7 @@ def mpf_expint(n, x, prec, rnd=round_fast, gamma=False):
     # Beware of near-poles
     if xmag < -10:
         raise NotImplementedError
-    nmag = bitcount(abs(n))
+    nmag = n.bit_length()
     have_imag = n > 0 and sign
     negx = mpf_neg(x)
     # Skip series if direct convergence
@@ -651,7 +619,7 @@ def mpf_expint(n, x, prec, rnd=round_fast, gamma=False):
         if not can_use_asymptotic_series:
             xi = abs(to_int(x))
             m = min(max(1, xi-n), 2*wp)
-            siz = -n*nmag + (m+n)*bitcount(abs(m+n)) - m*xmag - (144*m//100)
+            siz = -n*nmag + (m+n)*(m+n).bit_length() - m*xmag - (144*m//100)
             tol = -wp-10
             can_use_asymptotic_series = siz < tol
         if can_use_asymptotic_series:
@@ -685,7 +653,7 @@ def mpf_expint(n, x, prec, rnd=round_fast, gamma=False):
             for k in range(1,n-1):
                 facs[k] = facs[k-1] * k
             facs = facs[::-1]
-            s = facs[0] << wp
+            s = MPZ(facs[0]) << wp
             for k in range(1, n-1):
                 if k & 1:
                     s -= facs[k] * t
@@ -793,7 +761,7 @@ def mpf_ci_si(x, prec, rnd=round_fast, which=2):
         if which != 1:
             y = mpf_euler(wp)
             xabs = mpf_abs(x)
-            ci = mpf_add(y, mpf_log(xabs, wp), prec, rnd)
+            ci = mpf_add(y, mpf_ln(xabs, wp), prec, rnd)
         return ci, si
     # For huge x: Ci(x) ~ sin(x)/x, Si(x) ~ pi/2
     elif mag > wp:
@@ -818,7 +786,7 @@ def mpf_ci_si(x, prec, rnd=round_fast, which=2):
         if which != 1:
             ci = mpf_ci_si_taylor(x, wp, 0)
             ci = mpf_add(ci, mpf_euler(wp), wp)
-            ci = mpf_add(ci, mpf_log(mpf_abs(x), wp), prec, rnd)
+            ci = mpf_add(ci, mpf_ln(mpf_abs(x), wp), prec, rnd)
         return ci, si
     x = mpf_abs(x)
     # Case 2: asymptotic series for x >> 1
@@ -871,7 +839,7 @@ def mpc_ci(z, prec, rnd=round_fast):
     wp = prec + 20
     cre, cim = mpc_ci_si_taylor(re, im, wp, 0)
     cre = mpf_add(cre, mpf_euler(wp), wp)
-    ci = mpc_add((cre, cim), mpc_log(z, wp), prec, rnd)
+    ci = mpc_add((cre, cim), mpc_ln(z, wp), prec, rnd)
     return ci
 
 def mpc_si(z, prec, rnd=round_fast):
@@ -914,12 +882,12 @@ def mpc_si(z, prec, rnd=round_fast):
 # TODO: recompute at higher precision if the fixed-point mantissa
 # is very small
 
-def mpf_besseljn(n, x, prec, rounding=round_fast):
+def mpf_besseljn(n, x, prec, rnd=round_fast):
     prec += 50
     negate = n < 0 and n & 1
     mag = x[2]+x[3]
     n = abs(n)
-    wp = prec + 20 + n*bitcount(n)
+    wp = prec + 20 + n*n.bit_length()
     if mag < 0:
         wp -= n * mag
     x = to_fixed(x, wp)
@@ -935,15 +903,15 @@ def mpf_besseljn(n, x, prec, rounding=round_fast):
         k += 1
     if negate:
         s = -s
-    return from_man_exp(s, -wp, prec, rounding)
+    return from_man_exp(s, -wp, prec, rnd)
 
-def mpc_besseljn(n, z, prec, rounding=round_fast):
+def mpc_besseljn(n, z, prec, rnd=round_fast):
     negate = n < 0 and n & 1
     n = abs(n)
     origprec = prec
     zre, zim = z
     mag = max(zre[2]+zre[3], zim[2]+zim[3])
-    prec += 20 + n*bitcount(n) + abs(mag)
+    prec += 20 + n*n.bit_length() + abs(mag)
     if mag < 0:
         prec -= n * mag
     zre = to_fixed(zre, prec)
@@ -969,8 +937,8 @@ def mpc_besseljn(n, z, prec, rounding=round_fast):
     if negate:
         sre = -sre
         sim = -sim
-    re = from_man_exp(sre, -prec, origprec, rounding)
-    im = from_man_exp(sim, -prec, origprec, rounding)
+    re = from_man_exp(sre, -prec, origprec, rnd)
+    im = from_man_exp(sim, -prec, origprec, rnd)
     return (re, im)
 
 def mpf_agm(a, b, prec, rnd=round_fast):

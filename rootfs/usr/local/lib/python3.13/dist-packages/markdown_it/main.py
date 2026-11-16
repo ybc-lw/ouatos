@@ -160,9 +160,9 @@ class MarkdownIt:
     def enable(
         self, names: str | Iterable[str], ignoreInvalid: bool = False
     ) -> MarkdownIt:
-        """Enable list or rules. (chainable)
+        """Enable list of rules. (chainable)
 
-        :param names: rule name or list of rule names to enable.
+        :param names: rule name or iterable of rule names to enable.
         :param ignoreInvalid: set `true` to ignore errors when rule not found.
 
         It will automatically find appropriate components,
@@ -176,8 +176,7 @@ class MarkdownIt:
         """
         result = []
 
-        if isinstance(names, str):
-            names = [names]
+        names = [names] if isinstance(names, str) else list(names)
 
         for chain in ["core", "block", "inline"]:
             result.extend(self[chain].ruler.enable(names, True))
@@ -194,14 +193,13 @@ class MarkdownIt:
     ) -> MarkdownIt:
         """The same as [[MarkdownIt.enable]], but turn specified rules off. (chainable)
 
-        :param names: rule name or list of rule names to disable.
+        :param names: rule name or iterable of rule names to disable.
         :param ignoreInvalid: set `true` to ignore errors when rule not found.
 
         """
         result = []
 
-        if isinstance(names, str):
-            names = [names]
+        names = [names] if isinstance(names, str) else list(names)
 
         for chain in ["core", "block", "inline"]:
             result.extend(self[chain].ruler.disable(names, True))
@@ -228,6 +226,11 @@ class MarkdownIt:
         """Add a rule for rendering a particular Token type.
 
         Only applied when ``renderer.__output__ == fmt``
+
+        :param name: must equal the ``type`` of the token(s) this should render
+            (e.g. ``"heading_open"``, ``"fence"``); it is not an arbitrary label.
+            If it does not match any token type actually produced by the active
+            rules, ``function`` will silently never be called.
         """
         if self.renderer.__output__ == fmt:
             self.renderer.rules[name] = function.__get__(self.renderer)  # type: ignore

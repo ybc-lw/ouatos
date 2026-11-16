@@ -1,10 +1,5 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
+from mpmath import fp, mp
 
-from mpmath import mp
-from mpmath import libmp
-
-xrange = libmp.backend.xrange
 
 def run_hessenberg(A, verbose = 0):
     if verbose > 1:
@@ -23,14 +18,14 @@ def run_hessenberg(A, verbose = 0):
     eps = mp.exp(0.8 * mp.log(mp.eps))
 
     err0 = 0
-    for x in xrange(n):
-        for y in xrange(n):
+    for x in range(n):
+        for y in range(n):
             err0 += abs(A[y,x] - B[y,x])
     err0 /= n * n
 
     err1 = 0
-    for x in xrange(n):
-        for y in xrange(x + 2, n):
+    for x in range(n):
+        for y in range(x + 2, n):
             err1 += abs(H[y,x])
 
     if verbose > 0:
@@ -61,22 +56,22 @@ def run_schur(A, verbose = 0):
     eps = mp.exp(0.8 * mp.log(mp.eps))
 
     err0 = 0
-    for x in xrange(n):
-        for y in xrange(n):
+    for x in range(n):
+        for y in range(n):
             err0 += abs(A[y,x] - B[y,x])
     err0 /= n * n
 
     err1 = 0
-    for x in xrange(n):
-        for y in xrange(n):
+    for x in range(n):
+        for y in range(n):
             if x == y:
                 C[y,x] -= 1
             err1 += abs(C[y,x])
     err1 /= n * n
 
     err2 = 0
-    for x in xrange(n):
-        for y in xrange(x + 1, n):
+    for x in range(n):
+        for y in range(x + 1, n):
             err2 += abs(R[y,x])
 
     if verbose > 0:
@@ -105,7 +100,7 @@ def run_eig(A, verbose = 0):
     eps = mp.exp(0.8 * mp.log(mp.eps))
 
     err0 = 0
-    for i in xrange(n):
+    for i in range(n):
         B = A * ER[:,i] - E[i] * ER[:,i]
         err0 = max(err0, mp.mnorm(B))
 
@@ -123,22 +118,22 @@ def run_eig(A, verbose = 0):
 
 def test_eig_dyn():
     v = 0
-    for i in xrange(5):
+    for i in range(5):
         n = 1 + int(mp.rand() * 5)
         if mp.rand() > 0.5:
             # real
             A = 2 * mp.randmatrix(n, n) - 1
             if mp.rand() > 0.5:
                 A *= 10
-                for x in xrange(n):
-                    for y in xrange(n):
+                for x in range(n):
+                    for y in range(n):
                         A[x,y] = int(A[x,y])
         else:
             A = (2 * mp.randmatrix(n, n) - 1) + 1j * (2 * mp.randmatrix(n, n) - 1)
             if mp.rand() > 0.5:
                 A *= 10
-                for x in xrange(n):
-                    for y in xrange(n):
+                for x in range(n):
+                    for y in range(n):
                         A[x,y] = int(mp.re(A[x,y])) + 1j * int(mp.im(A[x,y]))
 
         run_hessenberg(A, verbose = v)
@@ -167,7 +162,7 @@ def test_eig():
     AS.append(A)
     AS.append(A.transpose())
 
-    A=  mp.matrix([[0, 0, 1],  # cyclic
+    A = mp.matrix([[0, 0, 1],  # cyclic
                    [1, 0, 0],
                    [0, 1, 0]])
     AS.append(A)
@@ -177,3 +172,14 @@ def test_eig():
         run_hessenberg(A, verbose = v)
         run_schur(A, verbose = v)
         run_eig(A, verbose = v)
+
+    A = mp.matrix(1)
+    assert mp.eig(A, left=False, right=False) == [0]
+
+
+def test_fp_eig():
+    A = fp.matrix([[1, 2],
+                   [3, 4]])
+    E, ER = fp.eig(A)
+    assert all(_ == 0 for _ in fp.chop(A * ER[:,0] - E[0] * ER[:,0]))
+    assert all(_ == 0 for _ in fp.chop(A * ER[:,1] - E[1] * ER[:,1]))

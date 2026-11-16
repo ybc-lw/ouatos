@@ -2251,6 +2251,24 @@ class TestUfunc:
 
         assert_array_equal(a, expected)
 
+    def test_ufunc_at_readonly(self):
+        # gh-33275: `at` writes into its first operand, so a non-writeable
+        # array must raise, as it does for `out=`.
+        a = np.arange(3.0)
+        a.flags.writeable = False
+        with pytest.raises(ValueError, match="read-only"):
+            np.add.at(a, [0], 1.0)
+        with pytest.raises(ValueError, match="read-only"):
+            np.negative.at(a, [1])
+        assert_array_equal(a, np.arange(3.0))
+
+        # an array over an immutable bytes object must stay untouched
+        buf = bytes(16)
+        b = np.frombuffer(buf, dtype=np.float64)
+        with pytest.raises(ValueError, match="read-only"):
+            np.add.at(b, [0], 1.0)
+        assert buf == bytes(16)
+
     def test_ufunc_at_ellipsis(self):
         # Make sure the indexed loop check does not choke on iters
         # with subspaces
@@ -2466,6 +2484,16 @@ class TestUfunc:
         arr = np.arange(5)
         with pytest.raises(ValueError):
             np.add.at(arr, [0, 1], [1, 2, 3])
+
+    @pytest.mark.parametrize("nin, nout, match", [
+        (0, 1, "unary and binary"),
+        (3, 1, "unary and binary"),
+        (1, 0, "single output"),
+    ])
+    def test_at_bad_nin_nout(self, nin, nout, match):
+        f = np.frompyfunc(lambda *args: 0, nin, nout)
+        with pytest.raises(ValueError, match=match):
+            f.at(np.arange(3), [0])
 
     def test_reduce_arguments(self):
         f = np.add.reduce
@@ -3097,8 +3125,8 @@ def test_reduce_casterrors(offset):
 
 
 @pytest.mark.skipif(not HAS_REFCOUNT, reason="Python lacks refcounts")
-def test_reduction_no_reference_leak():
-    # Test that the generic reduction does not leak references.
+def test_ufunc_no_reference_leak():
+    # Test that ufunc calls and reductions do not leak references.
     # gh-29358
     arr = np.array([1, 2, 3], dtype=np.int32)
     count = sys.getrefcount(arr)
@@ -3133,6 +3161,14 @@ def test_reduction_no_reference_leak():
     np.add.reduceat(arr, [0, 1], dtype=np.int32, out=out)
     assert count == sys.getrefcount(arr)
     assert out_count == sys.getrefcount(out)
+
+    # Initializing a dtype with metadata creates a fresh descriptor instead of
+    # a reference to a builtin dtype singleton
+    dtype = np.dtype(np.int32, metadata={})
+    out = np.empty(arr.shape, dtype=dtype)
+    dtype_count = sys.getrefcount(dtype)
+    np.divmod(arr, 2, out=(None, out))
+    assert sys.getrefcount(dtype) == dtype_count
 
 
 def test_object_reduce_cleanup_on_failure():

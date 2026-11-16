@@ -1,15 +1,7 @@
-try:
-    from itertools import izip
-except ImportError:
-    izip = zip
+import itertools
 
-from ..libmp.backend import xrange
 from .calculus import defun
 
-try:
-    next = next
-except NameError:
-    next = lambda _: _.next()
 
 @defun
 def richardson(ctx, seq):
@@ -56,8 +48,9 @@ def richardson(ctx, seq):
 
     Applying Richardson extrapolation to the Leibniz series for `\pi`::
 
-        >>> from mpmath import *
-        >>> mp.dps = 30; mp.pretty = True
+        >>> from mpmath import mp, mpf, richardson, nprint, pi
+        >>> mp.dps = 30
+        >>> mp.pretty = True
         >>> S = [4*sum(mpf(-1)**n/(2*n+1) for n in range(m))
         ...     for m in range(1,30)]
         >>> v, c = richardson(S[:10])
@@ -88,7 +81,7 @@ def richardson(ctx, seq):
     # of successive weights to obtain a recurrence relation
     c = (-1)**N * N**N / ctx.mpf(ctx._ifac(N))
     maxc = 1
-    for k in xrange(N+1):
+    for k in range(N+1):
         s += c * seq[N+k]
         maxc = max(abs(c), maxc)
         c *= (k-N)*ctx.mpf(k+N+1)**N
@@ -175,7 +168,7 @@ def shanks(ctx, seq, table=None, randomized=False):
     We illustrate by applying Shanks transformation to the Leibniz
     series for `\pi`::
 
-        >>> from mpmath import *
+        >>> from mpmath import shanks, mp, nprint, mpf, pi
         >>> mp.dps = 50
         >>> S = [4*sum(mpf(-1)**n/(2*n+1) for n in range(m))
         ...     for m in range(1,30)]
@@ -220,7 +213,6 @@ def shanks(ctx, seq, table=None, randomized=False):
     **References**
 
     1. [GravesMorris]_
-
     2. [BenderOrszag]_ pp. 368-375
 
     """
@@ -240,9 +232,9 @@ def shanks(ctx, seq, table=None, randomized=False):
         from random import Random
         rnd = Random()
         rnd.seed(START)
-    for i in xrange(START, STOP):
+    for i in range(START, STOP):
         row = []
-        for j in xrange(i+1):
+        for j in range(i+1):
             if j == 0:
                 a, b = 0, seq[i+1]-seq[i]
             else:
@@ -368,7 +360,6 @@ class levin_class:
     First we sum the zeta function::
 
         >>> from mpmath import mp
-        >>> mp.prec = 53
         >>> eps = mp.mpf(mp.eps)
         >>> with mp.extraprec(2 * mp.prec): # levin needs a high working precision
         ...     L = mp.levin(method = "levin", variant = "u")
@@ -450,7 +441,7 @@ class levin_class:
         >>> print(mp.chop(v - exact))
         0.0
         >>> w = mp.nsum(lambda n: (-z)**n * mp.fac(4 * n) / (mp.fac(n) * mp.fac(2 * n) * (4 ** n)),
-        ...   [0, mp.inf], method = "levin", levin_variant = "t", workprec = 8*mp.prec, steps = [2] + [1 for x in xrange(1000)])
+        ...   [0, mp.inf], method = "levin", levin_variant = "t", workprec = 8*mp.prec, steps = [2] + [1 for x in range(1000)])
         >>> print(mp.chop(v - w))
         0.0
 
@@ -482,18 +473,15 @@ class levin_class:
         >>> z = 2 + 1j
         >>> exact = mp.hyp2f1(2 / mp.mpf(3), 4 / mp.mpf(3), 1 / mp.mpf(3), z)
         >>> f = lambda n: mp.rf(2 / mp.mpf(3), n) * mp.rf(4 / mp.mpf(3), n) * z**n / (mp.rf(1 / mp.mpf(3), n) * mp.fac(n))
-        >>> v = mp.nsum(f, [0, mp.inf], method = "levin", steps = [10 for x in xrange(1000)])
+        >>> v = mp.nsum(f, [0, mp.inf], method = "levin", steps = [10 for x in range(1000)])
         >>> print(mp.chop(exact-v))
         0.0
 
     References:
 
-      [1] E.J. Weniger - "Nonlinear Sequence Transformations for the Acceleration of
-          Convergence and the Summation of Divergent Series" arXiv:math/0306302
-
-      [2] A. Sidi - "Pratical Extrapolation Methods"
-
-      [3] H.H.H. Homeier - "Scalar Levin-Type Sequence Transformations" arXiv:math/0005209
+    1. [Weniger]_
+    2. [Sidi]_
+    3. [Homeier]_
 
     """
 
@@ -838,7 +826,7 @@ class cohen_alt_class:
         c = -d
         s = 0
 
-        for k in xrange(n):
+        for k in range(n):
             c = b - c
             if k % 2 == 0:
                 s = s + c * A[k]
@@ -874,7 +862,7 @@ class cohen_alt_class:
         b = self.ctx.one
         s = 0
 
-        for k in xrange(n):
+        for k in range(n):
             b = 2 * (n + k) * (n - k) * b / ((2 * k + 1) * (k + self.ctx.one))
             s += b * S[k]
 
@@ -916,8 +904,10 @@ def sumap(ctx, f, interval, integral=None, error=False):
     decreases like a power of `k`; for example when the sum is a pure
     zeta function::
 
-        >>> from mpmath import *
-        >>> mp.dps = 25; mp.pretty = True
+        >>> from mpmath import (mp, sumap, zeta, inf, chop, expint, log,
+        ...                     polylog)
+        >>> mp.dps = 25
+        >>> mp.pretty = True
         >>> sumap(lambda k: 1/k**2.5, [1,inf])
         1.34148725725091717975677
         >>> zeta(2.5)
@@ -931,7 +921,8 @@ def sumap(ctx, f, interval, integral=None, error=False):
     line is likely to give poor results, so it is better to evaluate
     the first term symbolically whenever possible:
 
-        >>> n=3; z=-0.75
+        >>> n=3
+        >>> z=-0.75
         >>> I = expint(n,-log(z))
         >>> chop(sumap(lambda k: z**k / k**n, [1,inf], integral=I))
         -0.6917036036904594510141448
@@ -1015,8 +1006,9 @@ def sumem(ctx, f, interval, tol=None, reject=10, integral=None,
     Summation of an infinite series, with automatic and symbolic
     integral and derivative values (the second should be much faster)::
 
-        >>> from mpmath import *
-        >>> mp.dps = 50; mp.pretty = True
+        >>> from mpmath import mp, sumem, inf, fac, mpf
+        >>> mp.dps = 50
+        >>> mp.pretty = True
         >>> sumem(lambda n: 1/n**2, [32, inf])
         0.03174336652030209012658168043874142714132886413417
         >>> I = mpf(1)/32
@@ -1039,16 +1031,16 @@ def sumem(ctx, f, interval, tol=None, reject=10, integral=None,
     err = ctx.zero
     prev = 0
     M = 10000
-    if a == ctx.ninf: adiffs = (0 for n in xrange(M))
+    if a == ctx.ninf: adiffs = (0 for n in range(M))
     else:             adiffs = adiffs or ctx.diffs(f, a)
-    if b == ctx.inf:  bdiffs = (0 for n in xrange(M))
+    if b == ctx.inf:  bdiffs = (0 for n in range(M))
     else:             bdiffs = bdiffs or ctx.diffs(f, b)
     orig = ctx.prec
     #verbose = 1
     try:
         ctx.prec += 10
         s = ctx.zero
-        for k, (da, db) in enumerate(izip(adiffs, bdiffs)):
+        for k, (da, db) in enumerate(zip(adiffs, bdiffs)):
             if k & 1:
                 term = (db-da) * ctx.bernoulli(k+1) / ctx.factorial(k+1)
                 mag = abs(term)
@@ -1099,9 +1091,9 @@ def adaptive_extrapolation(ctx, update, emfun, kwargs):
     maxterms = option('maxterms', ctx.dps*10)
     method = set(option('method', 'r+s').split('+'))
     skip = option('skip', 0)
-    steps = iter(option('steps', xrange(10, 10**9, 10)))
+    steps = iter(option('steps', range(10, 10**9, 10)))
     strict = option('strict')
-    #steps = (10 for i in xrange(1000))
+    #steps = (10 for i in range(1000))
     summer=[]
     if 'd' in method or 'direct' in method:
         TRY_RICHARDSON = TRY_SHANKS = TRY_EULER_MACLAURIN = False
@@ -1162,7 +1154,7 @@ def adaptive_extrapolation(ctx, update, emfun, kwargs):
             if verbose:
                 print("-"*70)
                 print("Adding terms #%i-#%i" % (index, index+step))
-            update(partial, xrange(index, index+step))
+            update(partial, range(index, index+step))
             index += step
 
             # Check direct error
@@ -1264,8 +1256,9 @@ def nsum(ctx, f, *intervals, **options):
     where the first converges rapidly and the second converges slowly,
     are::
 
-        >>> from mpmath import *
-        >>> mp.dps = 15; mp.pretty = True
+        >>> from mpmath import (mp, fac, inf, nsum, sin, cos, zeta, mpf, pi,
+        ...                     log, sqrt, diff, ln2, altzeta, sech)
+        >>> mp.pretty = True
         >>> nsum(lambda n: 1/fac(n), [0, inf])
         2.71828182845905
         >>> nsum(lambda n: 1/n**2, [1, inf])
@@ -1508,7 +1501,7 @@ def nsum(ctx, f, *intervals, **options):
       >>> # exact = mp.quad(lambda x: mp.exp( -x * x / 2 - z * x ** 4), [0,mp.inf]) * 2 / mp.sqrt(2 * mp.pi)
       >>> exact = mp.exp(mp.one / (32 * z)) * mp.besselk(mp.one / 4, mp.one / (32 * z)) / (4 * mp.sqrt(z * mp.pi)) # this is the symbolic expression for the integral
       >>> w = mp.nsum(lambda n: (-z)**n * mp.fac(4 * n) / (mp.fac(n) * mp.fac(2 * n) * (4 ** n)),
-      ...   [0, mp.inf], method = "levin", levin_variant = "t", workprec = 8*mp.prec, steps = [2] + [1 for x in xrange(1000)])
+      ...   [0, mp.inf], method = "levin", levin_variant = "t", workprec = 8*mp.prec, steps = [2] + [1 for x in range(1000)])
       >>> print(mp.chop(w - exact))
       0.0
 
@@ -1518,7 +1511,7 @@ def nsum(ctx, f, *intervals, **options):
       >>> z = 2 + 1j
       >>> exact = mp.hyp2f1(2 / mp.mpf(3), 4 / mp.mpf(3), 1 / mp.mpf(3), z)
       >>> f = lambda n: mp.rf(2 / mp.mpf(3), n) * mp.rf(4 / mp.mpf(3), n) * z**n / (mp.rf(1 / mp.mpf(3), n) * mp.fac(n))
-      >>> v = mp.nsum(f, [0, mp.inf], method = "levin", steps = [10 for x in xrange(1000)])
+      >>> v = mp.nsum(f, [0, mp.inf], method = "levin", steps = [10 for x in range(1000)])
       >>> print(mp.chop(exact-v))
       0.0
 
@@ -1753,25 +1746,16 @@ def standardize(ctx, f, intervals, options):
             return f(*args)
         return True, g
 
-# backwards compatible itertools.product
-def cartesian_product(args):
-    pools = map(tuple, args)
-    result = [[]]
-    for pool in pools:
-        result = [x+[y] for x in result for y in pool]
-    for prod in result:
-        yield tuple(prod)
-
 def fold_finite(ctx, f, intervals):
     if not intervals:
         return f
     indices = [v[0] for v in intervals]
     points = [v[1] for v in intervals]
-    ranges = [xrange(a, b+1) for (a,b) in points]
+    ranges = [range(a, b+1) for (a,b) in points]
     def g(*args):
         args = list(args)
         s = ctx.zero
-        for xs in cartesian_product(ranges):
+        for xs in itertools.product(*ranges):
             for dim, x in zip(indices, xs):
                 args[dim] = ctx.mpf(x)
             s += f(*args)
@@ -1822,11 +1806,11 @@ def fold_infinite(ctx, f, intervals):
         s = ctx.zero
         #y = ctx.mpf(n)
         args[dim2] = ctx.mpf(n) #y
-        for x in xrange(n+1):
+        for x in range(n+1):
             args[dim1] = ctx.mpf(x)
             s += f(*args)
         args[dim1] = ctx.mpf(n) #ctx.mpf(n)
-        for y in xrange(n):
+        for y in range(n):
             args[dim2] = ctx.mpf(y)
             s += f(*args)
         return s
@@ -1863,8 +1847,10 @@ def nprod(ctx, f, interval, nsum=False, **kwargs):
 
     A simple finite product::
 
-        >>> from mpmath import *
-        >>> mp.dps = 25; mp.pretty = True
+        >>> from mpmath import (mp, nprod, inf, csch, cosh, exp, pi, sinh,
+        ...                     sqrt, exp, euler, cos, tanh, log, jtheta)
+        >>> mp.dps = 25
+        >>> mp.pretty = True
         >>> nprod(lambda k: k, [1, 4])
         24.0
 
@@ -1886,12 +1872,14 @@ def nprod(ctx, f, interval, nsum=False, **kwargs):
     Next, several more infinite products with more complicated
     values::
 
-        >>> nprod(lambda k: exp(1/k**2), [1, inf]); exp(pi**2/6)
+        >>> nprod(lambda k: exp(1/k**2), [1, inf])
         5.180668317897115748416626
+        >>> exp(pi**2/6)
         5.180668317897115748416626
 
-        >>> nprod(lambda k: (k**2-1)/(k**2+1), [2, inf]); pi*csch(pi)
+        >>> nprod(lambda k: (k**2-1)/(k**2+1), [2, inf])
         0.2720290549821331629502366
+        >>> pi*csch(pi)
         0.2720290549821331629502366
 
         >>> nprod(lambda k: (k**4-1)/(k**4+1), [2, inf])
@@ -1904,8 +1892,9 @@ def nprod(ctx, f, interval, nsum=False, **kwargs):
         >>> 3*sqrt(2)*cosh(pi*sqrt(3)/2)**2*csch(pi*sqrt(2))/pi
         1.848936182858244485224927
 
-        >>> nprod(lambda k: (1-1/k**4), [2, inf]); sinh(pi)/(4*pi)
+        >>> nprod(lambda k: (1-1/k**4), [2, inf])
         0.9190194775937444301739244
+        >>> sinh(pi)/(4*pi)
         0.9190194775937444301739244
 
         >>> nprod(lambda k: (1-1/k**6), [2, inf])
@@ -1913,8 +1902,9 @@ def nprod(ctx, f, interval, nsum=False, **kwargs):
         >>> (1+cosh(pi*sqrt(3)))/(12*pi**2)
         0.9826842777421925183244759
 
-        >>> nprod(lambda k: (1+1/k**2), [2, inf]); sinh(pi)/(2*pi)
+        >>> nprod(lambda k: (1+1/k**2), [2, inf])
         1.838038955187488860347849
+        >>> sinh(pi)/(2*pi)
         1.838038955187488860347849
 
         >>> nprod(lambda n: (1+1/n)**n * exp(1/(2*n)-1), [1, inf])
@@ -1982,7 +1972,7 @@ def nprod(ctx, f, interval, nsum=False, **kwargs):
             return f(0) * ctx.nprod(lambda k: f(-k) * f(k), [1, ctx.inf], **kwargs)
         return ctx.nprod(f, [-b, ctx.inf], **kwargs)
     elif b != ctx.inf:
-        return ctx.fprod(f(ctx.mpf(k)) for k in xrange(int(a), int(b)+1))
+        return ctx.fprod(f(ctx.mpf(k)) for k in range(int(a), int(b)+1))
 
     a = int(a)
 
@@ -2042,8 +2032,10 @@ def limit(ctx, f, x, direction=1, exp=False, **kwargs):
 
     A basic evaluation of a removable singularity::
 
-        >>> from mpmath import *
-        >>> mp.dps = 30; mp.pretty = True
+        >>> from mpmath import (limit, mp, sin, inf, exp, fac, sqrt, pi, e,
+        ...                     mpf, log, euler)
+        >>> mp.dps = 30
+        >>> mp.pretty = True
         >>> limit(lambda x: (x-sin(x))/x**3, 0)
         0.166666666666666666666666666667
 
@@ -2109,7 +2101,7 @@ def limit(ctx, f, x, direction=1, exp=False, **kwargs):
             values.append(g(k+1))
 
     # XXX: steps used by nsum don't work well
-    if not 'steps' in kwargs:
+    if 'steps' not in kwargs:
         kwargs['steps'] = [10]
 
     return +ctx.adaptive_extrapolation(update, None, kwargs)

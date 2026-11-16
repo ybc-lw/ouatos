@@ -114,6 +114,7 @@ TOKENIZER_MAPPING_NAMES = OrderedDict[str, str | None](
         ("dia", "DiaTokenizer"),
         ("diffusion_gemma", "GemmaTokenizer" if is_tokenizers_available() else None),
         ("distilbert", "BertTokenizer" if is_tokenizers_available() else None),
+        ("dots3_note", "Qwen2Tokenizer" if is_tokenizers_available() else None),
         ("dpr", "DPRQuestionEncoderTokenizer" if is_tokenizers_available() else None),
         ("electra", "BertTokenizer" if is_tokenizers_available() else None),
         ("emu3", "GPT2Tokenizer" if is_tokenizers_available() else None),
@@ -397,6 +398,8 @@ MODELS_WITH_INCORRECT_HUB_TOKENIZER_CLASS: set[str] = {
     "hyperclovax_vlm",
     "hyperclovax_vision_v2",
     "internlm2",
+    "internlm3",
+    "iquestcoder",
     "jamba",
     "llava",
     "llava_next",
@@ -845,6 +848,8 @@ class AutoTokenizer:
             and _hub_declared_class is not None
             and _hub_declared_class.removesuffix("Fast") == "LlamaTokenizer"
             and (TOKENIZER_MAPPING_NAMES.get(config_model_type) or "").removesuffix("Fast") != "MistralCommonBackend"
+            and config_model_type not in MODELS_WITH_INCORRECT_HUB_TOKENIZER_CLASS
+            and config_model_name not in MODELS_WITH_INCORRECT_HUB_TOKENIZER_CLASS
             and TokenizersBackend._tokenizer_json_has_byte_level(pretrained_model_name_or_path, **kwargs)
         ):
             logger.warning_once(

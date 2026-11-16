@@ -1,7 +1,9 @@
-from mpmath import *
+import pytest
+
+from mpmath import e, exp, findpoly, identify, log, mp, pi, pslq, sqrt, zeta
+
 
 def test_pslq():
-    mp.dps = 15
     assert pslq([3*pi+4*e/7, pi, e, log(2)]) == [7, -21, -4, 0]
     assert pslq([4.9999999999999991, 1]) == [1, -5]
     assert pslq([2,1]) == [1, -2]
@@ -17,3 +19,7 @@ def test_identify():
     assert identify(3, full=True) == ['3', '3', '1/(1/3)', 'sqrt(9)',
         '1/sqrt((1/9))', '(sqrt(12)/2)**2', '1/(sqrt(12)/6)**2']
     assert identify(pi+1, {'a':+pi}) == '(1 + 1*a)'
+
+def test_findpoly_deprecated():
+    with pytest.deprecated_call():
+        assert findpoly(1+sqrt(2), 2) == [1, -2, -1]

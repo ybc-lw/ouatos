@@ -12,17 +12,28 @@ from collections.abc import Sequence
 import inspect
 from typing import Any, ClassVar, Protocol
 
-from .common.utils import escapeHtml, unescapeAll
+from .common.utils import MD_TRIM_RE, escapeHtml, mdTrim, unescapeAll
 from .token import Token
 from .utils import EnvType, OptionsDict
 
 
 class RendererProtocol(Protocol):
+    """The interface a renderer passed to ``MarkdownIt(renderer_cls=...)`` must have.
+
+    ``MarkdownIt`` creates the renderer as ``renderer_cls(md)``, and its
+    ``render`` and ``renderInline`` methods call only :meth:`render`.
+    """
+
     __output__: ClassVar[str]
+    """The name of the output format, e.g. ``"html"``.
+
+    ``MarkdownIt.add_render_rule`` only applies rules whose ``fmt`` matches it.
+    """
 
     def render(
         self, tokens: Sequence[Token], options: OptionsDict, env: EnvType
-    ) -> Any: ...
+    ) -> Any:
+        """Render a token stream to the output format."""
 
 
 class RendererHTML(RendererProtocol):
@@ -61,7 +72,7 @@ class RendererHTML(RendererProtocol):
         self.rules = {
             k: v
             for k, v in inspect.getmembers(self, predicate=inspect.ismethod)
-            if not (k.startswith("render") or k.startswith("_"))
+            if not k.startswith(("render", "_"))
         }
 
     def render(
@@ -74,18 +85,22 @@ class RendererHTML(RendererProtocol):
         :param env: additional data from parsed input
 
         """
-        result = ""
+        # Collect the fragments and join them once: repeated ``str +=`` is only
+        # linear on interpreters that can extend a string in place (the default
+        # CPython build), and quadratic in the output size elsewhere (e.g. PyPy,
+        # GraalPy and free-threaded CPython 3.13).
+        out: list[str] = []
 
         for i, token in enumerate(tokens):
             if token.type == "inline":
                 if token.children:
-                    result += self.renderInline(token.children, options, env)
+                    out.append(self.renderInline(token.children, options, env))
             elif token.type in self.rules:
-                result += self.rules[token.type](tokens, i, options, env)
+                out.append(self.rules[token.type](tokens, i, options, env))
             else:
-                result += self.renderToken(tokens, i, options, env)
+                out.append(self.renderToken(tokens, i, options, env))
 
-        return result
+        return "".join(out)
 
     def renderInline(
         self, tokens: Sequence[Token], options: OptionsDict, env: EnvType
@@ -96,15 +111,15 @@ class RendererHTML(RendererProtocol):
         :param options: params of parser instance
         :param env: additional data from parsed input (references, for example)
         """
-        result = ""
+        out: list[str] = []
 
         for i, token in enumerate(tokens):
             if token.type in self.rules:
-                result += self.rules[token.type](tokens, i, options, env)
+                out.append(self.rules[token.type](tokens, i, options, env))
             else:
-                result += self.renderToken(tokens, i, options, env)
+                out.append(self.renderToken(tokens, i, options, env))
 
-        return result
+        return "".join(out)
 
     def renderToken(
         self,
@@ -194,18 +209,20 @@ class RendererHTML(RendererProtocol):
         :param options: params of parser instance
         :param env: additional data from parsed input
         """
-        result = ""
+        out: list[str] = []
 
         for token in tokens or []:
-            if token.type == "text":
-                result += token.content
+            if token.type in ("text", "code_inline"):
+                out.append(token.content)
             elif token.type == "image":
                 if token.children:
-                    result += self.renderInlineAsText(token.children, options, env)
-            elif token.type == "softbreak":
-                result += "\n"
+                    out.append(self.renderInlineAsText(token.children, options, env))
+            elif token.type in ("html_inline", "html_block"):
+                out.append(token.content)
+            elif token.type in ("softbreak", "hardbreak"):
+                out.append("\n")
 
-        return result
+        return "".join(out)
 
     ###################################################
 
@@ -266,12 +283,14 @@ class RendererHTML(RendererProtocol):
         env: EnvType,
     ) -> str:
         token = tokens[idx]
-        info = unescapeAll(token.info).strip() if token.info else ""
+        info = mdTrim(unescapeAll(token.info)) if token.info else ""
         langName = ""
         langAttrs = ""
 
         if info:
-            arr = info.split(maxsplit=1)
+            # Not ``str.split()``: it splits on the Python whitespace set,
+            # which is wider than the one upstream uses here.
+            arr = MD_TRIM_RE.split(info, maxsplit=1)
             langName = arr[0]
             if len(arr) == 2:
                 langAttrs = arr[1]

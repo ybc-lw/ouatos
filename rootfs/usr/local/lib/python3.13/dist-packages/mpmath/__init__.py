@@ -1,10 +1,18 @@
-__version__ = '1.3.0'
+from ._version import __version__
+
+import functools
+import sys
+import types
 
 from .usertools import monitor, timing
 
 from .ctx_fp import FPContext
 from .ctx_mp import MPContext
 from .ctx_iv import MPIntervalContext
+
+# deprecated modules
+from . import rational
+from . import math2
 
 fp = FPContext()
 mp = MPContext()
@@ -18,11 +26,6 @@ fp._fp = fp
 mp._iv = iv
 fp._iv = iv
 iv._iv = iv
-
-# XXX: extremely bad pickle hack
-from . import ctx_mp as _ctx_mp
-_ctx_mp._mpf_module.mpf = mp.mpf
-_ctx_mp._mpf_module.mpc = mp.mpc
 
 make_mpf = mp.make_mpf
 make_mpc = mp.make_mpc
@@ -172,6 +175,7 @@ svd_r = mp.svd_r
 svd_c = mp.svd_c
 svd = mp.svd
 gauss_quadrature = mp.gauss_quadrature
+rank = mp.rank
 
 expm = mp.expm
 sqrtm = mp.sqrtm
@@ -196,6 +200,8 @@ eps = mp.eps
 pi = mp.pi
 ln2 = mp.ln2
 ln10 = mp.ln10
+exp2 = mp.exp2
+log2 = mp.log2
 phi = mp.phi
 e = mp.e
 euler = mp.euler
@@ -307,6 +313,8 @@ polylog = mp.polylog
 clsin = mp.clsin
 clcos = mp.clcos
 gammainc = mp.gammainc
+lower_gamma = mp.lower_gamma
+upper_gamma = mp.upper_gamma
 gammaprod = mp.gammaprod
 binomial = mp.binomial
 rf = mp.rf
@@ -323,6 +331,7 @@ hyp3f2 = mp.hyp3f2
 hyperu = mp.hyperu
 hypercomb = mp.hypercomb
 meijerg = mp.meijerg
+foxh = mp.foxh
 appellf1 = mp.appellf1
 appellf2 = mp.appellf2
 appellf3 = mp.appellf3
@@ -383,6 +392,8 @@ bessely = mp.bessely
 besselk = mp.besselk
 besseljzero = mp.besseljzero
 besselyzero = mp.besselyzero
+spherical_jn = mp.spherical_jn
+spherical_yn = mp.spherical_yn
 hankel1 = mp.hankel1
 hankel2 = mp.hankel2
 struveh = mp.struveh
@@ -432,37 +443,19 @@ sawtoothw = mp.sawtoothw
 unit_triangle = mp.unit_triangle
 sigmoid = mp.sigmoid
 
-# be careful when changing this name, don't use test*!
-def runtests():
-    """
-    Run all mpmath tests and print output.
-    """
-    import os.path
-    from inspect import getsourcefile
-    from .tests import runtests as tests
-    testdir = os.path.dirname(os.path.abspath(getsourcefile(tests)))
-    importdir = os.path.abspath(testdir + '/../..')
-    tests.testit(importdir, testdir)
 
-def doctests(filter=[]):
-    import sys
-    from timeit import default_timer as clock
-    for i, arg in enumerate(sys.argv):
-        if '__init__.py' in arg:
-            filter = [sn for sn in sys.argv[i+1:] if not sn.startswith("-")]
-            break
-    import doctest
-    globs = globals().copy()
-    for obj in globs: #sorted(globs.keys()):
-        if filter:
-            if not sum([pat in obj for pat in filter]):
-                continue
-        sys.stdout.write(str(obj) + " ")
-        sys.stdout.flush()
-        t1 = clock()
-        doctest.run_docstring_examples(globs[obj], {}, verbose=("-v" in sys.argv))
-        t2 = clock()
-        print(round(t2-t1, 3))
+# Hack to guard against setting module properties instead of 'mp', Issue #657
+class _MPMathModule(types.ModuleType):
 
-if __name__ == '__main__':
-    doctests()
+    def _helper(self, *args, prop=''):
+        raise AttributeError("cannot set '{name}' on 'mpmath'. Did you mean to "
+                             "set '{name}' on 'mpmath.mp'?".format(name=prop))
+
+    dps = property(fset=functools.partial(_helper, prop='dps'))
+    prec = property(fset=functools.partial(_helper, prop='prec'))
+    pretty = property(fset=functools.partial(_helper, prop='pretty'))
+    trap_complex = property(fset=functools.partial(_helper, prop='trap_complex'))
+
+
+sys.modules[__name__].__class__ = _MPMathModule
+del functools, sys, types, _MPMathModule
