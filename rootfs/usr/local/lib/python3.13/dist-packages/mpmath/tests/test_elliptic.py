@@ -4,20 +4,22 @@ extensive testing can be found in elliptic_torture_tests.py
 
 Author of the first version: M.T. Taschuk
 
-References:
+**References**
 
-[1] Abramowitz & Stegun. 'Handbook of Mathematical Functions, 9th Ed.',
-    (Dover duplicate of 1972 edition)
-[2] Whittaker 'A Course of Modern Analysis, 4th Ed.', 1946,
-    Cambridge University Press
+1. [AbramowitzStegun]_
+2. [WhittakerWatson]_
 
 """
 
-import mpmath
 import random
+
 import pytest
 
-from mpmath import *
+from mpmath import (cos, cosh, cot, coth, csc, csch, diff, ellipe, ellipfun,
+                    ellipk, ellippi, elliprc, elliprd, elliprf, elliprg,
+                    elliprj, eps, exp, isnan, j, jtheta, ldexp, ln2, mp, mpc,
+                    mpf, nan, pi, qfrom, sec, sech, sin, sinh, sqrt, tan, tanh)
+
 
 def mpc_ae(a, b, eps=eps):
     res = True
@@ -35,7 +37,6 @@ jdn = ellipfun('dn')
 calculate_nome = lambda k: qfrom(k=k)
 
 def test_ellipfun():
-    mp.dps = 15
     assert ellipfun('ss', 0, 0) == 1
     assert ellipfun('cc', 0, 0) == 1
     assert ellipfun('dd', 0, 0) == 1
@@ -104,7 +105,7 @@ def test_calculate_nome():
         q = calculate_nome(sqrt(m))
         assert q.ae(i[1])
 
-    mp.dps = 15
+    assert qfrom(m=mp.ninf).ae(mpf('-1.0'))
 
 def test_jtheta():
     mp.dps = 25
@@ -152,8 +153,6 @@ def test_jtheta():
         assert(result.ae(0))
         result = jtheta(2, z2, q)
         assert(result.ae(0))
-    mp.dps = 15
-
 
 def test_jtheta_issue_79():
     # near the circle of covergence |q| = 1 the convergence slows
@@ -273,7 +272,6 @@ def test_jtheta_identities():
         term3 = (jtheta(3, zero, q))**4
         equality = term1 + term2 - term3
         assert(equality.ae(0, eps1))
-    mp.dps = 15
 
 def test_jtheta_complex():
     mp.dps = 30
@@ -318,7 +316,6 @@ def test_jtheta_complex():
     mp.dps -= 10
     for x in r:
         assert(mpc_ae(x, mpc(0)))
-    mp.dps = 15
 
 def test_djtheta():
     mp.dps = 30
@@ -377,7 +374,6 @@ def test_djtheta():
         a[n] = jtheta(n, z, q, 2)/jtheta(n, z, q)
     equality = a[2] + a[3] + a[4] - a[1]
     assert(equality.ae(0))
-    mp.dps = 15
 
 def test_jsn():
     """
@@ -422,7 +418,6 @@ def test_jsn():
     res = mpf('0.09981686718599080096451168')
     result = jsn(arg, arg)
     assert(result.ae(res))
-    mp.dps = 15
 
 def test_jcn():
     """
@@ -459,7 +454,6 @@ def test_jcn():
     res = mpf('0.9950058256237368748520459')
     result = jcn(arg, arg)
     assert(result.ae(res))
-    mp.dps = 15
 
 def test_jdn():
     """
@@ -481,8 +475,6 @@ def test_jdn():
     arg = one/10
     result = jdn(arg, arg)
     assert(result.ae(res))
-    mp.dps = 15
-
 
 def test_sn_cn_dn_identities():
     """
@@ -550,8 +542,6 @@ def test_sn_cn_dn_identities():
         value = jdn(z, zero)
         assert(value.ae(one))
 
-    mp.dps = 15
-
 def test_sn_cn_dn_complex():
     mp.dps = 30
     # N[JacobiSN[1/4 + I/8, 1/3 + I/7], 35] in Mathematica
@@ -575,11 +565,9 @@ def test_sn_cn_dn_complex():
           mpf('0.01346296520008176393432491077244994')*j
     r = jdn(u, m)
     assert(mpc_ae(r, res))
-    mp.dps = 15
 
 def test_elliptic_integrals():
     # Test cases from Carlson's paper
-    mp.dps = 15
     assert elliprd(0,2,1).ae(1.7972103521033883112)
     assert elliprd(2,3,4).ae(0.16510527294261053349)
     assert elliprd(j,-j,2).ae(0.65933854154219768919)
@@ -668,3 +656,9 @@ def test_elliptic_integrals():
 
 def test_issue_238():
     assert isnan(qfrom(m=nan))
+
+def test_issue_604():
+    assert ellipe(pi, 1).ae('2.0')
+
+def test_issue_486():
+    assert isnan(elliprj(1, 2, 3, nan))

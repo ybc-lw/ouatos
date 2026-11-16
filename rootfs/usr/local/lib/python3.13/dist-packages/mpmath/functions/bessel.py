@@ -1,3 +1,4 @@
+from ..libmp.backend import MPQ
 from .functions import defun, defun_wrapped
 
 @defun
@@ -81,6 +82,8 @@ def besselj(ctx, n, z, derivative=0, **kwargs):
 def besseli(ctx, n, z, derivative=0, **kwargs):
     n = ctx.convert(n)
     z = ctx.convert(z)
+    if n and ctx.isnpint(n):
+        return ctx.besseli(-n, z, derivative, **kwargs)
     if not z:
         if derivative:
             raise ValueError
@@ -150,7 +153,9 @@ def bessely(ctx, n, z, derivative=0, **kwargs):
         ctx.besselj(-n,z,derivative,**kwargs))/sin
 
 @defun_wrapped
-def besselk(ctx, n, z, **kwargs):
+def besselk(ctx, n, z, derivative=0, **kwargs):
+    if derivative:
+        raise NotImplementedError
     if not z:
         return ctx.inf
     M = ctx.mag(z)
@@ -166,7 +171,8 @@ def besselk(ctx, n, z, **kwargs):
     # for large real z
     # Instead represent in terms of 2F0
     else:
-        ctx.prec += M
+        if ctx.isfinite(M):
+            ctx.prec += M
         def h(n):
             return [([ctx.pi/2, z, ctx.exp(-z)], [0.5,-0.5,1], [], [], \
                 [n+0.5, 0.5-n], [], -1/(2*z))]
@@ -174,11 +180,66 @@ def besselk(ctx, n, z, **kwargs):
 
 @defun_wrapped
 def hankel1(ctx,n,x,**kwargs):
-    return ctx.besselj(n,x,**kwargs) + ctx.j*ctx.bessely(n,x,**kwargs)
+    def terms():
+        return [ctx.besselj(n,x,**kwargs),
+                ctx.j*ctx.bessely(n,x,**kwargs)]
+    return ctx.sum_accurately(terms)
 
 @defun_wrapped
 def hankel2(ctx,n,x,**kwargs):
-    return ctx.besselj(n,x,**kwargs) - ctx.j*ctx.bessely(n,x,**kwargs)
+    def terms():
+        return [ctx.besselj(n,x,**kwargs),
+                -ctx.j*ctx.bessely(n,x,**kwargs)]
+    return ctx.sum_accurately(terms)
+
+@defun
+def spherical_jn(ctx, n, z):
+    r"""
+    Spherical Bessel function of the first kind.
+
+    This function is a solution to the spherical Bessel equation
+
+    .. math ::
+        z^2 \frac{\mathrm{d}^2 w}{\mathrm{d}z^2}
+          + 2z \frac{\mathrm{d}w}{\mathrm{d}z} + (z^2 - \nu(\nu + 1)) w = 0.
+
+    It can be defined as
+
+    .. math ::
+        j_\nu(z) = \sqrt{\frac{\pi}{2z}} J_{\nu + \frac{1}{2}}(z),
+
+    where `J_\nu(z)` is the Bessel function of the first kind.
+
+    **Examples**
+
+    >>> from mpmath import spherical_jn
+    >>> spherical_jn(0, 1)
+    mpf('0.84147098480789639')
+
+    """
+    return ctx.besselj(n + ctx.one/2, z) * ctx.sqrt(ctx.pi/(2*z))
+
+@defun
+def spherical_yn(ctx, n, z):
+    r"""
+    Spherical Bessel function of the second kind.
+
+    This function is another solution to the spherical Bessel equation, and
+    linearly independent from `j_n`. It can be defined as
+
+    .. math ::
+        j_\nu(z) = \sqrt{\frac{\pi}{2z}} Y_{\nu + \frac{1}{2}}(z),
+
+    where `Y_\nu(z)` is the Bessel function of the second kind.
+
+    **Examples**
+
+    >>> from mpmath import spherical_yn
+    >>> spherical_yn(0, 1)
+    mpf('-0.54030230586813965')
+
+    """
+    return ctx.bessely(n + ctx.one/2, z) * ctx.sqrt(ctx.pi/(2*z))
 
 @defun_wrapped
 def whitm(ctx,k,m,z,**kwargs):
@@ -259,7 +320,7 @@ def _anger(ctx,which,v,z,**kwargs):
     v = ctx._convert_param(v)[0]
     z = ctx.convert(z)
     def h(v):
-        b = ctx.mpq_1_2
+        b = MPQ(1,2)
         u = v*b
         m = b*3
         a1,a2,b1,b2 = m-u, m+u, 1-u, 1+u
@@ -288,7 +349,7 @@ def lommels1(ctx, u, v, z, **kwargs):
     v = ctx._convert_param(v)[0]
     z = ctx.convert(z)
     def h(u,v):
-        b = ctx.mpq_1_2
+        b = MPQ(1,2)
         w = ctx.square_exp_arg(z, mult=-0.25)
         return ([u-v+1, u+v+1, z], [-1, -1, u+1], [], [], [1], \
             [b*(u-v+3),b*(u+v+3)], w),
@@ -302,11 +363,11 @@ def lommels2(ctx, u, v, z, **kwargs):
     # Asymptotic expansion (GR p. 947) -- need to be careful
     # not to use for small arguments
     # def h(u,v):
-    #    b = ctx.mpq_1_2
+    #    b = MPQ(1,2)
     #    w = -(z/2)**(-2)
     #    return ([z], [u-1], [], [], [b*(1-u+v)], [b*(1-u-v)], w),
     def h(u,v):
-        b = ctx.mpq_1_2
+        b = MPQ(1,2)
         w = ctx.square_exp_arg(z, mult=-0.25)
         T1 = [u-v+1, u+v+1, z], [-1, -1, u+1], [], [], [1], [b*(u-v+3),b*(u+v+3)], w
         T2 = [2, z], [u+v-1, -v], [v, b*(u+v+1)], [b*(v-u+1)], [], [1-v], w
@@ -425,7 +486,7 @@ def _airyderiv_0(ctx, z, n, ntype, which):
     if ntype == 'Z':
         if n < 0:
             return z
-        r = ctx.mpq_1_3
+        r = MPQ(1,3)
         prec = ctx.prec
         try:
             ctx.prec += 10
@@ -489,8 +550,8 @@ def airyai(ctx, z, derivative=0, **kwargs):
                     ctx.prec -= extraprec
                     C1 = _airyai_C1(ctx) * 0.5
                     C2 = _airyai_C2(ctx)
-                    T1 = [C1,z],[1,2],[],[],[],[ctx.mpq_5_3],w
-                    T2 = [C2],[1],[],[],[],[ctx.mpq_1_3],w
+                    T1 = [C1,z],[1,2],[],[],[],[MPQ(5,3)],w
+                    T2 = [C2],[1],[],[],[],[MPQ(1,3)],w
                     return T1, T2
             return ctx.hypercomb(h, [], **kwargs)
         else:
@@ -501,7 +562,7 @@ def airyai(ctx, z, derivative=0, **kwargs):
                 ctx.prec += extraprec
                 w = z**3/9
                 ctx.prec -= extraprec
-                q13,q23,q43 = ctx.mpq_1_3, ctx.mpq_2_3, ctx.mpq_4_3
+                q13,q23,q43 = MPQ(1,3), MPQ(2,3), MPQ(4,3)
                 a1=q13; a2=1; b1=(1-n)*q13; b2=(2-n)*q13; b3=1-n*q13
                 T1 = [3, z], [n-q23, -n], [a1], [b1,b2,b3], \
                     [a1,a2], [b1,b2,b3], w
@@ -530,8 +591,8 @@ def airyai(ctx, z, derivative=0, **kwargs):
                 ctx.prec -= extraprec
                 C1 = _airyai_C1(ctx)
                 C2 = _airyai_C2(ctx)
-                T1 = [C1],[1],[],[],[],[ctx.mpq_2_3],w
-                T2 = [z*C2],[1],[],[],[],[ctx.mpq_4_3],w
+                T1 = [C1],[1],[],[],[],[MPQ(2,3)],w
+                T2 = [z*C2],[1],[],[],[],[MPQ(4,3)],w
                 return T1, T2
         return ctx.hypercomb(h, [], **kwargs)
 
@@ -574,8 +635,8 @@ def airybi(ctx, z, derivative=0, **kwargs):
                 ctx.prec -= extraprec
                 C1 = _airybi_C1(ctx)*0.5
                 C2 = _airybi_C2(ctx)
-                T1 = [C1,z],[1,2],[],[],[],[ctx.mpq_5_3],w
-                T2 = [C2],[1],[],[],[],[ctx.mpq_1_3],w
+                T1 = [C1,z],[1,2],[],[],[],[MPQ(5,3)],w
+                T2 = [C2],[1],[],[],[],[MPQ(1,3)],w
                 return T1, T2
             return ctx.hypercomb(h, [], **kwargs)
         else:
@@ -585,9 +646,9 @@ def airybi(ctx, z, derivative=0, **kwargs):
                 ctx.prec += extraprec
                 w = z**3/9
                 ctx.prec -= extraprec
-                q13,q23,q43 = ctx.mpq_1_3, ctx.mpq_2_3, ctx.mpq_4_3
-                q16 = ctx.mpq_1_6
-                q56 = ctx.mpq_5_6
+                q13,q23,q43 = MPQ(1,3), MPQ(2,3), MPQ(4,3)
+                q16 = MPQ(1,6)
+                q56 = MPQ(5,6)
                 a1=q13; a2=1; b1=(1-n)*q13; b2=(2-n)*q13; b3=1-n*q13
                 T1 = [3, z], [n-q16, -n], [a1], [b1,b2,b3], \
                     [a1,a2], [b1,b2,b3], w
@@ -606,8 +667,8 @@ def airybi(ctx, z, derivative=0, **kwargs):
             ctx.prec -= extraprec
             C1 = _airybi_C1(ctx)
             C2 = _airybi_C2(ctx)
-            T1 = [C1],[1],[],[],[],[ctx.mpq_2_3],w
-            T2 = [z*C2],[1],[],[],[],[ctx.mpq_4_3],w
+            T1 = [C1],[1],[],[],[],[MPQ(2,3)],w
+            T2 = [z*C2],[1],[],[],[],[MPQ(4,3)],w
             return T1, T2
         return ctx.hypercomb(h, [], **kwargs)
 
@@ -618,19 +679,19 @@ def _airy_zero(ctx, which, k, derivative, complex=False):
     k = int(k)
     if k < 1:
         raise ValueError("k cannot be less than 1")
-    if not derivative in (0,1):
+    if derivative not in (0, 1):
         raise ValueError("Derivative should lie between 0 and 1")
     if which == 0:
         if derivative:
             return ctx.findroot(lambda z: ctx.airyai(z,1),
                 -U(3*ctx.pi*(4*k-3)/8))
         return ctx.findroot(ctx.airyai, -T(3*ctx.pi*(4*k-1)/8))
-    if which == 1 and complex == False:
+    if which == 1 and complex is False:
         if derivative:
             return ctx.findroot(lambda z: ctx.airybi(z,1),
                 -U(3*ctx.pi*(4*k-1)/8))
         return ctx.findroot(ctx.airybi, -T(3*ctx.pi*(4*k-3)/8))
-    if which == 1 and complex == True:
+    if which == 1 and complex is True:
         if derivative:
             t = 3*ctx.pi*(4*k-3)/8 + 0.75j*ctx.ln2
             s = ctx.expjpi(ctx.mpf(1)/3) * T(t)
@@ -686,7 +747,7 @@ def _scorer(ctx, z, which, kwargs):
         w = z**3/9
         ctx.prec -= extraprec
         T1 = [A], [1], [], [], [], [], 0
-        T2 = [B,z], [-1,2], [], [], [1], [ctx.mpq_4_3,ctx.mpq_5_3], w
+        T2 = [B,z], [-1,2], [], [], [1], [MPQ(4,3),MPQ(5,3)], w
         return T1, T2
     return ctx.hypercomb(h, [], **kwargs)
 
@@ -847,7 +908,7 @@ def generalized_bisection(ctx,f,a,b,n):
         N = N*2
 
 def find_in_interval(ctx, f, ab):
-    return ctx.findroot(f, ab, solver='illinois', verify=False)
+    return ctx.findroot(f, ab, solver='illinois')
 
 def bessel_zero(ctx, kind, prime, v, m, isoltol=0.01, _interval_cache={}):
     prec = ctx.prec
@@ -861,7 +922,7 @@ def bessel_zero(ctx, kind, prime, v, m, isoltol=0.01, _interval_cache={}):
             raise ValueError("v cannot be negative")
         if m < 1:
             raise ValueError("m cannot be less than 1")
-        if not prime in (0,1):
+        if prime not in (0, 1):
             raise ValueError("prime should lie between 0 and 1")
         if kind == 1:
             if prime: f = lambda x: ctx.besselj(v,x,derivative=1)
@@ -930,19 +991,26 @@ def besseljzero(ctx, v, m, derivative=0):
 
     Initial zeros of the Bessel functions `J_0(z), J_1(z), J_2(z)`::
 
-        >>> from mpmath import *
-        >>> mp.dps = 25; mp.pretty = True
-        >>> besseljzero(0,1); besseljzero(0,2); besseljzero(0,3)
+        >>> from mpmath import mp, besseljzero, mpf, gamma, nprod, inf, besselj
+        >>> mp.dps = 25
+        >>> mp.pretty = True
+        >>> besseljzero(0,1)
         2.404825557695772768621632
+        >>> besseljzero(0,2)
         5.520078110286310649596604
+        >>> besseljzero(0,3)
         8.653727912911012216954199
-        >>> besseljzero(1,1); besseljzero(1,2); besseljzero(1,3)
+        >>> besseljzero(1,1)
         3.831705970207512315614436
+        >>> besseljzero(1,2)
         7.01558666981561875353705
+        >>> besseljzero(1,3)
         10.17346813506272207718571
-        >>> besseljzero(2,1); besseljzero(2,2); besseljzero(2,3)
+        >>> besseljzero(2,1)
         5.135622301840682556301402
+        >>> besseljzero(2,2)
         8.417244140399864857783614
+        >>> besseljzero(2,3)
         11.61984117214905942709415
 
     Initial zeros of `J'_0(z), J'_1(z), J'_2(z)`::
@@ -950,28 +1018,38 @@ def besseljzero(ctx, v, m, derivative=0):
         0.0
         3.831705970207512315614436
         7.01558666981561875353705
-        >>> besseljzero(1,1,1); besseljzero(1,2,1); besseljzero(1,3,1)
+        >>> besseljzero(1,1,1)
         1.84118378134065930264363
+        >>> besseljzero(1,2,1)
         5.331442773525032636884016
+        >>> besseljzero(1,3,1)
         8.536316366346285834358961
-        >>> besseljzero(2,1,1); besseljzero(2,2,1); besseljzero(2,3,1)
+        >>> besseljzero(2,1,1)
         3.054236928227140322755932
+        >>> besseljzero(2,2,1)
         6.706133194158459146634394
+        >>> besseljzero(2,3,1)
         9.969467823087595793179143
 
     Zeros with large index::
 
-        >>> besseljzero(0,100); besseljzero(0,1000); besseljzero(0,10000)
+        >>> besseljzero(0,100)
         313.3742660775278447196902
+        >>> besseljzero(0,1000)
         3140.807295225078628895545
+        >>> besseljzero(0,10000)
         31415.14114171350798533666
-        >>> besseljzero(5,100); besseljzero(5,1000); besseljzero(5,10000)
+        >>> besseljzero(5,100)
         321.1893195676003157339222
+        >>> besseljzero(5,1000)
         3148.657306813047523500494
+        >>> besseljzero(5,10000)
         31422.9947255486291798943
-        >>> besseljzero(0,100,1); besseljzero(0,1000,1); besseljzero(0,10000,1)
+        >>> besseljzero(0,100,1)
         311.8018681873704508125112
+        >>> besseljzero(0,1000,1)
         3139.236339643802482833973
+        >>> besseljzero(0,10000,1)
         31413.57032947022399485808
 
     Zeros of functions with large order::
@@ -991,9 +1069,11 @@ def besseljzero(ctx, v, m, derivative=0):
 
     Zeros of functions with fractional order::
 
-        >>> besseljzero(0.5,1); besseljzero(1.5,1); besseljzero(2.25,4)
+        >>> besseljzero(0.5,1)
         3.141592653589793238462643
+        >>> besseljzero(1.5,1)
         4.493409457909064175307881
+        >>> besseljzero(2.25,4)
         15.15657692957458622921634
 
     Both `J_{\nu}(z)` and `J'_{\nu}(z)` can be expressed as infinite
@@ -1037,49 +1117,68 @@ def besselyzero(ctx, v, m, derivative=0):
 
     Initial zeros of the Bessel functions `Y_0(z), Y_1(z), Y_2(z)`::
 
-        >>> from mpmath import *
-        >>> mp.dps = 25; mp.pretty = True
-        >>> besselyzero(0,1); besselyzero(0,2); besselyzero(0,3)
+        >>> from mpmath import mp, besselyzero
+        >>> mp.dps = 25
+        >>> mp.pretty = True
+        >>> besselyzero(0,1)
         0.8935769662791675215848871
+        >>> besselyzero(0,2)
         3.957678419314857868375677
+        >>> besselyzero(0,3)
         7.086051060301772697623625
-        >>> besselyzero(1,1); besselyzero(1,2); besselyzero(1,3)
+        >>> besselyzero(1,1)
         2.197141326031017035149034
+        >>> besselyzero(1,2)
         5.429681040794135132772005
+        >>> besselyzero(1,3)
         8.596005868331168926429606
-        >>> besselyzero(2,1); besselyzero(2,2); besselyzero(2,3)
+        >>> besselyzero(2,1)
         3.384241767149593472701426
+        >>> besselyzero(2,2)
         6.793807513268267538291167
+        >>> besselyzero(2,3)
         10.02347797936003797850539
 
     Initial zeros of `Y'_0(z), Y'_1(z), Y'_2(z)`::
 
-        >>> besselyzero(0,1,1); besselyzero(0,2,1); besselyzero(0,3,1)
+        >>> besselyzero(0,1,1)
         2.197141326031017035149034
+        >>> besselyzero(0,2,1)
         5.429681040794135132772005
+        >>> besselyzero(0,3,1)
         8.596005868331168926429606
-        >>> besselyzero(1,1,1); besselyzero(1,2,1); besselyzero(1,3,1)
+        >>> besselyzero(1,1,1)
         3.683022856585177699898967
+        >>> besselyzero(1,2,1)
         6.941499953654175655751944
+        >>> besselyzero(1,3,1)
         10.12340465543661307978775
-        >>> besselyzero(2,1,1); besselyzero(2,2,1); besselyzero(2,3,1)
+        >>> besselyzero(2,1,1)
         5.002582931446063945200176
+        >>> besselyzero(2,2,1)
         8.350724701413079526349714
+        >>> besselyzero(2,3,1)
         11.57419546521764654624265
 
     Zeros with large index::
 
-        >>> besselyzero(0,100); besselyzero(0,1000); besselyzero(0,10000)
+        >>> besselyzero(0,100)
         311.8034717601871549333419
+        >>> besselyzero(0,1000)
         3139.236498918198006794026
+        >>> besselyzero(0,10000)
         31413.57034538691205229188
-        >>> besselyzero(5,100); besselyzero(5,1000); besselyzero(5,10000)
+        >>> besselyzero(5,100)
         319.6183338562782156235062
+        >>> besselyzero(5,1000)
         3147.086508524556404473186
+        >>> besselyzero(5,10000)
         31421.42392920214673402828
-        >>> besselyzero(0,100,1); besselyzero(0,1000,1); besselyzero(0,10000,1)
+        >>> besselyzero(0,100,1)
         313.3726705426359345050449
+        >>> besselyzero(0,1000,1)
         3140.807136030340213610065
+        >>> besselyzero(0,10000,1)
         31415.14112579761578220175
 
     Zeros of functions with large order::
@@ -1099,9 +1198,11 @@ def besselyzero(ctx, v, m, derivative=0):
 
     Zeros of functions with fractional order::
 
-        >>> besselyzero(0.5,1); besselyzero(1.5,1); besselyzero(2.25,4)
+        >>> besselyzero(0.5,1)
         1.570796326794896619231322
+        >>> besselyzero(1.5,1)
         2.798386045783887136720249
+        >>> besselyzero(2.25,4)
         13.56721208770735123376018
 
     """

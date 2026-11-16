@@ -10,27 +10,22 @@ see libmpc and libmpi.
 """
 
 import math
-from bisect import bisect
+import threading
+import warnings
 
-from .backend import xrange
-from .backend import MPZ, MPZ_ZERO, MPZ_ONE, MPZ_TWO, MPZ_FIVE, BACKEND
+from .backend import BACKEND, MPZ, MPZ_FIVE, MPZ_ONE, MPZ_TWO, MPZ_ZERO
+from .libintmath import (giant_steps, ifib, isqrt_fast, lshift, rshift,
+                         sqrt_fixed)
+from .libmpf import (ComplexResult, bctable, finf, fnan, fninf, fnone, fone,
+                     from_int, from_man_exp, from_rational, fzero, mpf_abs,
+                     mpf_add, mpf_cmp, mpf_div, mpf_mul, mpf_mul_int, mpf_neg,
+                     mpf_perturb, mpf_pos, mpf_pow_int, mpf_rdiv_int,
+                     mpf_shift, mpf_sign, mpf_sqrt, mpf_sub, negative_rnd,
+                     normalize, reciprocal_rnd, round_ceiling, round_fast,
+                     round_up, to_fixed, to_int)
 
-from .libmpf import (
-    round_floor, round_ceiling, round_down, round_up,
-    round_nearest, round_fast,
-    ComplexResult,
-    bitcount, bctable, lshift, rshift, giant_steps, sqrt_fixed,
-    from_int, to_int, from_man_exp, to_fixed, to_float, from_float,
-    from_rational, normalize,
-    fzero, fone, fnone, fhalf, finf, fninf, fnan,
-    mpf_cmp, mpf_sign, mpf_abs,
-    mpf_pos, mpf_neg, mpf_add, mpf_sub, mpf_mul, mpf_div, mpf_shift,
-    mpf_rdiv_int, mpf_pow_int, mpf_sqrt,
-    reciprocal_rnd, negative_rnd, mpf_perturb,
-    isqrt_fast
-)
 
-from .libintmath import ifib
+local = threading.local()
 
 
 #-------------------------------------------------------------------------------
@@ -53,26 +48,26 @@ if BACKEND == 'python':
 else:
     COS_SIN_CACHE_PREC = 200
 COS_SIN_CACHE_STEP = 8
-cos_sin_cache = {}
+cos_sin_cache = local.cos_sin_cache = {}
 
 # Number of integer logarithms to cache (for zeta sums)
 MAX_LOG_INT_CACHE = 2000
-log_int_cache = {}
+log_int_cache = local.log_int_cache = {}
 
 LOG_TAYLOR_PREC = 2500  # Use Taylor series with caching up to this prec
 LOG_TAYLOR_SHIFT = 9    # Cache log values in steps of size 2^-N
-log_taylor_cache = {}
+log_taylor_cache = local.log_taylor_cache = {}
 # prec/size ratio of x for fastest convergence in AGM formula
 LOG_AGM_MAG_PREC_RATIO = 20
 
 ATAN_TAYLOR_PREC = 3000  # Same as for log
 ATAN_TAYLOR_SHIFT = 7   # steps of size 2^-N
-atan_taylor_cache = {}
+atan_taylor_cache = local.atan_taylor_cache = {}
 
 
 # ~= next power of two + 20
 cache_prec_steps = [22,22]
-for k in xrange(1, bitcount(LOG_TAYLOR_PREC)+1):
+for k in range(1, LOG_TAYLOR_PREC.bit_length()+1):
     cache_prec_steps += [min(2**k,LOG_TAYLOR_PREC)+20] * 2**(k-1)
 
 
@@ -116,7 +111,7 @@ def def_mpf_constant(fixed):
         v = fixed(wp)
         if rnd in (round_up, round_ceiling):
             v += 1
-        return normalize(0, v, -wp, bitcount(v), prec, rnd)
+        return normalize(0, v, -wp, v.bit_length(), prec, rnd)
     f.__doc__ = fixed.__doc__
     return f
 
@@ -299,7 +294,7 @@ mpf_ln10   = def_mpf_constant(ln10_fixed)
 def ln_sqrt2pi_fixed(prec):
     wp = prec + 10
     # ln(sqrt(2*pi)) = ln(2*pi)/2
-    return to_fixed(mpf_log(mpf_shift(mpf_pi(wp), 1), wp), prec-1)
+    return to_fixed(mpf_ln(mpf_shift(mpf_pi(wp), 1), wp), prec-1)
 
 @constant_memo
 def sqrtpi_fixed(prec):
@@ -338,9 +333,11 @@ def mpf_pow(s, t, prec, rnd=round_fast):
                 return mpf_pow_int(mpf_sqrt(s, prec+10,
                     reciprocal_rnd[rnd]), -tman, prec, rnd)
             return mpf_pow_int(mpf_sqrt(s, prec+10, rnd), tman, prec, rnd)
+    if s == fone:
+        return fone
     # General formula: s**t = exp(t*log(s))
     # TODO: handle rnd direction of the logarithm carefully
-    c = mpf_log(s, prec+10, rnd)
+    c = mpf_ln(s, prec+10, rnd)
     return mpf_exp(mpf_mul(t, c), prec, rnd)
 
 def int_pow_fixed(y, n, prec):
@@ -351,9 +348,9 @@ def int_pow_fixed(y, n, prec):
     """
     if n == 2:
         return (y*y), 0
-    bc = bitcount(y)
+    bc = y.bit_length()
     exp = 0
-    workprec = 2 * (prec + 4*bitcount(n) + 4)
+    workprec = 2 * (prec + 4*n.bit_length() + 4)
     _, pm, pe, pbc = fone
     while 1:
         if n & 1:
@@ -401,7 +398,7 @@ def nthroot_fixed(y, n, prec, exp1):
     start = 50
     try:
         y1 = rshift(y, prec - n*start)
-        r = MPZ(int(y1**(1.0/n)))
+        r = MPZ(y1**(1.0/n))
     except OverflowError:
         y1 = from_int(y1, start)
         fn = from_int(n)
@@ -523,14 +520,8 @@ def log_int_fixed(n, prec, ln2=None):
         if vprec >= prec:
             return value >> (vprec - prec)
     wp = prec + 10
-    if wp <= LOG_TAYLOR_SHIFT:
-        if ln2 is None:
-            ln2 = ln2_fixed(wp)
-        r = bitcount(n)
-        x = n << (wp-r)
-        v = log_taylor_cached(x, wp) + r*ln2
-    else:
-        v = to_fixed(mpf_log(from_int(n), wp+5), wp)
+    assert wp > LOG_TAYLOR_SHIFT
+    v = to_fixed(mpf_ln(from_int(n), wp+5), wp)
     if n < MAX_LOG_INT_CACHE:
         log_int_cache[n] = (v, wp)
     return v >> (wp-prec)
@@ -606,7 +597,7 @@ def log_taylor(x, prec, r=0):
 
     The caller must provide sufficient guard bits.
     """
-    for i in xrange(r):
+    for i in range(r):
         x = isqrt_fast(x<<prec)
     one = MPZ_ONE << prec
     v = ((x-one)<<prec)//(x+one)
@@ -665,7 +656,7 @@ def log_taylor_cached(x, prec):
     s = (s0+s1) << 1
     return log_a + s
 
-def mpf_log(x, prec, rnd=round_fast):
+def mpf_ln(x, prec, rnd=round_fast):
     """
     Compute the natural logarithm of the mpf value x. If x is negative,
     ComplexResult is raised.
@@ -701,21 +692,30 @@ def mpf_log(x, prec, rnd=round_fast):
             tman = (MPZ_ONE<<bc) - man
         else:
             tman = man - (MPZ_ONE<<(bc-1))
-        tbc = bitcount(tman)
+        tbc = tman.bit_length()
         cancellation = bc - tbc
         if cancellation > wp:
             t = normalize(tsign, tman, abs_mag-bc, tbc, tbc, 'n')
             return mpf_perturb(t, tsign, prec, rnd)
         else:
             wp += cancellation
-        # TODO: if close enough to 1, we could use Taylor series
+
+        # If close enough to 1, use Taylor series
         # even in the AGM precision range, since the Taylor series
-        # converges rapidly
+        # converges rapidly.
+        # Taylor = AGM when O~(prec) = O~(prec^2/cancellation) where cancellation
+        # is greater than or equal to precision
+        wpb = wp.bit_length()
+        if wpb <= cancellation:  # possibly include constant (big integer operations)
+            a = to_fixed(x, wp)
+            s = log_taylor(a, wp)
+            return from_man_exp(s, -wp, prec, rnd)
+
     #------------------------------------------------------------------
     # Another special case:
     # n*log(2) is a good enough approximation
     if abs_mag > 10000:
-        if bitcount(abs_mag) > wp:
+        if abs_mag.bit_length() > wp:
             return from_man_exp(exp*ln2_fixed(wp), -wp, prec, rnd)
     #------------------------------------------------------------------
     # General case.
@@ -737,6 +737,21 @@ def mpf_log(x, prec, rnd=round_fast):
         m -= n*ln2_fixed(wp)
     return from_man_exp(m, -wp, prec, rnd)
 
+mpf_log = mpf_ln  # deprecated alias
+
+def mpf_log1p(x, prec, rnd=round_fast):
+    """
+    Computes log(1+x) accurately.
+    """
+    wp = prec + 20
+    wp2 = wp*2
+    _, man, exp, bc = x
+    if exp + bc < -wp and (man or exp):
+        # x - x**2/2
+        x2 = mpf_sub(fone, mpf_shift(x, -1), wp2, rnd)
+        return mpf_mul(x, x2, wp, rnd)
+    return mpf_ln(mpf_add(fone, x, wp2), wp, rnd)
+
 def mpf_log_hypot(a, b, prec, rnd):
     """
     Computes log(sqrt(a^2+b^2)) accurately.
@@ -757,7 +772,7 @@ def mpf_log_hypot(a, b, prec, rnd):
         # only a is inf/nan/0
         if a == fzero:
             # log(sqrt(0+b^2)) = log(|b|)
-            return mpf_log(mpf_abs(b), prec, rnd)
+            return mpf_ln(mpf_abs(b), prec, rnd)
         if a == fnan:
             return fnan
         return finf
@@ -774,7 +789,7 @@ def mpf_log_hypot(a, b, prec, rnd):
     # and the other is tiny...)
     if cancelled == fzero or mag_cancelled < -extra//2:
         h2 = mpf_add(a2, b2, prec+extra-min(a2[2],b2[2]))
-    return mpf_shift(mpf_log(h2, prec, rnd), -1)
+    return mpf_shift(mpf_ln(h2, prec, rnd), -1)
 
 
 #----------------------------------------------------------------------
@@ -804,7 +819,7 @@ def atan_taylor_get_cached(n, prec):
     # To avoid unnecessary precomputation at low precision, we
     # do it in steps
     # Round to next power of 2
-    prec2 = (1<<(bitcount(prec-1))) + 20
+    prec2 = (1<<(prec-1).bit_length()) + 20
     dprec = prec2 - prec
     if (n, prec2) in atan_taylor_cache:
         a, atan_a = atan_taylor_cache[n, prec2]
@@ -883,8 +898,18 @@ def mpf_atan2(y, x, prec, rnd=round_fast):
                 return fzero
             return mpf_pi(prec, rnd)
         if y in (finf, fninf):
-            if x in (finf, fninf):
-                return fnan
+            if x == finf:
+                if y == finf:
+                    return mpf_shift(mpf_pi(prec, rnd), -2)
+                rnd = negative_rnd[rnd]
+                return mpf_neg(mpf_shift(mpf_pi(prec, rnd), -2))
+            if x == fninf:
+                if y == finf:
+                    return mpf_shift(mpf_mul_int(mpf_pi(prec, rnd),
+                                                 3, prec, rnd), -2)
+                rnd = negative_rnd[rnd]
+                return mpf_neg(mpf_shift(mpf_mul_int(mpf_pi(prec, rnd),
+                                                     3, prec, rnd), -2))
             # pi/2
             if y == finf:
                 return mpf_shift(mpf_pi(prec, rnd), -1)
@@ -947,9 +972,9 @@ def mpf_asinh(x, prec, rnd=round_fast):
     q = mpf_sqrt(mpf_add(mpf_mul(x, x), fone, wp), wp)
     q = mpf_add(mpf_abs(x), q, wp)
     if sign:
-        return mpf_neg(mpf_log(q, prec, negative_rnd[rnd]))
+        return mpf_neg(mpf_ln(q, prec, negative_rnd[rnd]))
     else:
-        return mpf_log(q, prec, rnd)
+        return mpf_ln(q, prec, rnd)
 
 def mpf_acosh(x, prec, rnd=round_fast):
     # acosh(x) = log(x+sqrt(x**2-1))
@@ -957,7 +982,7 @@ def mpf_acosh(x, prec, rnd=round_fast):
     if mpf_cmp(x, fone) == -1:
         raise ComplexResult("acosh(x) is real only for x >= 1")
     q = mpf_sqrt(mpf_add(mpf_mul(x,x), fnone, wp), wp)
-    return mpf_log(mpf_add(x, q, wp), prec, rnd)
+    return mpf_ln(mpf_add(x, q, wp), prec, rnd)
 
 def mpf_atanh(x, prec, rnd=round_fast):
     # atanh(x) = log((1+x)/(1-x))/2
@@ -978,7 +1003,7 @@ def mpf_atanh(x, prec, rnd=round_fast):
         wp += (-mag)
     a = mpf_add(x, fone, wp)
     b = mpf_sub(fone, x, wp)
-    return mpf_shift(mpf_log(mpf_div(a, b, wp), prec, rnd), -1)
+    return mpf_shift(mpf_ln(mpf_div(a, b, wp), prec, rnd), -1)
 
 def mpf_fibonacci(x, prec, rnd=round_fast):
     sign, man, exp, bc = x
@@ -988,9 +1013,9 @@ def mpf_fibonacci(x, prec, rnd=round_fast):
         return x
     # F(2^n) ~= 2^(2^n)
     size = abs(exp+bc)
-    if exp >= 0:
+    if exp >= 0 and not sign:
         # Exact
-        if size < 10 or size <= bitcount(prec):
+        if size < 10 or size <= prec.bit_length():
             return from_int(ifib(to_int(x)), prec, rnd)
     # Use the modified Binet formula
     wp = prec + size + 20
@@ -1022,7 +1047,7 @@ def exponential_series(x, prec, type=0):
     else:
         sign = 0
     r = int(0.5*prec**0.5)
-    xmag = bitcount(x) - prec
+    xmag = x.bit_length() - prec
     r = max(0, xmag + r)
     extra = 10 + 2*max(r,-xmag)
     wp = prec + extra
@@ -1047,18 +1072,18 @@ def exponential_series(x, prec, type=0):
         u = int(0.3*prec**0.35)
         x2 = a = (x*x) >> wp
         xpowers = [one, x2]
-        for i in xrange(1, u):
+        for i in range(1, u):
             xpowers.append((xpowers[-1]*x2)>>wp)
         sums = [MPZ_ZERO] * u
         k = 2
         while a:
-            for i in xrange(u):
+            for i in range(u):
                 a //= (k-1)*k
                 if alt and k & 2: sums[i] -= a
                 else:             sums[i] += a
                 k += 2
             a = (a*xpowers[-1]) >> wp
-        for i in xrange(1, u):
+        for i in range(1, u):
             sums[i] = (sums[i]*xpowers[i]) >> wp
         c = sum(sums) + one
     if type == 0:
@@ -1067,7 +1092,7 @@ def exponential_series(x, prec, type=0):
             v = c - s
         else:
             v = c + s
-        for i in xrange(r):
+        for i in range(r):
             v = (v*v) >> wp
         return v >> extra
     else:
@@ -1075,7 +1100,7 @@ def exponential_series(x, prec, type=0):
         # cosh(2*x) = 2*cosh(x)^2 - 1
         # cos(2*x) = 2*cos(x)^2 - 1
         pshift = wp-1
-        for i in xrange(r):
+        for i in range(r):
             c = ((c*c) >> pshift) - one
         # With the abs, this is the same for sinh and sin
         s = isqrt_fast(abs((one<<wp) - c*c))
@@ -1347,7 +1372,7 @@ def mpf_cos_sin(x, prec, rnd=round_fast, which=0, pi=False):
         # Subtract nearest half-integer (= mod by pi/2)
         n = ((man >> (-exp-2)) + 1) >> 1
         man = man - (n << (-exp-1))
-        mag2 = bitcount(man) + exp
+        mag2 = man.bit_length() + exp
         wp = prec + 10 - mag2
         offset = exp + wp
         if offset >= 0:
@@ -1410,19 +1435,3 @@ def exp_fixed(x, prec, ln2=None):
         return v << n
     else:
         return v >> (-n)
-
-
-if BACKEND == 'sage':
-    try:
-        import sage.libs.mpmath.ext_libmp as _lbmp
-        mpf_sqrt = _lbmp.mpf_sqrt
-        mpf_exp = _lbmp.mpf_exp
-        mpf_log = _lbmp.mpf_log
-        mpf_cos = _lbmp.mpf_cos
-        mpf_sin = _lbmp.mpf_sin
-        mpf_pow = _lbmp.mpf_pow
-        exp_fixed = _lbmp.exp_fixed
-        cos_sin_fixed = _lbmp.cos_sin_fixed
-        log_int_fixed = _lbmp.log_int_fixed
-    except (ImportError, AttributeError):
-        print("Warning: Sage imports in libelefun failed")

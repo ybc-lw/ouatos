@@ -1,29 +1,23 @@
-import operator
+import inspect
+import numbers
+import sys
 
+from . import function_docs
 from . import libmp
-
-from .libmp.backend import basestring
-
-from .libmp import (
-    int_types, MPZ_ONE,
-    prec_to_dps, dps_to_prec, repr_dps,
-    round_floor, round_ceiling,
-    fzero, finf, fninf, fnan,
-    mpf_le, mpf_neg,
-    from_int, from_float, from_str, from_rational,
-    mpi_mid, mpi_delta, mpi_str,
-    mpi_abs, mpi_pos, mpi_neg, mpi_add, mpi_sub,
-    mpi_mul, mpi_div, mpi_pow_int, mpi_pow,
-    mpi_from_str,
-    mpci_pos, mpci_neg, mpci_add, mpci_sub, mpci_mul, mpci_div, mpci_pow,
-    mpci_abs, mpci_pow, mpci_exp, mpci_log,
-    ComplexResult,
-    mpf_hash, mpc_hash)
+from .libmp import (MPZ_ONE, ComplexResult, dps_to_prec, finf, fnan, fninf,
+                    from_float, from_int, from_str, fzero, int_types, mpc_hash,
+                    mpci_abs, mpci_add, mpci_div, mpci_mul, mpci_neg, mpci_pos,
+                    mpci_pow, mpci_sub, mpf_hash, mpf_le, mpf_neg, mpf_pos,
+                    mpi_abs, mpi_add, mpi_delta, mpi_div, mpi_from_str,
+                    mpi_mid, mpi_mul, mpi_neg, mpi_pos, mpi_pow, mpi_str,
+                    mpi_sub, prec_to_dps, repr_dps, round_ceiling, round_floor)
 from .matrices.matrices import _matrix
+
 
 mpi_zero = (fzero, fzero)
 
 from .ctx_base import StandardBaseContext
+
 
 new = object.__new__
 
@@ -31,11 +25,17 @@ def convert_mpf_(x, prec, rounding):
     if hasattr(x, "_mpf_"): return x._mpf_
     if isinstance(x, int_types): return from_int(x, prec, rounding)
     if isinstance(x, float): return from_float(x, prec, rounding)
-    if isinstance(x, basestring): return from_str(x, prec, rounding)
+    if isinstance(x, str): return from_str(x, prec, rounding)
+    if isinstance(x, tuple): return mpf_pos(x, prec, rounding)
     raise NotImplementedError
 
+# pickling support
+def _make_mpf(x):
+    from mpmath import iv
+    return iv.mpf(x)
 
-class ivmpf(object):
+
+class ivmpf:
     """
     Interval arithmetic class. Precision is controlled by iv.prec.
     """
@@ -123,6 +123,9 @@ class ivmpf(object):
         b = libmp.to_str(b, n)
         return "mpi(%r, %r)" % (a, b)
 
+    def __reduce__(self):
+        return _make_mpf, (self._mpi_,)
+
     def _compare(s, t, cmpfun):
         if not hasattr(t, "_mpi_"):
             try:
@@ -148,7 +151,7 @@ class ivmpf(object):
     def ae(s, t, rel_eps=None, abs_eps=None):
         return s.ctx.almosteq(s, t, rel_eps, abs_eps)
 
-class ivmpc(object):
+class ivmpc:
 
     def __new__(cls, re=0, im=0):
         re = cls.ctx.convert(re)
@@ -283,11 +286,9 @@ def _binary_op(f_real, f_complex):
 ivmpf.__add__, ivmpf.__radd__, ivmpc.__add__, ivmpc.__radd__ = _binary_op(mpi_add, mpci_add)
 ivmpf.__sub__, ivmpf.__rsub__, ivmpc.__sub__, ivmpc.__rsub__ = _binary_op(mpi_sub, mpci_sub)
 ivmpf.__mul__, ivmpf.__rmul__, ivmpc.__mul__, ivmpc.__rmul__ = _binary_op(mpi_mul, mpci_mul)
-ivmpf.__div__, ivmpf.__rdiv__, ivmpc.__div__, ivmpc.__rdiv__ = _binary_op(mpi_div, mpci_div)
 ivmpf.__pow__, ivmpf.__rpow__, ivmpc.__pow__, ivmpc.__rpow__ = _binary_op(mpi_pow, mpci_pow)
 
-ivmpf.__truediv__ = ivmpf.__div__; ivmpf.__rtruediv__ = ivmpf.__rdiv__
-ivmpc.__truediv__ = ivmpc.__div__; ivmpc.__rtruediv__ = ivmpc.__rdiv__
+ivmpf.__truediv__, ivmpf.__rtruediv__, ivmpc.__truediv__, ivmpc.__rtruediv__ = _binary_op(mpi_div, mpci_div)
 
 class ivmpf_constant(ivmpf):
     def __new__(cls, f):
@@ -308,8 +309,8 @@ class MPIntervalContext(StandardBaseContext):
         ctx.mpc = type('ivmpc', (ivmpc,), {})
         ctx._types = (ctx.mpf, ctx.mpc)
         ctx._constant = type('ivmpf_constant', (ivmpf_constant,), {})
-        ctx._prec = [53]
-        ctx._set_prec(53)
+        ctx._prec = [sys.float_info.mant_dig]
+        ctx._set_prec(ctx._prec[0])
         ctx._constant._ctxdata = ctx.mpf._ctxdata = ctx.mpc._ctxdata = [ctx.mpf, new, ctx._prec]
         ctx._constant.ctx = ctx.mpf.ctx = ctx.mpc.ctx = ctx
         ctx.pretty = False
@@ -381,6 +382,9 @@ class MPIntervalContext(StandardBaseContext):
                 return +retval
         else:
             f_wrapped = f
+        f_wrapped.__doc__ = function_docs.__dict__.get(name, f.__doc__)
+        f_wrapped.__signature__ = inspect.signature(f)
+        f_wrapped.__name__ = f.__name__
         setattr(cls, name, f_wrapped)
 
     def _set_prec(ctx, n):
@@ -404,12 +408,6 @@ class MPIntervalContext(StandardBaseContext):
         a._mpci_ = v
         return a
 
-    def _mpq(ctx, pq):
-        p, q = pq
-        a = libmp.from_rational(p, q, ctx.prec, round_floor)
-        b = libmp.from_rational(p, q, ctx.prec, round_ceiling)
-        return ctx.make_mpf((a, b))
-
     def convert(ctx, x):
         if isinstance(x, (ctx.mpf, ctx.mpc)):
             return x
@@ -419,7 +417,7 @@ class MPIntervalContext(StandardBaseContext):
             re = ctx.convert(x.real)
             im = ctx.convert(x.imag)
             return ctx.mpc(re,im)
-        if isinstance(x, basestring):
+        if isinstance(x, str):
             v = mpi_from_str(x, ctx.prec)
             return ctx.make_mpf(v)
         if hasattr(x, "_mpi_"):
@@ -538,14 +536,9 @@ class MPIntervalContext(StandardBaseContext):
 
 
 # Register with "numbers" ABC
-#     We do not subclass, hence we do not use the @abstractmethod checks. While
-#     this is less invasive it may turn out that we do not actually support
-#     parts of the expected interfaces.  See
-#     http://docs.python.org/2/library/numbers.html for list of abstract
-#     methods.
-try:
-    import numbers
-    numbers.Complex.register(ivmpc)
-    numbers.Real.register(ivmpf)
-except ImportError:
-    pass
+#   We do not subclass, hence we do not use the @abstractmethod checks. While
+#   this is less invasive it may turn out that we do not actually support
+#   parts of the expected interfaces.  See
+#   https://docs.python.org/3/library/numbers.html for list of abstract methods.
+numbers.Complex.register(ivmpc)
+numbers.Real.register(ivmpf)

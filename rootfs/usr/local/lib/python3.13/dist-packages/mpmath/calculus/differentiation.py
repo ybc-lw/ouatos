@@ -1,5 +1,5 @@
-from ..libmp.backend import xrange
 from .calculus import defun
+
 
 try:
     iteritems = dict.iteritems
@@ -23,7 +23,7 @@ def difference(ctx, s, n):
     n = int(n)
     d = ctx.zero
     b = (-1) ** (n & 1)
-    for k in xrange(n+1):
+    for k in range(n+1):
         d += b * s[k]
         b = (b * (k-n)) // (k+1)
     return d
@@ -49,11 +49,11 @@ def hsteps(ctx, f, x, n, prec, **options):
         direction = options.get('direction', 0)
         if direction:
             h *= ctx.sign(direction)
-            steps = xrange(n+1)
+            steps = range(n+1)
             norm = h
         # Central: steps x-n*h, x-(n-2)*h ..., x, ..., x+(n-2)*h, x+n*h
         else:
-            steps = xrange(-n, n+1, 2)
+            steps = range(-n, n+1, 2)
             norm = (2*h)
         # Perturb
         if singular:
@@ -71,8 +71,8 @@ def diff(ctx, f, x, n=1, **options):
     an integer `n \ge 0`, the `n`-th derivative `f^{(n)}(x)`.
     A few basic examples are::
 
-        >>> from mpmath import *
-        >>> mp.dps = 15; mp.pretty = True
+        >>> from mpmath import mp, diff, nprint, sqrt, cos, exp, j, chop
+        >>> mp.pretty = True
         >>> diff(lambda x: x**2 + x, 1.0)
         3.0
         >>> diff(lambda x: x**2 + x, 1.0, 2)
@@ -154,7 +154,7 @@ def diff(ctx, f, x, n=1, **options):
     With integration, the result may have a small imaginary part
     even even if the result is purely real::
 
-        >>> diff(sqrt, 1, method='quad')    # doctest:+ELLIPSIS
+        >>> diff(sqrt, 1, method='quad')
         (0.5 - 4.59...e-26j)
         >>> chop(_)
         0.5
@@ -243,8 +243,7 @@ def diffs(ctx, f, x, n=None, **options):
 
     **Examples**
 
-        >>> from mpmath import *
-        >>> mp.dps = 15
+        >>> from mpmath import nprint, diffs, cos
         >>> nprint(list(diffs(cos, 1, 5)))
         [0.540302, -0.841471, -0.540302, 0.841471, 0.540302, -0.841471]
         >>> for i, d in zip(range(6), diffs(cos, 1)):
@@ -282,7 +281,7 @@ def diffs(ctx, f, x, n=None, **options):
     while 1:
         callprec = ctx.prec
         y, norm, workprec = hsteps(ctx, f, x, B, callprec, **options)
-        for k in xrange(A, B):
+        for k in range(A, B):
             try:
                 ctx.prec = workprec
                 d = ctx.difference(y, k) / norm**k
@@ -298,7 +297,7 @@ def iterable_to_function(gen):
     gen = iter(gen)
     data = []
     def f(k):
-        for i in xrange(len(data), k+1):
+        for i in range(len(data), k+1):
             data.append(next(gen))
         return data[k]
     return f
@@ -320,22 +319,26 @@ def diffs_prod(ctx, factors):
 
     **Examples**
 
-        >>> from mpmath import *
-        >>> mp.dps = 15; mp.pretty = True
+        >>> from mpmath import mp, exp, sin, cos, diffs
+        >>> mp.pretty = True
         >>> f = lambda x: exp(x)*cos(x)*sin(x)
         >>> u = diffs(f, 1)
         >>> v = mp.diffs_prod([diffs(exp,1), diffs(cos,1), diffs(sin,1)])
-        >>> next(u); next(v)
+        >>> next(u)
         1.23586333600241
+        >>> next(v)
         1.23586333600241
-        >>> next(u); next(v)
+        >>> next(u)
         0.104658952245596
+        >>> next(v)
         0.104658952245596
-        >>> next(u); next(v)
+        >>> next(u)
         -5.96999877552086
+        >>> next(v)
         -5.96999877552086
-        >>> next(u); next(v)
+        >>> next(u)
         -12.4632923122697
+        >>> next(v)
         -12.4632923122697
 
     """
@@ -348,10 +351,10 @@ def diffs_prod(ctx, factors):
         v = iterable_to_function(ctx.diffs_prod(factors[N//2:]))
         n = 0
         while 1:
-            #yield sum(binomial(n,k)*u(n-k)*v(k) for k in xrange(n+1))
+            #yield sum(binomial(n,k)*u(n-k)*v(k) for k in range(n+1))
             s = u(n) * v(0)
             a = 1
-            for k in xrange(1,n+1):
+            for k in range(1,n+1):
                 a = a * (n-k+1) // k
                 s += a * u(n-k) * v(k)
             yield s
@@ -408,8 +411,8 @@ def diffs_exp(ctx, fdiffs):
     The derivatives of the gamma function can be computed using
     logarithmic differentiation::
 
-        >>> from mpmath import *
-        >>> mp.dps = 15; mp.pretty = True
+        >>> from mpmath import mp, loggamma, diffs_exp, diffs, gamma, psi
+        >>> mp.pretty = True
         >>>
         >>> def diffs_loggamma(x):
         ...     yield loggamma(x)
@@ -420,17 +423,21 @@ def diffs_exp(ctx, fdiffs):
         ...
         >>> u = diffs_exp(diffs_loggamma(3))
         >>> v = diffs(gamma, 3)
-        >>> next(u); next(v)
+        >>> next(u)
         2.0
+        >>> next(v)
         2.0
-        >>> next(u); next(v)
+        >>> next(u)
         1.84556867019693
+        >>> next(v)
         1.84556867019693
-        >>> next(u); next(v)
+        >>> next(u)
         2.49292999190269
+        >>> next(v)
         2.49292999190269
-        >>> next(u); next(v)
+        >>> next(u)
         3.44996501352367
+        >>> next(v)
         3.44996501352367
 
     """
@@ -476,9 +483,12 @@ def differint(ctx, f, x, n=1, x0=0):
     monomial `x^p`, which may be used as a reference. For example,
     the following gives a half-derivative (order 0.5)::
 
-        >>> from mpmath import *
-        >>> mp.dps = 15; mp.pretty = True
-        >>> x = mpf(3); p = 2; n = 0.5
+        >>> from mpmath import (mp, mpf, differint, gamma, inf, exp, pi,
+        ...                     j, lower_gamma)
+        >>> mp.pretty = True
+        >>> x = mpf(3)
+        >>> p = 2
+        >>> n = 0.5
         >>> differint(lambda t: t**p, x, n)
         7.81764019044672
         >>> gamma(p+1)/gamma(p-n+1) * x**(p-n)
@@ -508,7 +518,7 @@ def differint(ctx, f, x, n=1, x0=0):
         >>> n = 1+2*j
         >>> differint(lambda x: exp(c*x), x, n)
         (-123295.005390743 + 140955.117867654j)
-        >>> x**(-n) * exp(c)**x * (x*c)**n * gammainc(-n, 0, x*c) / gamma(-n)
+        >>> x**(-n) * exp(c)**x * (x*c)**n * lower_gamma(-n, x*c) / gamma(-n)
         (-123295.005390743 + 140955.117867654j)
 
 
@@ -524,8 +534,8 @@ def diffun(ctx, f, n=1, **options):
     Given a function `f`, returns a function `g(x)` that evaluates the nth
     derivative `f^{(n)}(x)`::
 
-        >>> from mpmath import *
-        >>> mp.dps = 15; mp.pretty = True
+        >>> from mpmath import diffun, sin, cos, mp
+        >>> mp.pretty = True
         >>> cos2 = diffun(sin)
         >>> sin2 = diffun(sin, 4)
         >>> cos(1.3), cos2(1.3)
@@ -549,8 +559,8 @@ def taylor(ctx, f, x, n, **options):
     Produces a degree-`n` Taylor polynomial around the point `x` of the
     given function `f`. The coefficients are returned as a list.
 
-        >>> from mpmath import *
-        >>> mp.dps = 15; mp.pretty = True
+        >>> from mpmath import mp, sin, nprint, chop, exp, polyval, taylor
+        >>> mp.pretty = True
         >>> nprint(chop(taylor(sin, 0, 5)))
         [0.0, 1.0, 0.0, -0.166667, 0.0, 0.00833333]
 
@@ -560,12 +570,11 @@ def taylor(ctx, f, x, n, **options):
     and supported keyword options.
 
     Note that to evaluate the Taylor polynomial as an approximation
-    of `f`, e.g. with :func:`~mpmath.polyval`, the coefficients must be reversed,
-    and the point of the Taylor expansion must be subtracted from
+    of `f`, the point of the Taylor expansion must be subtracted from
     the argument:
 
         >>> p = taylor(exp, 2.0, 10)
-        >>> polyval(p[::-1], 2.5 - 2.0)
+        >>> polyval(p, 2.5 - 2.0, asc=True)
         12.1824939606092
         >>> exp(2.5)
         12.1824939607035
@@ -600,8 +609,8 @@ def pade(ctx, a, L, M):
     from G.A. Baker 'Essentials of Pade Approximants' Academic Press,
     Ch.1A)::
 
-        >>> from mpmath import *
-        >>> mp.dps = 15; mp.pretty = True
+        >>> from mpmath import mp, mpf, sqrt, taylor, pade, polyval
+        >>> mp.pretty = True
         >>> one = mpf(1)
         >>> def f(x):
         ...     return sqrt((one + 2*x)/(one + x))
@@ -609,7 +618,7 @@ def pade(ctx, a, L, M):
         >>> a = taylor(f, 0, 6)
         >>> p, q = pade(a, 3, 3)
         >>> x = 10
-        >>> polyval(p[::-1], x)/polyval(q[::-1], x)
+        >>> polyval(p, x, asc=True)/polyval(q, x, asc=True)
         1.38169105566806
         >>> f(x)
         1.38169855941551

@@ -1,6 +1,3 @@
-from __future__ import print_function
-
-from ..libmp.backend import xrange
 from .functions import defun, defun_wrapped, defun_static
 
 @defun
@@ -288,33 +285,33 @@ def primezeta(ctx, s):
 
 @defun_wrapped
 def bernpoly(ctx, n, z):
-    # Slow implementation:
-    #return sum(ctx.binomial(n,k)*ctx.bernoulli(k)*z**(n-k) for k in xrange(0,n+1))
     n = int(n)
     if n < 0:
         raise ValueError("Bernoulli polynomials only defined for n >= 0")
-    if z == 0 or (z == 1 and n > 1):
-        return ctx.bernoulli(n)
-    if z == 0.5:
-        return (ctx.ldexp(1,1-n)-1)*ctx.bernoulli(n)
+    if ctx.isinf(z):
+        return z ** n
+    if ctx.isnan(z):
+        return z
     if n <= 3:
         if n == 0: return z ** 0
         if n == 1: return z - 0.5
         if n == 2: return (6*z*(z-1)+1)/6
         if n == 3: return z*(z*(z-1.5)+0.5)
-    if ctx.isinf(z):
-        return z ** n
-    if ctx.isnan(z):
-        return z
+    if z == 0 or z == 1:
+        return ctx.bernoulli(n)
+    if z == 0.5:
+        return (ctx.ldexp(1,1-n)-1)*ctx.bernoulli(n)
     if abs(z) > 2:
         def terms():
             t = ctx.one
             yield t
             r = ctx.one/z
-            k = 1
+            t = t*n*r
+            yield -t/2
+            k = 2
             while k <= n:
                 t = t*(n+1-k)/k*r
-                if not (k > 2 and k & 1):
+                if not k & 1:
                     yield t*ctx.bernoulli(k)
                 k += 1
         return ctx.sum_accurately(terms) * z**n
@@ -323,12 +320,16 @@ def bernpoly(ctx, n, z):
             yield ctx.bernoulli(n)
             t = ctx.one
             k = 1
-            while k <= n:
+            while k < n - 1:
                 t = t*(n+1-k)/k * z
                 m = n-k
-                if not (m > 2 and m & 1):
+                if not m & 1:
                     yield t*ctx.bernoulli(m)
                 k += 1
+            t = t*2/(n-1)*z
+            yield -t/2
+            t = t/n*z
+            yield t
         return ctx.sum_accurately(terms)
 
 @defun_wrapped
@@ -362,13 +363,14 @@ def eulerpoly(ctx, n, z):
         w = ctx.ldexp(1,n+2)
         while 1:
             v = n-k+1
-            if not (v > 2 and v & 1):
+            if not v & 1:
                 yield (2-w)*ctx.bernoulli(v)*t
             k += 1
-            if k > n:
-                break
             t = t*z*(n-k+2)/k
             w *= 0.5
+            if k >= n:
+                break
+        yield -(2-w)*t/2
     return ctx.sum_accurately(terms) / m
 
 @defun
@@ -400,6 +402,8 @@ def polylog_series(ctx, s, z):
 def polylog_continuation(ctx, n, z):
     if n < 0:
         return z*0
+    if ctx._is_real_type(z) and ctx.isinf(z) and n > 0:
+        return ctx.ninf if z < 0 else ctx.mpc(ctx.ninf, ctx.nan)
     twopij = 2j * ctx.pi
     a = -twopij**n/ctx.fac(n) * ctx.bernpoly(n, ctx.ln(z)/twopij)
     if ctx._is_real_type(z) and z < 0:
@@ -454,15 +458,22 @@ def polylog_general(ctx, s, z):
         return ctx.gamma(v)*(j**v*ctx.zeta(v,0.5+y) + j**-v*ctx.zeta(v,0.5-y))/(2*ctx.pi)**v
     t = 1
     k = 0
+    prec = ctx.prec
+    if ctx.isfinite(s):
+        ctx.prec += max(0, -ctx.nint_distance(s)[1])
+
     while 1:
         term = ctx.zeta(s-k) * t
-        if abs(term) < ctx.eps:
+        if not abs(term) >= ctx.eps:
             break
         v += term
         k += 1
         t *= u
         t /= k
-    return ctx.gamma(1-s)*(-u)**(s-1) + v
+
+    r = ctx.gamma(1-s)*(-u)**(s-1) + v
+    ctx.prec = prec
+    return r
 
 @defun_wrapped
 def polylog(ctx, s, z):
@@ -482,6 +493,10 @@ def polylog(ctx, s, z):
         return polylog_series(ctx, s, z)
     if abs(z) >= 1.4 and ctx.isint(s):
         return (-1)**(s+1)*polylog_series(ctx, s, 1/z) + polylog_continuation(ctx, int(ctx.re(s)), z)
+    if ctx.isnan(z):
+        if ctx._is_real_type(z) and ctx.isnpint(s):
+            return ctx.nan
+        return ctx.mpc(ctx.nan, ctx.nan)
     if ctx.isint(s):
         return polylog_unitcircle(ctx, int(ctx.re(s)), z)
     return polylog_general(ctx, s, z)
@@ -535,7 +550,6 @@ def zeta(ctx, s, a=1, derivative=0, method=None, **kwargs):
             pass
     s = ctx.convert(s)
     prec = ctx.prec
-    method = kwargs.get('method')
     verbose = kwargs.get('verbose')
     if (not s) and (not derivative):
         return ctx.mpf(0.5) - ctx._convert_param(a)[0]
@@ -553,15 +567,13 @@ def zeta(ctx, s, a=1, derivative=0, method=None, **kwargs):
         #        pass
         if abs(im) > 500*prec and 10*re < prec and derivative <= 4 or \
             method == 'riemann-siegel':
-            try:   #  py2.4 compatible try block
-                try:
-                    if verbose:
-                        print("zeta: Attempting to use the Riemann-Siegel algorithm")
-                    return ctx.rs_zeta(s, derivative, **kwargs)
-                except NotImplementedError:
-                    if verbose:
-                        print("zeta: Could not use the Riemann-Siegel algorithm")
-                    pass
+            try:
+                if verbose:
+                    print("zeta: Attempting to use the Riemann-Siegel algorithm")
+                return ctx.rs_zeta(s, derivative, **kwargs)
+            except NotImplementedError:
+                if verbose:
+                    print("zeta: Could not use the Riemann-Siegel algorithm")
             finally:
                 ctx.prec = prec
     if s == 1:
@@ -588,6 +600,10 @@ def _hurwitz(ctx, s, a=1, d=0, **kwargs):
         ctx.prec += extraprec
         # We strongly want to special-case rational a
         a, atype = ctx._convert_param(a)
+
+        if ctx.re(a) < 0 and ctx.isnpint(a):
+            raise ValueError("Hurwitz zeta complex infinity")
+
         if ctx.re(s) < 0:
             if verbose:
                 print("zeta: Attempting reflection formula")
@@ -633,7 +649,7 @@ def _hurwitz_reflection(ctx, s, a, d, atype):
     # We now require a to be standardized
     v = 0
     shift = 0
-    b = a
+    b = ctx.mpf(a)
     while ctx.re(b) > 1:
         b -= 1
         v -= b**negs
@@ -644,7 +660,7 @@ def _hurwitz_reflection(ctx, s, a, d, atype):
         shift += 1
     # Rational reflection formula
     try:
-        p, q = a._mpq_
+        p, q = a.numerator, a.denominator
     except:
         assert a == int(a)
         p = int(a)
@@ -652,7 +668,7 @@ def _hurwitz_reflection(ctx, s, a, d, atype):
     p += shift*q
     assert 1 <= p <= q
     g = ctx.fsum(ctx.cospi(t/2-2*k*b)*ctx._hurwitz(t,(k,q)) \
-        for k in range(1,q+1))
+        for k in range(1, q+1))
     g *= 2*ctx.gamma(t)/(2*ctx.pi*q)**t
     v += g
     return v
@@ -705,8 +721,8 @@ def _hurwitz_em(ctx, s, a, d, prec, verbose):
                 if m <= d:
                     logs.append(logs[-1] * logr)
                 Un = [0]*(D+1)
-                for i in xrange(D): Un[i] = (1-m-s)*U[i]
-                for i in xrange(1,D+1): Un[i] += (d-(i-1))*U[i-1]
+                for i in range(D): Un[i] = (1-m-s)*U[i]
+                for i in range(1, D+1): Un[i] += (d-(i-1))*U[i-1]
                 U = Un
                 r *= rM2a
             t = ctx.fdot(U, logs) * r * ctx.bernoulli(j2)/(-fact)
@@ -746,10 +762,10 @@ def _zetasum(ctx, s, a, n, derivatives=[0], reflect=False):
     have_one_derivative = len(derivatives) == 1
     if not reflect:
         if not have_derivatives:
-            return [ctx.fsum((a+k)**negs for k in xrange(n+1))], []
+            return [ctx.fsum((a+k)**negs for k in range(n+1))], []
         if have_one_derivative:
             d = derivatives[0]
-            x = ctx.fsum(ctx.ln(a+k)**d * (a+k)**negs for k in xrange(n+1))
+            x = ctx.fsum(ctx.ln(a+k)**d * (a+k)**negs for k in range(n+1))
             return [(-1)**d * x], []
     maxd = max(derivatives)
     if not have_one_derivative:
@@ -759,7 +775,7 @@ def _zetasum(ctx, s, a, n, derivatives=[0], reflect=False):
         ys = [ctx.zero for d in derivatives]
     else:
         ys = []
-    for k in xrange(n+1):
+    for k in range(n+1):
         w = a + k
         xterm = w ** negs
         if reflect:
@@ -805,7 +821,7 @@ def dirichlet(ctx, s, chi=[1], derivative=0):
             if have_pole:
                 return +ctx.inf
         z = ctx.zero
-        for p in range(1,q+1):
+        for p in range(1, q+1):
             if chi[p%q]:
                 if d == 1:
                     z += chi[p%q] * (ctx.zeta(s, (p,q), 1) - \
@@ -932,8 +948,8 @@ def secondzeta(ctx, s, a = 0.015, **kwargs):
 
     **Examples**
 
-        >>> from mpmath import *
-        >>> mp.pretty = True; mp.dps = 15
+        >>> from mpmath import mp, secondzeta, pi, gamma, zeta, diff, chop, j
+        >>> mp.pretty = True
         >>> secondzeta(2)
         0.023104993115419
         >>> xi = lambda s: 0.5*s*(s-1)*pi**(-0.5*s)*gamma(0.5*s)*zeta(s)
@@ -953,7 +969,7 @@ def secondzeta(ctx, s, a = 0.015, **kwargs):
         >>> secondzeta(-8)
         -0.67236328125
         >>> secondzeta(-7)
-        +inf
+        inf
 
     **Implementation notes**
 
@@ -999,11 +1015,9 @@ def secondzeta(ctx, s, a = 0.015, **kwargs):
 
     **References**
 
-    A. Voros, Zeta functions for the Riemann zeros, Ann. Institute Fourier,
-    53, (2003) 665--699.
+    * [Voros2003]_
+    * [Voros2009]_
 
-    A. Voros, Zeta functions over Zeros of Zeta Functions, Lecture Notes
-    of the Unione Matematica Italiana, Springer, 2009.
     """
     s = ctx.convert(s)
     a = ctx.convert(a)
@@ -1072,19 +1086,25 @@ def lerchphi(ctx, z, s, a):
 
     Several evaluations in terms of simpler functions::
 
-        >>> from mpmath import *
-        >>> mp.dps = 25; mp.pretty = True
-        >>> lerchphi(-1,2,0.5); 4*catalan
+        >>> from mpmath import (mp, lerchphi, catalan, diff, zeta, pi, log,
+        ...                     atanh, sqrt, j, polylog)
+        >>> mp.dps = 25
+        >>> mp.pretty = True
+        >>> lerchphi(-1,2,0.5)
         3.663862376708876060218414
+        >>> 4*catalan
         3.663862376708876060218414
-        >>> diff(lerchphi, (-1,-2,1), (0,1,0)); 7*zeta(3)/(4*pi**2)
+        >>> diff(lerchphi, (-1,-2,1), (0,1,0))
         0.2131391994087528954617607
+        >>> 7*zeta(3)/(4*pi**2)
         0.2131391994087528954617607
-        >>> lerchphi(-4,1,1); log(5)/4
+        >>> lerchphi(-4,1,1)
         0.4023594781085250936501898
+        >>> log(5)/4
         0.4023594781085250936501898
-        >>> lerchphi(-3+2j,1,0.5); 2*atanh(sqrt(-3+2j))/sqrt(-3+2j)
+        >>> lerchphi(-3+2j,1,0.5)
         (1.142423447120257137774002 + 0.2118232380980201350495795j)
+        >>> 2*atanh(sqrt(-3+2j))/sqrt(-3+2j)
         (1.142423447120257137774002 + 0.2118232380980201350495795j)
 
     Evaluation works for complex arguments and `|z| \ge 1`::
@@ -1138,7 +1158,7 @@ def lerchphi(ctx, z, s, a):
         m = int(ctx.ceil(1-ctx.re(a)))
         v = ctx.zero
         zpow = ctx.one
-        for n in xrange(m):
+        for n in range(m):
             v += zpow / (a+n)**s
             zpow *= z
         return zpow * ctx.lerchphi(z,s, a+m) + v

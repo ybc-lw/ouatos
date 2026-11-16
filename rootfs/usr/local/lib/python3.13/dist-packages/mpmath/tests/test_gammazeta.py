@@ -1,56 +1,66 @@
-from mpmath import *
-from mpmath.libmp import round_up, from_float, mpf_zeta_int
+import pytest
+
+from mpmath import (altzeta, apery, barnesg, bell, bernfrac, bernoulli,
+                    bernpoly, beta, binomial, catalan, digamma, e, euler,
+                    eulerpoly, fac, fac2, factorial, fadd, ff, findroot, fp,
+                    fraction, gamma, gammaprod, harmonic, hyperfac, inf, isnan,
+                    j, log, loggamma, mp, mpc, mpf, mpmathify, nan, pi,
+                    polyexp, polylog, primezeta, psi, rf, rgamma, sech,
+                    secondzeta, siegelz, sinc, sqrt, stieltjes, superfac, zeta)
+from mpmath.libmp import from_float, mpf_zeta_int, round_up
+
 
 def test_zeta_int_bug():
     assert mpf_zeta_int(0, 10) == from_float(-0.5)
 
-def test_bernoulli():
-    assert bernfrac(0) == (1,1)
-    assert bernfrac(1) == (-1,2)
-    assert bernfrac(2) == (1,6)
-    assert bernfrac(3) == (0,1)
-    assert bernfrac(4) == (-1,30)
-    assert bernfrac(5) == (0,1)
-    assert bernfrac(6) == (1,42)
-    assert bernfrac(8) == (-1,30)
-    assert bernfrac(10) == (5,66)
-    assert bernfrac(12) == (-691,2730)
-    assert bernfrac(18) == (43867,798)
-    p, q = bernfrac(228)
+@pytest.mark.parametrize('plus', [True, False])
+def test_bernoulli(plus):
+    assert bernfrac(0, plus) == (1,1)
+    assert bernfrac(1, plus) == (1,2) if plus else (-1,2)
+    assert bernfrac(2, plus) == (1,6)
+    assert bernfrac(3, plus) == (0,1)
+    assert bernfrac(4, plus) == (-1,30)
+    assert bernfrac(5, plus) == (0,1)
+    assert bernfrac(6, plus) == (1,42)
+    assert bernfrac(8, plus) == (-1,30)
+    assert bernfrac(10, plus) == (5,66)
+    assert bernfrac(12, plus) == (-691,2730)
+    assert bernfrac(18, plus) == (43867,798)
+    p, q = bernfrac(228, plus)
     assert p % 10**10 == 164918161
     assert q == 625170
-    p, q = bernfrac(1000)
+    p, q = bernfrac(1000, plus)
     assert p % 10**10 == 7950421099
     assert q == 342999030
     mp.dps = 15
-    assert bernoulli(0) == 1
-    assert bernoulli(1) == -0.5
-    assert bernoulli(2).ae(1./6)
-    assert bernoulli(3) == 0
-    assert bernoulli(4).ae(-1./30)
-    assert bernoulli(5) == 0
-    assert bernoulli(6).ae(1./42)
-    assert str(bernoulli(10)) == '0.0757575757575758'
-    assert str(bernoulli(234)) == '7.62772793964344e+267'
-    assert str(bernoulli(10**5)) == '-5.82229431461335e+376755'
-    assert str(bernoulli(10**8+2)) == '1.19570355039953e+676752584'
+    assert bernoulli(0, plus) == 1
+    assert bernoulli(1, plus) == 0.5 if plus else -0.5
+    assert bernoulli(2, plus).ae(1./6)
+    assert bernoulli(3, plus) == 0
+    assert bernoulli(4, plus).ae(-1./30)
+    assert bernoulli(5, plus) == 0
+    assert bernoulli(6, plus).ae(1./42)
+    assert str(bernoulli(10, plus)) == '0.0757575757575758'
+    assert repr(bernoulli(10, plus)) == "mpf('0.07575757575757576')"
+    assert str(bernoulli(234, plus)) == '7.62772793964344e+267'
+    assert str(bernoulli(10**5, plus)) == '-5.82229431461335e+376755'
+    assert str(bernoulli(10**8+2, plus)) == '1.19570355039953e+676752584'
 
     mp.dps = 50
-    assert str(bernoulli(10)) == '0.075757575757575757575757575757575757575757575757576'
-    assert str(bernoulli(234)) == '7.6277279396434392486994969020496121553385863373331e+267'
-    assert str(bernoulli(10**5)) == '-5.8222943146133508236497045360612887555320691004308e+376755'
-    assert str(bernoulli(10**8+2)) == '1.1957035503995297272263047884604346914602088317782e+676752584'
+    assert str(bernoulli(10, plus)) == '0.075757575757575757575757575757575757575757575757576'
+    assert str(bernoulli(234, plus)) == '7.6277279396434392486994969020496121553385863373331e+267'
+    assert str(bernoulli(10**5, plus)) == '-5.8222943146133508236497045360612887555320691004308e+376755'
+    assert str(bernoulli(10**8+2, plus)) == '1.1957035503995297272263047884604346914602088317782e+676752584'
 
     mp.dps = 1000
-    assert bernoulli(10).ae(mpf(5)/66)
+    assert bernoulli(10, plus).ae(mpf(5)/66)
 
     mp.dps = 50000
-    assert bernoulli(10).ae(mpf(5)/66)
+    assert bernoulli(10, plus).ae(mpf(5)/66)
 
     mp.dps = 15
 
 def test_bernpoly_eulerpoly():
-    mp.dps = 15
     assert bernpoly(0,-1).ae(1)
     assert bernpoly(0,0).ae(1)
     assert bernpoly(0,'1/2').ae(1)
@@ -153,7 +163,6 @@ def test_bernpoly_eulerpoly():
     assert eulerpoly(200,17.5).ae(-3.7309911582655785929e275)
 
 def test_gamma():
-    mp.dps = 15
     assert gamma(0.25).ae(3.6256099082219083119)
     assert gamma(0.0001).ae(9999.4228832316241908)
     assert gamma(300).ae('1.0201917073881354535e612')
@@ -192,7 +201,6 @@ def test_gamma():
     assert loggamma('1e10000j').ae(mpc('-1.570796326794896619231322e10000','2.302485092994045684017991e10004'))
 
 def test_fac2():
-    mp.dps = 15
     assert [fac2(n) for n in range(10)] == [1,1,2,3,8,15,48,105,384,945]
     assert fac2(-5).ae(1./3)
     assert fac2(-11).ae(-1./945)
@@ -202,7 +210,6 @@ def test_fac2():
     assert isnan(fac2(-inf))
 
 def test_gamma_quotients():
-    mp.dps = 15
     h = 1e-8
     ep = 1e-4
     G = gamma
@@ -251,7 +258,6 @@ def test_gamma_quotients():
     assert beta('-255.5815971722918','-0.5119253100282322').ae('18.157330562703710339')  # issue 421
 
 def test_zeta():
-    mp.dps = 15
     assert zeta(2).ae(pi**2 / 6)
     assert zeta(2.0).ae(pi**2 / 6)
     assert zeta(mpc(2)).ae(pi**2 / 6)
@@ -286,7 +292,6 @@ def test_zeta():
     assert zeta(-1.5,0.5j).ae(-0.13671400162512768475 + 0.11411333638426559139j)
 
 def test_altzeta():
-    mp.dps = 15
     assert altzeta(-2) == 0
     assert altzeta(-4) == 0
     assert altzeta(-100) == 0
@@ -316,7 +321,6 @@ def test_altzeta():
     assert altzeta(mpc(-1e-30,1e-40)).ae(0.5)
 
 def test_zeta_huge():
-    mp.dps = 15
     assert zeta(inf) == 1
     mp.dps = 50
     assert zeta(100).ae('1.0000000000000000000000000000007888609052210118073522')
@@ -337,10 +341,8 @@ def test_zeta_negative():
     assert str(zeta(a)) == '2.55880492708712e+1233536161668617575553892558646631323374078'
     mp.dps = 50
     assert str(zeta(a)) == '2.5588049270871154960875033337384432038436330847333e+1233536161668617575553892558646631323374078'
-    mp.dps = 15
 
 def test_polygamma():
-    mp.dps = 15
     psi0 = lambda z: psi(0,z)
     psi1 = lambda z: psi(1,z)
     assert psi0(3) == psi(0,3) == digamma(3)
@@ -382,7 +384,11 @@ def test_polygamma():
     mp.dps = 30
     # issue #534
     assert digamma(-0.75+1j).ae(mpc('0.46317279488182026118963809283042317', '2.4821070143037957102007677817351115'))
-    mp.dps = 15
+    # issue #647
+    mp.prec = 42
+    assert digamma(-0.5+0.5j).ae(mpc('0.131892637354523', '2.44065951997751'))
+    mp.prec = 53
+    assert digamma(1e300+1j).ae(690.77552789821368)
 
 def test_polygamma_high_prec():
     mp.dps = 100
@@ -390,7 +396,6 @@ def test_polygamma_high_prec():
     assert str(psi(10,pi)) == "-12.98876181434889529310283769414222588307175962213707170773803550518307617769657562747174101900659238"
 
 def test_polygamma_identities():
-    mp.dps = 15
     psi0 = lambda z: psi(0,z)
     psi1 = lambda z: psi(1,z)
     psi2 = lambda z: psi(2,z)
@@ -417,7 +422,6 @@ def test_foxtrot_identity():
     x = -psi0(0.5*a) - psi0(-0.5*b) + psi0(0.5*(1+a)) + psi0(0.5*(1-b))
     y = 2*pi*sech(0.5*sqrt(3)*pi)
     assert x.ae(y)
-    mp.dps = 15
 
 def test_polygamma_high_order():
     mp.dps = 100
@@ -432,7 +436,6 @@ def test_polygamma_high_order():
     assert str(psi(50, pi + 14*e*j)) == "(-5.2251694115217e-17 - 1.81315704140701e-17j)"
 
 def test_harmonic():
-    mp.dps = 15
     assert harmonic(0) == 0
     assert harmonic(1) == 1
     assert harmonic(2) == 1.5
@@ -451,7 +454,6 @@ def test_gamma_huge_1():
     assert str(gamma(x)) == "6.26075321389519e+12458010678"
     mp.dps = 50
     assert str(gamma(x)) == "6.2607532138951929201303779291707455874010420783933e+12458010678"
-    mp.dps = 15
 
 def test_gamma_huge_2():
     mp.dps = 500
@@ -487,7 +489,6 @@ def test_gamma_huge_3():
 
 def test_gamma_huge_4():
     x = 3200+11500j
-    mp.dps = 15
     assert str(gamma(x)) == \
         "(8.95783268539713e+5164 - 1.94678798329735e+5164j)"
     mp.dps = 50
@@ -495,7 +496,6 @@ def test_gamma_huge_4():
         "(8.9578326853971339570292952697675570822206567327092e+5164"
         " - 1.9467879832973509568895402139429643650329524144794e+51"
         "64j)")
-    mp.dps = 15
 
 def test_gamma_huge_5():
     mp.dps = 500
@@ -512,7 +512,6 @@ def test_gamma_huge_5():
     assert str(y.imag) == (\
         "-7.1519888950415979749736749222530209713136588885897e-22739605897364022458096393"
         "7571892628368354580620654233316841")
-    mp.dps = 15
 
 def test_gamma_huge_7():
     mp.dps = 100
@@ -530,7 +529,6 @@ def test_gamma_huge_7():
     assert str(y.imag) ==  "1.8455686701969342787869758198351951379156813281202e-1000"
 
 def test_stieltjes():
-    mp.dps = 15
     assert stieltjes(0).ae(+euler)
     mp.dps = 25
     assert stieltjes(1).ae('-0.07281584548367672486058637587')
@@ -544,7 +542,6 @@ def test_stieltjes():
     assert stieltjes(4).ae(0.0023253700654673000574681701775)
 
 def test_barnesg():
-    mp.dps = 15
     assert barnesg(0) == barnesg(-1) == 0
     assert [superfac(i) for i in range(8)] == [1, 1, 2, 12, 288, 34560, 24883200, 125411328000]
     assert str(superfac(1000)) == '3.24570818422368e+1177245'
@@ -565,7 +562,6 @@ def test_barnesg():
     assert a == -4 and isinstance(a, mpc)
 
 def test_polylog():
-    mp.dps = 15
     zs = [mpmathify(z) for z in [0, 0.5, 0.99, 4, -0.5, -4, 1j, 3+4j]]
     for z in zs: assert polylog(1, z).ae(-log(1-z))
     for z in zs: assert polylog(0, z).ae(z/(1-z))
@@ -595,7 +591,6 @@ def test_polylog():
     assert polylog(-2+0j, 1.25).ae(-180)
 
 def test_bell_polyexp():
-    mp.dps = 15
     # TODO: more tests for polyexp
     assert (polyexp(0,1e-10)*10**10).ae(1.00000000005)
     assert (polyexp(1,1e-10)*10**10).ae(1.0000000001)
@@ -633,15 +628,16 @@ def test_bell_polyexp():
     assert bell(0.5,0).ae(sinc(pi*0.5))
 
 def test_primezeta():
-    mp.dps = 15
     assert primezeta(0.9).ae(1.8388316154446882243 + 3.1415926535897932385j)
     assert primezeta(4).ae(0.076993139764246844943)
     assert primezeta(1) == inf
     assert primezeta(inf) == 0
     assert isnan(primezeta(nan))
 
+def test_secondzeta():
+    assert secondzeta(2, 0.6).ae(0.022849870007492626)
+
 def test_rs_zeta():
-    mp.dps = 15
     assert zeta(0.5+100000j).ae(1.0730320148577531321 + 5.7808485443635039843j)
     assert zeta(0.75+100000j).ae(1.837852337251873704 + 1.9988492668661145358j)
     assert zeta(0.5+1000000j, derivative=3).ae(1647.7744105852674733 - 1423.1270943036622097j)
@@ -668,7 +664,6 @@ def test_rs_zeta():
     assert ae(fp.zeta(0.75+100000j, derivative=4), -1054.334275898559401 + 1769.9177890161596383j)
 
 def test_siegelz():
-    mp.dps = 15
     assert siegelz(100000).ae(5.87959246868176504171)
     assert siegelz(100000, derivative=2).ae(-54.1172711010126452832)
     assert siegelz(100000, derivative=3).ae(-278.930831343966552538)
@@ -678,7 +673,6 @@ def test_siegelz():
 
 def test_zeta_near_1():
     # Test for a former bug in mpf_zeta and mpc_zeta
-    mp.dps = 15
     s1 = fadd(1, '1e-10', exact=True)
     s2 = fadd(1, '-1e-10', exact=True)
     s3 = fadd(1, '1e-10j', exact=True)
@@ -696,3 +690,17 @@ def test_zeta_near_1():
     z = zeta(s3)
     assert z.real.ae('0.57721566490153286060651209008240243104215933593992')
     assert z.imag.ae('-1e50')
+
+def test_issue_723():
+    mp.dps = 16
+    assert zeta(-0.01 + 1000j).ae(-8.971459529241107 + 8.732179332810066j)
+    mp.dps = 15
+
+def test_issue_471():
+    assert bernpoly(4, inf) == inf
+    assert bernpoly(4, mpc(inf, 0)) == mpc(inf, 0)
+    assert isnan(bernpoly(4, nan))
+
+def test_issue_472():
+    assert bernpoly(4, mpc(inf, 1e-50)) == mpc(inf, 0)
+    assert mpc(inf, 2)**4 == mpc(inf, 0)

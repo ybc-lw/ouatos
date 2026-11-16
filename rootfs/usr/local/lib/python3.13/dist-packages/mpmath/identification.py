@@ -3,14 +3,16 @@ Implements the PSLQ algorithm for integer relation detection,
 and derivative algorithms for constant recognition.
 """
 
-from .libmp.backend import xrange
+import warnings
+
 from .libmp import int_types, sqrt_fixed
+
 
 # round to nearest integer (can be done more elegantly...)
 def round_fixed(x, prec):
     return ((x + (1<<(prec-1))) >> prec) << prec
 
-class IdentificationMethods(object):
+class IdentificationMethods:
     pass
 
 
@@ -32,15 +34,17 @@ def pslq(ctx, x, tol=None, maxcoeff=1000, maxsteps=100, verbose=False):
 
     Find rational approximations for `\pi`::
 
-        >>> from mpmath import *
-        >>> mp.dps = 15; mp.pretty = True
+        >>> from mpmath import mp, pslq, pi, mpf, sqrt, acot
+        >>> mp.pretty = True
         >>> pslq([-1, pi], tol=0.01)
         [22, 7]
         >>> pslq([-1, pi], tol=0.001)
         [355, 113]
-        >>> mpf(22)/7; mpf(355)/113; +pi
+        >>> mpf(22)/7
         3.14285714285714
+        >>> mpf(355)/113
         3.14159292035398
+        >>> +pi
         3.14159265358979
 
     Pi is not a rational number with denominator less than 1000::
@@ -52,8 +56,9 @@ def pslq(ctx, x, tol=None, maxcoeff=1000, maxsteps=100, verbose=False):
     by at least one rational number with denominator less than `10^{12}`::
 
         >>> p, q = pslq([-1, pi], maxcoeff=10**12)
-        >>> print(p); print(q)
+        >>> print(p)
         238410049439
+        >>> print(q)
         75888275702
         >>> mpf(p)/q
         3.14159265358979
@@ -86,7 +91,7 @@ def pslq(ctx, x, tol=None, maxcoeff=1000, maxsteps=100, verbose=False):
         \frac{\pi}{4} = \operatorname{acot} 1
 
         \frac{\pi}{4} = 12 \operatorname{acot} 49 + 32 \operatorname{acot} 57
-            + 5 \operatorname{acot} 239 + 12 \operatorname{acot} 110443
+            - 5 \operatorname{acot} 239 + 12 \operatorname{acot} 110443
 
     We can easily verify the formulas using the PSLQ algorithm::
 
@@ -178,25 +183,25 @@ def pslq(ctx, x, tol=None, maxcoeff=1000, maxsteps=100, verbose=False):
     H = {}
     # Initialization
     # step 1
-    for i in xrange(1, n+1):
-        for j in xrange(1, n+1):
+    for i in range(1, n+1):
+        for j in range(1, n+1):
             A[i,j] = B[i,j] = (i==j) << prec
             H[i,j] = 0
     # step 2
     s = [None] + [0] * n
-    for k in xrange(1, n+1):
+    for k in range(1, n+1):
         t = 0
-        for j in xrange(k, n+1):
+        for j in range(k, n+1):
             t += (x[j]**2 >> prec)
         s[k] = sqrt_fixed(t, prec)
     t = s[1]
     y = x[:]
-    for k in xrange(1, n+1):
+    for k in range(1, n+1):
         y[k] = (x[k] << prec) // t
         s[k] = (s[k] << prec) // t
     # step 3
-    for i in xrange(1, n+1):
-        for j in xrange(i+1, n):
+    for i in range(1, n+1):
+        for j in range(i+1, n):
             H[i,j] = 0
         if i <= n-1:
             if s[i]:
@@ -210,8 +215,8 @@ def pslq(ctx, x, tol=None, maxcoeff=1000, maxsteps=100, verbose=False):
             else:
                 H[i,j] = 0
     # step 4
-    for i in xrange(2, n+1):
-        for j in xrange(i-1, 0, -1):
+    for i in range(2, n+1):
+        for j in range(i-1, 0, -1):
             #t = floor(H[i,j]/H[j,j] + 0.5)
             if H[j,j]:
                 t = round_fixed((H[i,j] << prec)//H[j,j], prec)
@@ -219,9 +224,9 @@ def pslq(ctx, x, tol=None, maxcoeff=1000, maxsteps=100, verbose=False):
                 #t = 0
                 continue
             y[j] = y[j] + (t*y[i] >> prec)
-            for k in xrange(1, j+1):
+            for k in range(1, j+1):
                 H[i,k] = H[i,k] - (t*H[j,k] >> prec)
-            for k in xrange(1, n+1):
+            for k in range(1, n+1):
                 A[i,k] = A[i,k] - (t*A[j,k] >> prec)
                 B[k,j] = B[k,j] + (t*B[k,i] >> prec)
     # Main algorithm
@@ -237,9 +242,9 @@ def pslq(ctx, x, tol=None, maxcoeff=1000, maxsteps=100, verbose=False):
                 szmax = sz
         # Step 2
         y[m], y[m+1] = y[m+1], y[m]
-        for i in xrange(1,n+1): H[m,i], H[m+1,i] = H[m+1,i], H[m,i]
-        for i in xrange(1,n+1): A[m,i], A[m+1,i] = A[m+1,i], A[m,i]
-        for i in xrange(1,n+1): B[i,m], B[i,m+1] = B[i,m+1], B[i,m]
+        for i in range(1,n+1): H[m,i], H[m+1,i] = H[m+1,i], H[m,i]
+        for i in range(1,n+1): A[m,i], A[m+1,i] = A[m+1,i], A[m,i]
+        for i in range(1,n+1): B[i,m], B[i,m+1] = B[i,m+1], B[i,m]
         # Step 3
         if m <= n - 2:
             t0 = sqrt_fixed((H[m,m]**2 + H[m,m+1]**2)>>prec, prec)
@@ -250,23 +255,23 @@ def pslq(ctx, x, tol=None, maxcoeff=1000, maxsteps=100, verbose=False):
                 break
             t1 = (H[m,m] << prec) // t0
             t2 = (H[m,m+1] << prec) // t0
-            for i in xrange(m, n+1):
+            for i in range(m, n+1):
                 t3 = H[i,m]
                 t4 = H[i,m+1]
                 H[i,m] = (t1*t3+t2*t4) >> prec
                 H[i,m+1] = (-t2*t3+t1*t4) >> prec
         # Step 4
-        for i in xrange(m+1, n+1):
-            for j in xrange(min(i-1, m+1), 0, -1):
+        for i in range(m+1, n+1):
+            for j in range(min(i-1, m+1), 0, -1):
                 try:
                     t = round_fixed((H[i,j] << prec)//H[j,j], prec)
                 # Precision probably exhausted
                 except ZeroDivisionError:
                     break
                 y[j] = y[j] + ((t*y[i]) >> prec)
-                for k in xrange(1, j+1):
+                for k in range(1, j+1):
                     H[i,k] = H[i,k] - (t*H[j,k] >> prec)
-                for k in xrange(1, n+1):
+                for k in range(1, n+1):
                     A[i,k] = A[i,k] - (t*A[j,k] >> prec)
                     B[k,j] = B[k,j] + (t*B[k,i] >> prec)
         # Until a relation is found, the error typically decreases
@@ -276,7 +281,7 @@ def pslq(ctx, x, tol=None, maxcoeff=1000, maxsteps=100, verbose=False):
         # "high quality" relation was detected. Reporting this to
         # the user somehow might be useful.
         best_err = maxcoeff<<prec
-        for i in xrange(1, n+1):
+        for i in range(1, n+1):
             err = abs(y[i])
             # Maybe we are done?
             if err < tol:
@@ -308,7 +313,7 @@ def pslq(ctx, x, tol=None, maxcoeff=1000, maxsteps=100, verbose=False):
         print("Could not find an integer relation. Norm bound: %s" % norm)
     return None
 
-def findpoly(ctx, x, n=1, **kwargs):
+def findpoly(ctx, x, n=1, asc=None, **kwargs):
     r"""
     ``findpoly(x, n)`` returns the coefficients of an integer
     polynomial `P` of degree at most `n` such that `P(x) \approx 0`.
@@ -325,22 +330,26 @@ def findpoly(ctx, x, n=1, **kwargs):
     For large values of `n`, it is recommended to run :func:`~mpmath.findpoly`
     at high precision; preferably 50 digits or more.
 
+    If *asc=False*, descending order of coefficients is used (the term
+    of largest degree - first).
+
     **Examples**
 
     By default (degree `n = 1`), :func:`~mpmath.findpoly` simply finds a linear
     polynomial with a rational root::
 
-        >>> from mpmath import *
-        >>> mp.dps = 15; mp.pretty = True
-        >>> findpoly(0.7)
-        [-10, 7]
+        >>> from mpmath import (mp, findpoly, nprint, polyval, polyroots,
+        ...                     sqrt, pi, phi, euler, findroot)
+        >>> mp.pretty = True
+        >>> findpoly(0.7, asc=True)
+        [7, -10]
 
     The generated coefficient list is valid input to ``polyval`` and
     ``polyroots``::
 
-        >>> nprint(polyval(findpoly(phi, 2), phi), 1)
+        >>> nprint(polyval(findpoly(phi, 2, asc=True), phi, asc=True), 1)
         -2.0e-16
-        >>> for r in polyroots(findpoly(phi, 2)):
+        >>> for r in polyroots(findpoly(phi, 2, asc=True), asc=True):
         ...     print(r)
         ...
         -0.618033988749895
@@ -350,15 +359,15 @@ def findpoly(ctx, x, n=1, **kwargs):
     solutions to quadratic equations. As we find here, `1+\sqrt 2`
     is a root of the polynomial `x^2 - 2x - 1`::
 
-        >>> findpoly(1+sqrt(2), 2)
-        [1, -2, -1]
-        >>> findroot(lambda x: x**2 - 2*x - 1, 1)
+        >>> findpoly(1+sqrt(2), 2, asc=True)
+        [-1, -2, 1]
+        >>> findroot(lambda x: x**2 - 2*x - 1, 1, asc=True)
         2.4142135623731
 
     Despite only containing square roots, the following number results
     in a polynomial of degree 4::
 
-        >>> findpoly(sqrt(2)+sqrt(3), 4)
+        >>> findpoly(sqrt(2)+sqrt(3), 4, asc=True)
         [1, 0, -10, 0, 1]
 
     In fact, `x^4 - 10x^2 + 1` is the *minimal polynomial* of
@@ -376,8 +385,7 @@ def findpoly(ctx, x, n=1, **kwargs):
     We can verify that `\pi` is not an algebraic number of degree 3 with
     coefficients less than 1000::
 
-        >>> mp.dps = 15
-        >>> findpoly(pi, 3)
+        >>> findpoly(pi, 3, asc=True)
         >>>
 
     It is always possible to find an algebraic approximation of a number
@@ -389,13 +397,12 @@ def findpoly(ctx, x, n=1, **kwargs):
 
     One example of each method is shown below::
 
-        >>> mp.dps = 15
-        >>> findpoly(pi, 4)
-        [95, -545, 863, -183, -298]
-        >>> findpoly(pi, 3, maxcoeff=10000)
-        [836, -1734, -2658, -457]
-        >>> findpoly(pi, 3, tol=1e-7)
-        [-4, 22, -29, -2]
+        >>> findpoly(pi, 4, asc=True)
+        [-298, -183, 863, -545, 95]
+        >>> findpoly(pi, 3, maxcoeff=10000, asc=True)
+        [-457, -2658, -1734, 836]
+        >>> findpoly(pi, 3, tol=1e-7, asc=True)
+        [-2, -29, 22, -4]
 
     It is unknown whether Euler's constant is transcendental (or even
     irrational). We can use :func:`~mpmath.findpoly` to check that if is
@@ -403,7 +410,8 @@ def findpoly(ctx, x, n=1, **kwargs):
     at least 7 and a coefficient of magnitude at least 1000000::
 
         >>> mp.dps = 200
-        >>> findpoly(euler, 6, maxcoeff=10**6, tol=1e-100, maxsteps=1000)
+        >>> findpoly(euler, 6, maxcoeff=10**6, tol=1e-100,
+        ...          maxsteps=1000, asc=True)
         >>>
 
     Note that the high precision and strict tolerance is necessary
@@ -418,12 +426,18 @@ def findpoly(ctx, x, n=1, **kwargs):
         raise ValueError("n cannot be less than 1")
     if x == 0:
         return [1, 0]
+    if asc is None:
+        warnings.warn("Descending (wrt powers) order of polynomial "
+                      "coefficients is deprecated, please adapt you "
+                      "code to use ascending order, asc=True.",
+                      DeprecationWarning)
+        asc = False
     xs = [ctx.mpf(1)]
     for i in range(1,n+1):
         xs.append(x**i)
         a = ctx.pslq(xs, **kwargs)
         if a is not None:
-            return a[::-1]
+            return a if asc else a[::-1]
 
 def fracgcd(p, q):
     x, y = p, q
@@ -540,8 +554,9 @@ def identify(ctx, x, constants=[], tol=None, maxcoeff=1000, full=False,
     As a simple example, :func:`~mpmath.identify` will find an algebraic
     formula for the golden ratio::
 
-        >>> from mpmath import *
-        >>> mp.dps = 15; mp.pretty = True
+        >>> from mpmath import (mp, identify, phi, pi, e, sqrt, log, mpf,
+        ...                     exp, catalan)
+        >>> mp.pretty = True
         >>> identify(phi)
         '((1+sqrt(5))/2)'
 
@@ -574,7 +589,6 @@ def identify(ctx, x, constants=[], tol=None, maxcoeff=1000, full=False,
     precision. Here the default recognition of rational, algebraic,
     and exp/log of algebraic numbers is demonstrated::
 
-        >>> mp.dps = 15
         >>> identify(0.22222222222222222)
         '(2/9)'
         >>> identify(1.9662210973805663)
@@ -658,7 +672,6 @@ def identify(ctx, x, constants=[], tol=None, maxcoeff=1000, full=False,
 
         >>> for p in identify(pi, ['e', 'catalan'], tol=1e-5, full=True):
         ...     print(p)
-        ...  # doctest: +ELLIPSIS
         e/log((6 + (-4/3)*e))
         (3**3*5*e*catalan**2)/(2*7**2)
         sqrt(((-13) + 1*e + 22*catalan))
@@ -687,7 +700,7 @@ def identify(ctx, x, constants=[], tol=None, maxcoeff=1000, full=False,
 
     The output formula can be evaluated as a Python expression.
     Note however that if fractions (like '2/3') are present in
-    the formula, Python's :func:`~mpmath.eval()` may erroneously perform
+    the formula, Python's :func:`eval` may erroneously perform
     integer division. Note also that the output is not necessarily
     in the algebraically simplest form::
 
@@ -695,7 +708,7 @@ def identify(ctx, x, constants=[], tol=None, maxcoeff=1000, full=False,
         '(sqrt(8)/2)'
 
     As a solution to both problems, consider using SymPy's
-    :func:`~mpmath.sympify` to convert the formula into a symbolic expression.
+    :func:`~sympy.core.sympify.sympify` to convert the formula into a symbolic expression.
     SymPy can be used to pretty-print or further simplify the formula
     symbolically::
 
@@ -719,7 +732,7 @@ def identify(ctx, x, constants=[], tol=None, maxcoeff=1000, full=False,
         1/2 + 5**(1/2)/2
 
     (In fact, this functionality is available directly in SymPy as the
-    function :func:`~mpmath.nsimplify`, which is essentially a wrapper for
+    function :func:`~sympy.simplify.simplify.nsimplify`, which is essentially a wrapper for
     :func:`~mpmath.identify`.)
 
     **Miscellaneous issues and limitations**
@@ -821,7 +834,7 @@ def identify(ctx, x, constants=[], tol=None, maxcoeff=1000, full=False,
         # Watch out for existing fractional powers of fractions
         logs = []
         for a, s in constants:
-            if not sum(bool(ctx.findpoly(ctx.ln(a)/ctx.ln(i),1)) for i in ilogs):
+            if not sum(bool(ctx.findpoly(ctx.ln(a)/ctx.ln(i),1,asc=True)) for i in ilogs):
                 logs.append((ctx.ln(a), s))
         logs = [(ctx.ln(i),str(i)) for i in ilogs] + logs
         r = ctx.pslq([ctx.ln(x)] + [a[0] for a in logs], tol, M)
@@ -837,8 +850,3 @@ def identify(ctx, x, constants=[], tol=None, maxcoeff=1000, full=False,
 IdentificationMethods.pslq = pslq
 IdentificationMethods.findpoly = findpoly
 IdentificationMethods.identify = identify
-
-
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()

@@ -1,10 +1,7 @@
-from __future__ import print_function
-
 from copy import copy
 
-from ..libmp.backend import xrange
 
-class OptimizationMethods(object):
+class OptimizationMethods:
     def __init__(ctx):
         pass
 
@@ -38,7 +35,7 @@ class Newton:
         else:
             raise ValueError('expected 1 starting point, got %i' % len(x0))
         self.f = f
-        if not 'df' in kwargs:
+        if 'df' not in kwargs:
             def df(x):
                 return self.ctx.diff(f, x)
         else:
@@ -126,13 +123,13 @@ class MNewton:
             raise ValueError('expected 1 starting point, got %i' % len(x0))
         self.x0 = x0[0]
         self.f = f
-        if not 'df' in kwargs:
+        if 'df' not in kwargs:
             def df(x):
                 return self.ctx.diff(f, x)
         else:
             df = kwargs['df']
         self.df = df
-        if not 'd2f' in kwargs:
+        if 'd2f' not in kwargs:
             def d2f(x):
                 return self.ctx.diff(df, x)
         else:
@@ -183,13 +180,13 @@ class Halley:
             raise ValueError('expected 1 starting point, got %i' % len(x0))
         self.x0 = x0[0]
         self.f = f
-        if not 'df' in kwargs:
+        if 'df' not in kwargs:
             def df(x):
                 return self.ctx.diff(f, x)
         else:
             df = kwargs['df']
         self.df = df
-        if not 'd2f' in kwargs:
+        if 'd2f' not in kwargs:
             def d2f(x):
                 return self.ctx.diff(df, x)
         else:
@@ -449,7 +446,7 @@ def Anderson(*args, **kwargs):
     1d-solver generating pairs of approximative root and error.
 
     Uses Anderson-Bjoerk method to find a root of f in [a, b].
-    Wrapper for illinois to use method='pegasus'.
+    Wrapper for illinois to use method='anderson'.
     """
     kwargs['method'] = 'anderson'
     return Illinois(*args, **kwargs)
@@ -529,7 +526,7 @@ class ANewton:
             raise ValueError('expected 1 starting point, got %i' % len(x0))
         self.x0 = x0[0]
         self.f = f
-        if not 'df' in kwargs:
+        if 'df' not in kwargs:
             def df(x):
                 return self.ctx.diff(f, x)
         else:
@@ -590,11 +587,11 @@ def jacobian(ctx, f, x):
     m = len(fx)
     n = len(x)
     J = ctx.matrix(m, n)
-    for j in xrange(n):
+    for j in range(n):
         xj = x.copy()
         xj[j] += h
         Jj = (ctx.matrix(f(*xj)) - fx) / h
-        for i in xrange(m):
+        for i in range(m):
             J[i,j] = Jj[i]
     return J
 
@@ -668,7 +665,7 @@ class MDNewton:
             while True:
                 if x1 == x0:
                     if self.verbose:
-                        print("canceled, won't get more excact")
+                        print("canceled, won't get more exact")
                     cancel = True
                     break
                 fx = self.ctx.matrix(f(*x1))
@@ -716,7 +713,8 @@ def findroot(ctx, f, x0, solver='secant', tol=None, verbose=False, verify=True, 
     *x0*
         starting point, several starting points or interval (depends on solver)
     *tol*
-        the returned solution has an error smaller than this
+        the returned solution has an error smaller than this, with
+        the defailt value ``2**10`` times epsilon of working precision
     *verbose*
         print additional information for each iteration if true
     *verify*
@@ -724,7 +722,7 @@ def findroot(ctx, f, x0, solver='secant', tol=None, verbose=False, verify=True, 
     *solver*
         a generator for *f* and *x0* returning approximative solution and error
     *maxsteps*
-        after how many steps the solver will cancel
+        the solver will cancel at least after that number of iterations
     *df*
         first derivative of *f* (used by some solvers)
     *d2f*
@@ -751,8 +749,10 @@ def findroot(ctx, f, x0, solver='secant', tol=None, verbose=False, verify=True, 
     secant method by default. A simple example use of the secant method is to
     compute `\pi` as the root of `\sin x` closest to `x_0 = 3`::
 
-        >>> from mpmath import *
-        >>> mp.dps = 30; mp.pretty = True
+        >>> from mpmath import (diff, gamma, findroot, sin, zeta, exp, log,
+        ...                     lambertw, mp, j)
+        >>> mp.dps = 30
+        >>> mp.pretty = True
         >>> findroot(sin, 3)
         3.14159265358979323846264338328
 
@@ -789,11 +789,13 @@ def findroot(ctx, f, x0, solver='secant', tol=None, verbose=False, verify=True, 
         ...     return findroot(lambda w: w*exp(w) - x, log(1+x))
         ...
         >>> mp.dps = 15
-        >>> lambert(1); lambertw(1)
+        >>> lambert(1)
         0.567143290409784
+        >>> lambertw(1)
         0.567143290409784
-        >>> lambert(1000); lambert(1000)
+        >>> lambert(1000)
         5.2496028524016
+        >>> lambertw(1000)
         5.2496028524016
 
     Multidimensional functions are also supported::
@@ -825,7 +827,7 @@ def findroot(ctx, f, x0, solver='secant', tol=None, verbose=False, verify=True, 
     converge slowly. Consider this example::
 
         >>> f = lambda x: (x - 1)**99
-        >>> findroot(f, 0.9, verify=False)
+        >>> findroot(f, 0.9)
         0.918073542444929
 
     Even for a very close starting point the secant method converges very
@@ -886,7 +888,7 @@ def findroot(ctx, f, x0, solver='secant', tol=None, verbose=False, verify=True, 
 
     Be careful with symmetric functions::
 
-        >>> findroot(lambda x: x**2, (-1, 1), solver='anderson') #doctest:+ELLIPSIS
+        >>> findroot(lambda x: x**2, (-1, 1), solver='anderson')
         Traceback (most recent call last):
           ...
         ZeroDivisionError
@@ -901,6 +903,7 @@ def findroot(ctx, f, x0, solver='secant', tol=None, verbose=False, verify=True, 
 
     """
     prec = ctx.prec
+    trap_complex = getattr(ctx, 'trap_complex', None)
     try:
         ctx.prec += 20
 
@@ -944,11 +947,12 @@ def findroot(ctx, f, x0, solver='secant', tol=None, verbose=False, verify=True, 
         if multidimensional:
             # only one multidimensional solver available at the moment
             solver = MDNewton
-            if not 'norm' in kwargs:
+            if 'norm' not in kwargs:
                 norm = lambda x: ctx.norm(x, 'inf')
                 kwargs['norm'] = norm
             else:
                 norm = kwargs['norm']
+            ctx.trap_complex = True  # MDNewton assume real input
         else:
             norm = abs
 
@@ -961,10 +965,7 @@ def findroot(ctx, f, x0, solver='secant', tol=None, verbose=False, verify=True, 
 
         # use solver
         iterations = solver(ctx, f, x0, **kwargs)
-        if 'maxsteps' in kwargs:
-            maxsteps = kwargs['maxsteps']
-        else:
-            maxsteps = iterations.maxsteps
+        maxsteps = kwargs.get('maxsteps', iterations.maxsteps)
         i = 0
         for x, error in iterations:
             if verbose:
@@ -989,6 +990,8 @@ def findroot(ctx, f, x0, solver='secant', tol=None, verbose=False, verify=True, 
         return x
     finally:
         ctx.prec = prec
+        if trap_complex is not None:
+            ctx.trap_complex = trap_complex
 
 
 def multiplicity(ctx, f, root, tol=None, maxsteps=10, **kwargs):
@@ -1000,7 +1003,7 @@ def multiplicity(ctx, f, root, tol=None, maxsteps=10, **kwargs):
     evaluating 10 derivatives by default. You can be specify the n-th derivative
     using the dnf keyword.
 
-    >>> from mpmath import *
+    >>> from mpmath import multiplicity, pi, sin
     >>> multiplicity(lambda x: sin(x) - 1, pi/2)
     2
 
@@ -1008,7 +1011,7 @@ def multiplicity(ctx, f, root, tol=None, maxsteps=10, **kwargs):
     if tol is None:
         tol = ctx.eps ** 0.8
     kwargs['d0f'] = f
-    for i in xrange(maxsteps):
+    for i in range(maxsteps):
         dfstr = 'd' + str(i) + 'f'
         if dfstr in kwargs:
             df = kwargs[dfstr]
@@ -1042,11 +1045,12 @@ def steffensen(f):
     Let's try Steffensen's method:
 
     >>> f = lambda x: x**2
+    >>> from mpmath import mp
     >>> from mpmath.calculus.optimization import steffensen
     >>> F = steffensen(f)
     >>> for x in [0.5, 0.9, 2.0]:
-    ...     fx = Fx = x
-    ...     for i in xrange(9):
+    ...     fx = Fx = mp.mpf(x)
+    ...     for i in range(9):
     ...         try:
     ...             fx = f(fx)
     ...         except OverflowError:
@@ -1055,16 +1059,16 @@ def steffensen(f):
     ...             Fx = F(Fx)
     ...         except ZeroDivisionError:
     ...             pass
-    ...         print('%20g  %20g' % (fx, Fx))
+    ...         print(f'{fx:20g}  {Fx:20g}')
                     0.25                  -0.5
                   0.0625                   0.1
               0.00390625            -0.0011236
              1.52588e-05           1.41691e-09
              2.32831e-10          -2.84465e-27
              5.42101e-20           2.30189e-80
-             2.93874e-39          -1.2197e-239
-             8.63617e-78                     0
-            7.45834e-155                     0
+             2.93874e-39         -1.21971e-239
+             8.63617e-78          1.81455e-717
+            7.45834e-155        -5.97459e-2151
                     0.81               1.02676
                   0.6561               1.00134
                 0.430467                     1
@@ -1096,7 +1100,3 @@ def steffensen(f):
 OptimizationMethods.jacobian = jacobian
 OptimizationMethods.findroot = findroot
 OptimizationMethods.multiplicity = multiplicity
-
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()

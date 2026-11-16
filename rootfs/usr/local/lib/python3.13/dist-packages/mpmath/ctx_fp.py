@@ -1,50 +1,53 @@
-from .ctx_base import StandardBaseContext
-
-import math
 import cmath
-from . import math2
+import functools
+import inspect
+import math
+import warnings
+import sys
 
-from . import function_docs
+from . import function_docs, libfp, libmp
+from .ctx_base import StandardBaseContext
+from .libmp import int_types, mpf_bernoulli, to_float
 
-from .libmp import mpf_bernoulli, to_float, int_types
-from . import libmp
 
 class FPContext(StandardBaseContext):
     """
-    Context for fast low-precision arithmetic (53-bit precision, giving at most
-    about 15-digit accuracy), using Python's builtin float and complex.
+    Context for fast low-precision arithmetic (usually, 53-bit precision,
+    giving at most about 15 decimal digits), using Python's builtin float and
+    complex types.
     """
 
     def __init__(ctx):
-        StandardBaseContext.__init__(ctx)
-
-        # Override SpecialFunctions implementation
-        ctx.loggamma = math2.loggamma
-        ctx._bernoulli_cache = {}
+        super().__init__()
         ctx.pretty = False
-
         ctx._init_aliases()
-
-    _mpq = lambda cls, x: float(x[0])/x[1]
 
     NoConvergence = libmp.NoConvergence
 
-    def _get_prec(ctx): return 53
-    def _set_prec(ctx, p): return
-    def _get_dps(ctx): return 15
-    def _set_dps(ctx, p): return
+    @property
+    def prec(ctx):
+        return sys.float_info.mant_dig
+
+    @prec.setter
+    def prec(ctx, p):
+        return
+
+    @property
+    def dps(ctx):
+        return sys.float_info.dig
+
+    @dps.setter
+    def dps(ctx, p):
+        return
 
     _fixed_precision = True
 
-    prec = property(_get_prec, _set_prec)
-    dps = property(_get_dps, _set_dps)
-
     zero = 0.0
     one = 1.0
-    eps = math2.EPS
-    inf = math2.INF
-    ninf = math2.NINF
-    nan = math2.NAN
+    eps = sys.float_info.epsilon
+    inf = libfp.INF
+    ninf = -math.inf
+    nan = math.nan
     j = 1j
 
     # Called by SpecialFunctions.__init__()
@@ -58,24 +61,26 @@ class FPContext(StandardBaseContext):
         else:
             f_wrapped = f
         f_wrapped.__doc__ = function_docs.__dict__.get(name, f.__doc__)
+        try:
+            f_wrapped.__signature__ = inspect.signature(f)
+        except ValueError:  # pragma: no cover
+            pass
+        f_wrapped.__name__ = f.__name__
         setattr(cls, name, f_wrapped)
 
-    def bernoulli(ctx, n):
-        cache = ctx._bernoulli_cache
-        if n in cache:
-            return cache[n]
-        cache[n] = to_float(mpf_bernoulli(n, 53, 'n'), strict=True)
-        return cache[n]
+    @functools.lru_cache
+    def bernoulli(ctx, n, plus=False):
+        return to_float(mpf_bernoulli(n, ctx.prec, 'n', plus=plus), strict=True)
 
-    pi = math2.pi
-    e = math2.e
-    euler = math2.euler
+    pi = libfp.pi
+    e = math.e
+    euler = libfp.euler
     sqrt2 = 1.4142135623730950488
     sqrt5 = 2.2360679774997896964
     phi = 1.6180339887498948482
     ln2 = 0.69314718055994530942
     ln10 = 2.302585092994045684
-    euler = 0.57721566490153286061
+    euler = libfp.euler
     catalan = 0.91596559417721901505
     khinchin = 2.6854520010653064453
     apery = 1.2020569031595942854
@@ -84,25 +89,33 @@ class FPContext(StandardBaseContext):
     absmin = absmax = abs
 
     def is_special(ctx, x):
-        return x - x != 0.0
+        warnings.warn("the is_special() method is deprecated",
+                      DeprecationWarning)
+        return not ctx.isnormal(x)
 
     def isnan(ctx, x):
         return x != x
 
     def isinf(ctx, x):
-        return abs(x) == math2.INF
+        return abs(x) == libfp.INF
+
+    def isfinite(ctx, x):
+        if type(x) is complex:
+            return all(map(math.isfinite, [x.real, x.imag]))
+        return math.isfinite(x)
 
     def isnormal(ctx, x):
-        if x:
-            return x - x == 0.0
-        return False
+        if type(x) is complex:
+            return ctx.isnormal(abs(x))
+        # XXX: can use math.isnormal() on Python 3.15+
+        return bool(x) and math.isfinite(x) and abs(x) >= sys.float_info.min
 
     def isnpint(ctx, x):
         if type(x) is complex:
             if x.imag:
                 return False
             x = x.real
-        return x <= 0.0 and round(x) == x
+        return math.isfinite(x) and x <= 0.0 and round(x) == x
 
     mpf = float
     mpc = complex
@@ -113,37 +126,37 @@ class FPContext(StandardBaseContext):
         except:
             return complex(x)
 
-    power = staticmethod(math2.pow)
-    sqrt = staticmethod(math2.sqrt)
-    exp = staticmethod(math2.exp)
-    ln = log = staticmethod(math2.log)
-    cos = staticmethod(math2.cos)
-    sin = staticmethod(math2.sin)
-    tan = staticmethod(math2.tan)
-    cos_sin = staticmethod(math2.cos_sin)
-    acos = staticmethod(math2.acos)
-    asin = staticmethod(math2.asin)
-    atan = staticmethod(math2.atan)
-    cosh = staticmethod(math2.cosh)
-    sinh = staticmethod(math2.sinh)
-    tanh = staticmethod(math2.tanh)
-    gamma = staticmethod(math2.gamma)
-    rgamma = staticmethod(math2.rgamma)
-    fac = factorial = staticmethod(math2.factorial)
-    floor = staticmethod(math2.floor)
-    ceil = staticmethod(math2.ceil)
-    cospi = staticmethod(math2.cospi)
-    sinpi = staticmethod(math2.sinpi)
-    cbrt = staticmethod(math2.cbrt)
-    _nthroot = staticmethod(math2.nthroot)
-    _ei = staticmethod(math2.ei)
-    _e1 = staticmethod(math2.e1)
-    _zeta = _zeta_int = staticmethod(math2.zeta)
-
-    # XXX: math2
-    def arg(ctx, z):
-        z = complex(z)
-        return math.atan2(z.imag, z.real)
+    power = staticmethod(libfp.pow)
+    sqrt = staticmethod(libfp.sqrt)
+    exp = staticmethod(libfp.exp)
+    ln = log = staticmethod(libfp.log)
+    cos = staticmethod(libfp.cos)
+    sin = staticmethod(libfp.sin)
+    tan = staticmethod(libfp.tan)
+    cos_sin = staticmethod(libfp.cos_sin)
+    acos = staticmethod(libfp.acos)
+    asin = staticmethod(libfp.asin)
+    atan = staticmethod(libfp.atan)
+    cosh = staticmethod(libfp.cosh)
+    sinh = staticmethod(libfp.sinh)
+    tanh = staticmethod(libfp.tanh)
+    acosh = staticmethod(libfp.acosh)
+    asinh = staticmethod(libfp.asinh)
+    atanh = staticmethod(libfp.atanh)
+    gamma = staticmethod(libfp.gamma)
+    rgamma = staticmethod(libfp.rgamma)
+    fac = factorial = staticmethod(libfp.factorial)
+    floor = staticmethod(libfp.floor)
+    ceil = staticmethod(libfp.ceil)
+    cospi = staticmethod(libfp.cospi)
+    sinpi = staticmethod(libfp.sinpi)
+    cbrt = staticmethod(libfp.cbrt)
+    _nthroot = staticmethod(libfp.nthroot)
+    _ei = staticmethod(libfp.ei)
+    _e1 = staticmethod(libfp.e1)
+    _zeta = _zeta_int = staticmethod(libfp.zeta)
+    arg = staticmethod(cmath.phase)
+    loggamma = staticmethod(libfp.loggamma)
 
     def expj(ctx, x):
         return ctx.exp(ctx.j*x)
@@ -153,27 +166,27 @@ class FPContext(StandardBaseContext):
 
     ldexp = math.ldexp
     frexp = math.frexp
+    hypot = math.hypot
 
     def mag(ctx, z):
         if z:
-            return ctx.frexp(abs(z))[1]
+            n, e = ctx.frexp(abs(z))
+            if e:
+                return e
+            return ctx.convert(n)
         return ctx.ninf
 
     def isint(ctx, z):
-        if hasattr(z, "imag"):   # float/int don't have .real/.imag in py2.5
-            if z.imag:
-                return False
-            z = z.real
+        if z.imag:
+            return False
+        z = z.real
         try:
             return z == int(z)
         except:
             return False
 
     def nint_distance(ctx, z):
-        if hasattr(z, "imag"):   # float/int don't have .real/.imag in py2.5
-            n = round(z.real)
-        else:
-            n = round(z)
+        n = round(z.real)
         if n == z:
             return n, ctx.ninf
         return n, ctx.mag(abs(z-n))
@@ -182,10 +195,7 @@ class FPContext(StandardBaseContext):
         if type(z) is tuple:
             p, q = z
             return ctx.mpf(p) / q, 'R'
-        if hasattr(z, "imag"):    # float/int don't have .real/.imag in py2.5
-            intz = int(z.real)
-        else:
-            intz = int(z)
+        intz = int(z.real)
         if z == intz:
             return intz, 'Z'
         return z, 'R'
@@ -196,24 +206,47 @@ class FPContext(StandardBaseContext):
     def _is_complex_type(ctx, z):
         return isinstance(z, complex)
 
-    def hypsum(ctx, p, q, types, coeffs, z, maxterms=6000, **kwargs):
-        coeffs = list(coeffs)
+    def hypsum(ctx, p, q, flags, coeffs, z, maxterms=6000, **kwargs):
+        for i, c in enumerate(coeffs[p:], start=p):
+            if flags[i] == 'Z':
+                if c <= 0:
+                    ok = False
+                    for ii, cc in enumerate(coeffs[:p]):
+                        # Note: c <= cc or c < cc, depending on convention
+                        if flags[ii] == 'Z' and cc <= 0 and c <= cc:
+                            ok = True
+                    if not ok:
+                        raise ZeroDivisionError("pole in hypergeometric series")
         num = range(p)
         den = range(p,p+q)
+        if ctx.isinf(z):
+            n = max(((n, c) for n, c in enumerate(coeffs[:p])
+                     if flags[n] == 'Z' and c < 0), default=(-1, 0),
+                    key=lambda x: x[1])[0]
+            if n >= 0:
+                n = -coeffs[n]
+                t = z**n
+                for k in range(n):
+                    for i in num: t *= (coeffs[i]+k)
+                    for i in den: t /= (coeffs[i]+k)
+                    t /= (k+1)
+                return t
         tol = ctx.eps
         s = t = 1.0
         k = 0
         while 1:
             for i in num: t *= (coeffs[i]+k)
-            for i in den: t /= (coeffs[i]+k)
+            try:
+                for i in den: t /= (coeffs[i]+k)
+            except ZeroDivisionError:
+                raise NotImplementedError
             k += 1; t /= k; t *= z; s += t
             if abs(t) < tol:
                 return s
             if k > maxterms:
                 raise ctx.NoConvergence
 
-    def atan2(ctx, x, y):
-        return math.atan2(x, y)
+    atan2 = staticmethod(math.atan2)
 
     def psi(ctx, m, z):
         m = int(m)
@@ -221,7 +254,7 @@ class FPContext(StandardBaseContext):
             return ctx.digamma(z)
         return (-1)**(m+1) * ctx.fac(m) * ctx.zeta(m+1, z)
 
-    digamma = staticmethod(math2.digamma)
+    digamma = staticmethod(libfp.digamma)
 
     def harmonic(ctx, x):
         x = ctx.convert(x)
@@ -238,8 +271,8 @@ class FPContext(StandardBaseContext):
         import random
         return random.random()
 
-    _erf = staticmethod(math2.erf)
-    _erfc = staticmethod(math2.erfc)
+    _erf = staticmethod(math.erf)
+    _erfc = staticmethod(math.erfc)
 
     def sum_accurately(ctx, terms, check_step=1):
         s = ctx.zero

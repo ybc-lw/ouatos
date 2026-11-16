@@ -1,5 +1,6 @@
-from ..libmp.backend import xrange
+from ..libmp.backend import MPQ
 from .functions import defun, defun_wrapped
+import math
 
 def _check_need_perturb(ctx, terms, prec, discard_known_zeros):
     perturb = recompute = False
@@ -197,6 +198,8 @@ def hyper(ctx, a_s, b_s, z, **kwargs):
     Hypergeometric function, general case.
     """
     z = ctx.convert(z)
+    if ctx.isnan(z):
+        return ctx.nan
     p = len(a_s)
     q = len(b_s)
     a_s = [ctx._convert_param(a) for a in a_s]
@@ -290,10 +293,10 @@ def _hyp0f1(ctx, b_s, z, **kwargs):
                     w = ctx.sqrt(-z)
                     jw = ctx.j*w
                     u = 1/(4*jw)
-                    c = ctx.mpq_1_2 - b
+                    c = MPQ(1,2) - b
                     E = ctx.exp(2*jw)
-                    T1 = ([-jw,E], [c,-1], [], [], [b-ctx.mpq_1_2, ctx.mpq_3_2-b], [], -u)
-                    T2 = ([jw,E], [c,1], [], [], [b-ctx.mpq_1_2, ctx.mpq_3_2-b], [], u)
+                    T1 = ([-jw,E], [c,-1], [], [], [b-MPQ(1,2), MPQ(3,2)-b], [], -u)
+                    T2 = ([jw,E], [c,1], [], [], [b-MPQ(1,2), MPQ(3,2)-b], [], u)
                     return T1, T2
                 v = ctx.hypercomb(h, [], force_series=True)
                 v = ctx.gamma(b)/(2*ctx.sqrt(ctx.pi))*v
@@ -314,10 +317,10 @@ def _hyp1f1(ctx, a_s, b_s, z, **kwargs):
         return ctx.one+z
     magz = ctx.mag(z)
     if magz >= 7 and not (ctx.isint(a) and ctx.re(a) <= 0):
-        if ctx.isinf(z):
-            if ctx.sign(a) == ctx.sign(b) == ctx.sign(z) == 1:
-                return ctx.inf
-            return ctx.nan * z
+        if ctx.isinf(z) and ctx.sign(a) == ctx.sign(b) == ctx.sign(z) == 1:
+            return ctx.inf
+        if ctx.isinf(magz):
+            magz = 0
         try:
             try:
                 ctx.prec += magz
@@ -363,8 +366,8 @@ def _hyp2f1_gosper(ctx,a,b,c,z,**kwargs):
         # things a bit unreadable. The formula is quite messy to begin
         # with, though...
         abz = a*b*z
-        ch = c * ctx.mpq_1_2
-        c1h = (c+1) * ctx.mpq_1_2
+        ch = c * MPQ(1,2)
+        c1h = (c+1) * MPQ(1,2)
         nz = 1-z
         g = z/nz
         abg = a*b*g
@@ -438,9 +441,14 @@ def _hyp2f1(ctx, a_s, b_s, z, **kwargs):
 
     # Fast case: standard series converges rapidly,
     # possibly in finitely many terms
-    if absz <= 0.8 or (ctx.isint(a) and a <= 0 and a >= -1000) or \
-                      (ctx.isint(b) and b <= 0 and b >= -1000):
-        return ctx.hypsum(2, 1, (atype, btype, ctype), [a, b, c], z, **kwargs)
+    if ctx.isfinite(z) and (absz <= 0.8 or
+                            (ctx.isint(a) and -1000 <= a <= 0) or
+                            (ctx.isint(b) and -1000 <= b <= 0)):
+        try:
+            return ctx.hypsum(2, 1, (atype, btype, ctype), [a, b, c], z, **kwargs)
+        except ctx.NoConvergence:
+            if kwargs.get('force_series', False):
+                raise
 
     orig = ctx.prec
     try:
@@ -449,9 +457,9 @@ def _hyp2f1(ctx, a_s, b_s, z, **kwargs):
         # Use 1/z transformation
         if absz >= 1.3:
             def h(a,b):
-                t = ctx.mpq_1-c; ab = a-b; rz = 1/z
-                T1 = ([-z],[-a], [c,-ab],[b,c-a], [a,t+a],[ctx.mpq_1+ab],  rz)
-                T2 = ([-z],[-b], [c,ab],[a,c-b], [b,t+b],[ctx.mpq_1-ab],  rz)
+                t = MPQ(1)-c; ab = a-b; rz = 1/z
+                T1 = ([-z],[-a], [c,-ab],[b,c-a], [a,t+a],[MPQ(1)+ab],  rz)
+                T2 = ([-z],[-b], [c,ab],[a,c-b], [b,t+b],[MPQ(1)-ab],  rz)
                 return T1, T2
             v = ctx.hypercomb(h, [a,b], **kwargs)
 
@@ -499,9 +507,7 @@ def _hypq1fq(ctx, p, q, a_s, b_s, z, **kwargs):
             if absz > 1.1 or ispoly:
                 raise
     # Use expansion at |z-1| -> 0.
-    # Reference: Wolfgang Buhring, "Generalized Hypergeometric Functions at
-    #   Unit Argument", Proc. Amer. Math. Soc., Vol. 114, No. 1 (Jan. 1992),
-    #   pp.145-153
+    # Reference: [Buhring]_
     # The current implementation has several problems:
     # 1. We only implement it for 3F2. The expansion coefficients are
     #    given by extremely messy nested sums in the higher degree cases
@@ -559,8 +565,8 @@ def _hypq1fq(ctx, p, q, a_s, b_s, z, **kwargs):
                 return _cache[k]
             t = term(k-1)
             m = k-1
-            for j in xrange(p): t *= (a_s[j]+m)
-            for j in xrange(q): t /= (b_s[j]+m)
+            for j in range(p): t *= (a_s[j]+m)
+            for j in range(q): t /= (b_s[j]+m)
             t *= z
             t /= k
             _cache[k] = t
@@ -636,8 +642,8 @@ def _hypq1fq(ctx, p, q, a_s, b_s, z, **kwargs):
         try:
             trunc = 50 * ctx.dps
             ctx.prec += 20
-            for i in xrange(5):
-                head = ctx.fsum(term(k) for k in xrange(trunc))
+            for i in range(5):
+                head = ctx.fsum(term(k) for k in range(trunc))
                 tail, err = ctx.sumem(term, [trunc, ctx.inf], tol=tol,
                     adiffs=hyper_diffs(trunc),
                     verbose=kwargs.get('verbose'),
@@ -711,7 +717,7 @@ def _hyp_borel(ctx, p, q, a_s, b_s, z, **kwargs):
             cache[k] = t
             return t
         s = ctx.one
-        for k in xrange(1, ctx.prec):
+        for k in range(1, ctx.prec):
             t = term(k)
             s += t
             if abs(t) <= tol:
@@ -839,12 +845,12 @@ def _hyp1f2(ctx, a_s, b_s, z, **kwargs):
                 # http://functions.wolfram.com/HypergeometricFunctions/
                 # Hypergeometric1F2/06/02/03/
                 def h(a1,b1,b2):
-                    X = ctx.mpq_1_2*(a1-b1-b2+ctx.mpq_1_2)
+                    X = MPQ(1,2)*(a1-b1-b2+MPQ(1,2))
                     c = {}
                     c[0] = ctx.one
-                    c[1] = 2*(ctx.mpq_1_4*(3*a1+b1+b2-2)*(a1-b1-b2)+b1*b2-ctx.mpq_3_16)
-                    c[2] = 2*(b1*b2+ctx.mpq_1_4*(a1-b1-b2)*(3*a1+b1+b2-2)-ctx.mpq_3_16)**2+\
-                        ctx.mpq_1_16*(-16*(2*a1-3)*b1*b2 + \
+                    c[1] = 2*(MPQ(1,4)*(3*a1+b1+b2-2)*(a1-b1-b2)+b1*b2-MPQ(3,16))
+                    c[2] = 2*(b1*b2+MPQ(1,4)*(a1-b1-b2)*(3*a1+b1+b2-2)-MPQ(3,16))**2+\
+                        MPQ(1,16)*(-16*(2*a1-3)*b1*b2 + \
                         4*(a1-b1-b2)*(-8*a1**2+11*a1+b1+b2-2)-3)
                     s1 = 0
                     s2 = 0
@@ -853,9 +859,9 @@ def _hyp1f2(ctx, a_s, b_s, z, **kwargs):
                     while 1:
                         if k not in c:
                             uu1 = (3*k**2+(-6*a1+2*b1+2*b2-4)*k + 3*a1**2 - \
-                                (b1-b2)**2 - 2*a1*(b1+b2-2) + ctx.mpq_1_4)
-                            uu2 = (k-a1+b1-b2-ctx.mpq_1_2)*(k-a1-b1+b2-ctx.mpq_1_2)*\
-                                (k-a1+b1+b2-ctx.mpq_5_2)
+                                (b1-b2)**2 - 2*a1*(b1+b2-2) + MPQ(1,4))
+                            uu2 = (k-a1+b1-b2-MPQ(1,2))*(k-a1-b1+b2-MPQ(1,2))*\
+                                (k-a1+b1+b2-MPQ(5,2))
                             c[k] = ctx.one/(2*k)*(uu1*c[k-1]-uu2*c[k-2])
                         w = c[k] * (-z)**(-0.5*k)
                         t1 = (-ctx.j)**k * ctx.mpf(2)**(-k) * w
@@ -918,7 +924,7 @@ def _hyp2f3(ctx, a_s, b_s, z, **kwargs):
                 # http://functions.wolfram.com/HypergeometricFunctions/
                 # Hypergeometric2F3/06/02/03/01/0002/
                 def h(a1,a2,b1,b2,b3):
-                    X = ctx.mpq_1_2*(a1+a2-b1-b2-b3+ctx.mpq_1_2)
+                    X = MPQ(1,2)*(a1+a2-b1-b2-b3+MPQ(1,2))
                     A2 = a1+a2
                     B3 = b1+b2+b3
                     A = a1*a2
@@ -926,8 +932,8 @@ def _hyp2f3(ctx, a_s, b_s, z, **kwargs):
                     R = b1*b2*b3
                     c = {}
                     c[0] = ctx.one
-                    c[1] = 2*(B - A + ctx.mpq_1_4*(3*A2+B3-2)*(A2-B3) - ctx.mpq_3_16)
-                    c[2] = ctx.mpq_1_2*c[1]**2 + ctx.mpq_1_16*(-16*(2*A2-3)*(B-A) + 32*R +\
+                    c[1] = 2*(B - A + MPQ(1,4)*(3*A2+B3-2)*(A2-B3) - MPQ(3,16))
+                    c[2] = MPQ(1,2)*c[1]**2 + MPQ(1,16)*(-16*(2*A2-3)*(B-A) + 32*R +\
                         4*(-8*A2**2 + 11*A2 + 8*A + B3 - 2)*(A2-B3)-3)
                     s1 = 0
                     s2 = 0
@@ -1057,6 +1063,80 @@ def meijerg(ctx, a_s, b_s, z, r=1, series=None, **kwargs):
             return terms
     return ctx.hypercomb(h, a+b, **kwargs)
 
+@defun
+def foxh(ctx, aA_s, bB_s, z, r=1, series=None, **kwargs):
+    aAn, aAp = aA_s
+    bBm, bBq = bB_s
+    n = len(aAn)
+    p = n + len(aAp)
+    m = len(bBm)
+    q = m + len(bBq)
+    aA = aAn+aAp
+    bB = bBm+bBq
+    a = [ctx.convert(a) for a, _ in aA]
+    b = [ctx.convert(b) for b, _ in bB]
+    A = [A for _, A in aA]
+    B = [B for _, B in bB]
+    z = ctx.convert(z)
+    r = ctx.convert(r)
+
+    A = [ctx._convert_param(Ai) for Ai in A]
+    B = [ctx._convert_param(Bj) for Bj in B]
+
+    if not all(Ai > 0 and (AiType == 'Z' or AiType == 'Q') for Ai, AiType in A + B):
+        raise NotImplementedError("All A and B must be positive rationals")
+
+    # Find L.C.M. of denominators
+    D = math.lcm(*[Ai.denominator if AiType == 'Q' else 1 for Ai, AiType in A + B])
+
+    # Convert rationals to integers using common denominator
+    A = [Ai.numerator * (D // Ai.denominator) if AiType == 'Q' else Ai * D for Ai, AiType in A]
+    B = [Bi.numerator * (D // Bi.denominator) if BiType == 'Q' else Bi * D for Bi, BiType in B]
+    r = r / D
+    prefactor = ctx.convert(D)
+
+    # Expand using Gauss Multiplication Formula
+    a_tilde = []
+    for ai, Ai in zip(a, A):
+        for k in range(Ai):
+            a_tilde.append((ai + k) / Ai)
+
+    b_tilde = []
+    for bj, Bj in zip(b, B):
+        for k in range(Bj):
+            b_tilde.append((bj + k) / Bj)
+
+    m_tilde = sum(B[:m])
+    n_tilde = sum(A[:n])
+
+    a_star = ctx.convert(sum(A[:n]) - sum(A[n:]) + sum(B[:m]) - sum(B[m:]))
+    c_star = m + n - (ctx.convert(p) + q) / 2
+
+    beta = ctx.one
+    for Ai in A:
+        beta /= Ai**Ai
+    for Bj in B:
+        beta *= Bj**Bj
+
+    # Compute M factor = prod(B_j^(b_j - 1/2)) / prod(A_i^(a_i - 1/2))
+    M = ctx.one
+    for bj, Bj in zip(b, B):
+        M *= Bj**(bj - ctx.one/2)
+    for ai, Ai in zip(a, A):
+        M /= Ai**(ai - ctx.one/2)
+
+    prefactor *= (2 * ctx.pi)**(c_star - a_star/2) * M
+
+    return prefactor * meijerg(
+        ctx,
+        [a_tilde[:n_tilde], a_tilde[n_tilde:]],
+        [b_tilde[:m_tilde], b_tilde[m_tilde:]],
+        z / (beta ** r),
+        r,
+        series=series,
+        **kwargs
+    )
+
 @defun_wrapped
 def appellf1(ctx,a,b1,b2,c,x,y,**kwargs):
     # Assume x smaller
@@ -1180,8 +1260,9 @@ def hyper2d(ctx, a, b, x, y, **kwargs):
     Two separable cases: a product of two geometric series, and a
     product of two Gaussian hypergeometric functions::
 
-        >>> from mpmath import *
-        >>> mp.dps = 25; mp.pretty = True
+        >>> from mpmath import mp, mpf, hyper2d, hyp2f1, exp
+        >>> mp.dps = 25
+        >>> mp.pretty = True
         >>> x, y = mpf(0.25), mpf(0.5)
         >>> hyper2d({'m':1,'n':1}, {}, x,y)
         2.666666666666666666666667
@@ -1201,8 +1282,9 @@ def hyper2d(ctx, a, b, x, y, **kwargs):
 
     Six of the 34 Horn functions, G1-G3 and H1-H3::
 
-        >>> from mpmath import *
-        >>> mp.dps = 10; mp.pretty = True
+        >>> from mpmath import mp, hyper2d, nsum, fac, inf, rf
+        >>> mp.dps = 10
+        >>> mp.pretty = True
         >>> x, y = 0.0625, 0.125
         >>> a1,a2,b1,b2,c1,c2,d = 1.1,-1.2,-1.3,-1.4,1.5,-1.6,1.7
         >>> hyper2d({'m+n':a1,'n-m':b1,'m-n':b2},{},x,y)  # G1
@@ -1367,8 +1449,9 @@ def bihyper(ctx, a_s, b_s, z, **kwargs):
 
     The value of `\,_2H_2` at `z = 1` is given by Dougall's formula::
 
-        >>> from mpmath import *
-        >>> mp.dps = 25; mp.pretty = True
+        >>> from mpmath import mp, bihyper, mpf, hyper, gammaprod
+        >>> mp.dps = 25
+        >>> mp.pretty = True
         >>> a,b,c,d = 0.5, 1.5, 2.25, 3.25
         >>> bihyper([a,b],[c,d],1)
         -14.49118026212345786148847

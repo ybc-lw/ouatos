@@ -2,29 +2,17 @@
 Computational functions for interval arithmetic.
 
 """
+from .backend import MPZ_ONE
+from .gammazeta import mpc_loggamma, mpf_gamma, mpf_loggamma, mpf_rgamma
+from .libelefun import (mod_pi2, mpf_atan, mpf_atan2, mpf_cos_sin, mpf_exp,
+                        mpf_ln, mpf_pi, mpf_sqrt)
+from .libmpf import (dps_to_prec, fhalf, finf, fnan, fninf, fnone, fone,
+                     from_float, from_int, from_man_exp, from_str, fzero,
+                     mpf_abs, mpf_add, mpf_div, mpf_ge, mpf_gt, mpf_le, mpf_lt,
+                     mpf_min_max, mpf_mul, mpf_neg, mpf_pos, mpf_pow_int,
+                     mpf_shift, mpf_sign, mpf_sub, prec_to_dps, round_ceiling,
+                     round_floor, round_nearest, round_up, to_int, to_str)
 
-from .backend import xrange
-
-from .libmpf import (
-    ComplexResult,
-    round_down, round_up, round_floor, round_ceiling, round_nearest,
-    prec_to_dps, repr_dps, dps_to_prec,
-    bitcount,
-    from_float,
-    fnan, finf, fninf, fzero, fhalf, fone, fnone,
-    mpf_sign, mpf_lt, mpf_le, mpf_gt, mpf_ge, mpf_eq, mpf_cmp,
-    mpf_min_max,
-    mpf_floor, from_int, to_int, to_str, from_str,
-    mpf_abs, mpf_neg, mpf_pos, mpf_add, mpf_sub, mpf_mul, mpf_mul_int,
-    mpf_div, mpf_shift, mpf_pow_int,
-    from_man_exp, MPZ_ONE)
-
-from .libelefun import (
-    mpf_log, mpf_exp, mpf_sqrt, mpf_atan, mpf_atan2,
-    mpf_pi, mod_pi2, mpf_cos_sin
-)
-
-from .gammazeta import mpf_gamma, mpf_rgamma, mpf_loggamma, mpc_loggamma
 
 def mpi_str(s, prec):
     sa, sb = s
@@ -49,14 +37,14 @@ def mpi_lt(s, t):
     ta, tb = t
     if mpf_lt(sb, ta): return True
     if mpf_ge(sa, tb): return False
-    return None
+    raise ValueError
 
 def mpi_le(s, t):
     sa, sb = s
     ta, tb = t
     if mpf_le(sb, ta): return True
     if mpf_gt(sa, tb): return False
-    return None
+    raise ValueError
 
 def mpi_gt(s, t): return mpi_lt(t, s)
 def mpi_ge(s, t): return mpi_le(t, s)
@@ -285,8 +273,8 @@ def mpi_exp(s, prec):
 def mpi_log(s, prec):
     sa, sb = s
     # log is monotonic
-    a = mpf_log(sa, prec, round_floor)
-    b = mpf_log(sb, prec, round_ceiling)
+    a = mpf_ln(sa, prec, round_floor)
+    b = mpf_ln(sb, prec, round_ceiling)
     return a, b
 
 def mpi_sqrt(s, prec):
@@ -539,7 +527,7 @@ def mpi_to_str(x, dps, use_spaces=True, brackets='[]', mode='brackets', error_dp
 
     **Examples**
 
-        >>> from mpmath import mpi, mp
+        >>> from mpmath import mpi, mp, iv
         >>> mp.dps = 30
         >>> x = mpi(1, 2)._mpi_
         >>> mpi_to_str(x, 2, mode='plusminus')
@@ -550,6 +538,7 @@ def mpi_to_str(x, dps, use_spaces=True, brackets='[]', mode='brackets', error_dp
         '[1.0, 2.0]'
         >>> mpi_to_str(x, 2, mode='brackets' , brackets=('<', '>'))
         '<1.0, 2.0>'
+        >>> iv.dps = 30
         >>> x = mpi('5.2582327113062393041', '5.2582327113062749951')._mpi_
         >>> mpi_to_str(x, 15, mode='diff')
         '5.2582327113062[4, 7]'
@@ -596,7 +585,7 @@ def mpi_to_str(x, dps, use_spaces=True, brackets='[]', mode='brackets', error_dp
             b.append('')
         if a[1] == b[1]:
             if a[0] != b[0]:
-                for i in xrange(len(a[0]) + 1):
+                for i in range(len(a[0]) + 1):
                     if a[0][i] != b[0][i]:
                         break
                 s = (a[0][:i] + br1 + a[0][i:] + ',' + sp + b[0][i:] + br2
@@ -872,7 +861,7 @@ def mpci_gamma(z, prec, type=0):
         bn = abs(to_int(b2))
         absn = max(an, bn)
         gamma_size = max(0,absn*mag)
-        wp += bitcount(gamma_size)
+        wp += gamma_size.bit_length()
 
     # Assume type != 1
     if type == 1:

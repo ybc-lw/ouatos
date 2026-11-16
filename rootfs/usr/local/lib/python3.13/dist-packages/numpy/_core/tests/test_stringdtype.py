@@ -288,6 +288,15 @@ def test_string_too_large_error():
     arr = np.array(["a", "b", "c"], dtype=StringDType())
     with pytest.raises(OverflowError):
         arr * (sys.maxsize + 1)
+    arr[0] = 'b'
+    np.testing.assert_array_equal(arr, ["b", "b", "c"])
+
+    # Tries to allocate on 64 bit. On 32-bit, still above sys.maxsize.
+    out = np.empty_like(arr)
+    with pytest.raises((MemoryError, OverflowError)):
+        np.multiply(arr, 2**55, out=out)
+    out[:] = "a" * 20
+    assert_array_equal(out, "a" * 20)
 
 
 @pytest.mark.parametrize(
@@ -469,6 +478,15 @@ def test_void_cast_rejects_invalid_utf8(bad):
     arr = np.array([bad], dtype=f"V{len(bad)}")
     with pytest.raises(TypeError, match="Invalid UTF-8"):
         arr.astype(StringDType())
+
+
+@pytest.mark.parametrize("structured", ["i8,i8", "O,i8"])
+def test_structured_cast_rejected(dtype, structured):
+    match = "is a structured or subarray dtype"
+    with pytest.raises(TypeError, match=match):
+        np.zeros(1, dtype=structured).astype(dtype)
+    with pytest.raises(TypeError, match=match):
+        np.array(["a"], dtype=dtype).astype(structured)
 
 
 def test_bytes_cast_roundtrips_valid_utf8():
@@ -927,6 +945,12 @@ def test_fromiter_reused_dtype():
     assert_array_equal(arr1, arr2)
 
 
+def test_loadtxt_reused_dtype(string_list):
+    arr = np.array(string_list, dtype="T")
+    res = np.loadtxt(string_list, dtype=arr.dtype, delimiter=",")
+    assert_array_equal(res, arr)
+
+
 def test_flatiter_indexing():
     # see gh-29659
     arr = np.array(['hello', 'world'], dtype='T')
@@ -1078,6 +1102,17 @@ def test_sized_integer_casts(bitsize, signed):
                  dtype=StringDType(na_object=np.nan)).astype(idtype)
 
 
+@pytest.mark.parametrize("bitsize", [8, 16, 32, 64])
+@pytest.mark.parametrize("signed", [True, False])
+def test_integer_cast_overflow_preserves_output(bitsize, signed):
+    idtype = f"{'int' if signed else 'uint'}{bitsize}"
+    for string_dtype in ["T", "U"]:
+        out = np.array([5], dtype=idtype)
+        with pytest.raises(OverflowError):
+            out[...] = np.array([str(2**bitsize)], dtype=string_dtype)
+        assert_array_equal(out, [5])
+
+
 @pytest.mark.parametrize("typename", ["byte", "short", "int", "longlong"])
 @pytest.mark.parametrize("signed", ["", "u"])
 def test_unsized_integer_casts(typename, signed):
@@ -1164,6 +1199,12 @@ def test_string_to_bytes_invalid_ascii_error():
         np.array(["abc", "xy"], dtype="T").astype("S3"),
         np.array([b"abc", b"xy"], dtype="S3"),
     )
+
+
+def test_string_to_bytes_error_in_buffered_ufunc():
+    arr = np.full(2 * np.getbufsize(), "é", dtype="T")
+    with pytest.raises(UnicodeEncodeError):
+        np.add(arr, arr, out=np.empty(arr.shape, dtype="S4"))
 
 
 NON_NATIVE_BYTEORDER_CASES = [
@@ -1707,6 +1748,26 @@ def test_nat_conversion():
     for nat in [np.datetime64("NaT", "s"), np.timedelta64("NaT", "s")]:
         with pytest.raises(ValueError, match="string coercion is disabled"):
             np.array(["a", nat], dtype=StringDType(coerce=False))
+
+
+@pytest.mark.filterwarnings("ignore:no explicit representation of timezones")
+def test_datetime_parse_error_bounded():
+    bad_timestamps = [
+        "not-a-date-but-long-enough",
+        "2023-13-01T00:00:00",
+        "2023-02-30T00:00:00",
+        "2023-01-01T25:00:00",
+        "2023-01-01T00:60:00",
+        "2023-01-01T00:00:60",
+        "2023-01-01T00:00+25:00",
+        "2023-01-01T00:00+01:60",
+    ]
+    for bad in bad_timestamps:
+        arr = np.array([bad, "2023-01-02T00:00:00"], dtype="T")
+        for a in [arr, arr[:1]]:
+            with pytest.raises(ValueError) as excinfo:
+                a.astype("M8[s]")
+            assert "2023-01-02" not in str(excinfo.value)
 
 
 def test_growing_strings(dtype):
@@ -2928,3 +2989,12 @@ def test_nditer_distinct_allocators():
     it = np.nditer([a], flags=["refs_ok", "buffered"], op_dtypes=[b.dtype],
                    casting="unsafe")
     assert_array_equal([str(x) for x in it.copy()], a_obj.tolist())
+
+    # a string buffer written back to an object array is released
+    res = np.array(["a"] * 20, dtype=object)
+    with np.nditer([res], flags=["refs_ok", "buffered", "external_loop"],
+                   op_flags=[["readwrite"]], op_dtypes=["T"],
+                   casting="unsafe") as it:
+        for chunk in it:
+            chunk[...] = a_obj[0]
+    assert res.tolist() == [a_obj[0]] * 20
