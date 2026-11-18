@@ -18,7 +18,7 @@ Example of usage:
   event = events.Event(
       name="test_event", source=events.EventSource.WORKER, metadata={...}
   )
-  events.record(event, destination="console")
+  events.get_logging_handler(destination="console").info(event)
 
 """
 

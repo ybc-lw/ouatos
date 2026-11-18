@@ -216,7 +216,6 @@ class CustomPolicy(_Policy):
     """
     This policy takes in a lambda function that maps a given ``nn.Module`` to
     either ``False``, ``True``, or a kwarg dictionary.
-
     - If the function returns ``False`` or an empty dictionary, then the module
       does not have the API applied.
     - If the function returns ``True``, then the module has the API applied
@@ -273,7 +272,7 @@ def lambda_auto_wrap_policy(
 ) -> bool:
     """
     A convenient auto wrap policy to wrap submodules based on an arbitrary user
-    function. If ``lambda_fn(submodule) == True``, the submodule will be wrapped as
+    function. If `lambda_fn(submodule) == True``, the submodule will be wrapped as
     a `wrapper_cls` unit.
 
     Return if a module should be wrapped during auto wrapping.

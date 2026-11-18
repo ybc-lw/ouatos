@@ -110,7 +110,6 @@ SIMPLE_OPS_LIST = [
     aten.t,
     aten.gather,
     aten.neg,
-    aten.nan_to_num,
 ]
 
 for simple_op in SIMPLE_OPS_LIST:
@@ -234,9 +233,7 @@ def complex_impl(re: torch.Tensor, im: torch.Tensor) -> ComplexTensor:
 @register_complex(aten.pow)
 def pow_impl(self: ComplexTensor, exponent: ComplexTensor) -> ComplexTensor:
     out_dt, (self, exponent) = promote_tensors(self, exponent)
-    result = torch.exp(exponent * torch.log(self))
-    zero_base = (self == 0) & (exponent.real > 0)
-    return torch.where(zero_base, 0, result).to(out_dt)  # type: ignore[bad-return]
+    return torch.exp(exponent * torch.log(self)).to(out_dt)  # type: ignore[bad-return]
 
 
 @register_complex(aten.cumprod)

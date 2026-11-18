@@ -79,7 +79,6 @@ __all__ = [
     "_cslt_sparse_mm",
     "_cslt_sparse_mm_search",
     "_ctc_loss",
-    "_cudnn_attention_forward_no_dropout_inplace",
     "_cudnn_ctc_loss",
     "_cudnn_init_dropout_state",
     "_cudnn_rnn",
@@ -304,7 +303,6 @@ __all__ = [
     "_philox_key_fold_in",
     "_philox_key_split",
     "_philox_normal_",
-    "_philox_randint_",
     "_philox_uniform_",
     "_pin_memory",
     "_prelu_kernel",
@@ -318,8 +316,6 @@ __all__ = [
     "_safe_softmax",
     "_sample_dirichlet",
     "_saturate_weight_to_fp16",
-    "_scaled_addmm",
-    "_scaled_addmm_",
     "_scaled_dot_product_attention_math",
     "_scaled_dot_product_attention_math_for_mps",
     "_scaled_dot_product_cudnn_attention",
@@ -1302,21 +1298,6 @@ def _ctc_loss(
     blank: _int = 0,
     zero_infinity: _bool = False,
 ) -> tuple[Tensor, Tensor]: ...
-def _cudnn_attention_forward_no_dropout_inplace(
-    out: Tensor | None,
-    query: Tensor,
-    key: Tensor,
-    value: Tensor,
-    cum_seq_q: Tensor,
-    cum_seq_k: Tensor | None,
-    max_q: _int | SymInt,
-    max_k: _int | SymInt,
-    is_causal: _bool = False,
-    *,
-    scale: _float | None = None,
-    seqused_k: Tensor | None = None,
-    block_table: Tensor | None = None,
-) -> Tensor: ...
 @overload
 def _cudnn_ctc_loss(
     log_probs: Tensor,
@@ -1596,12 +1577,36 @@ def _foobar(
 ) -> Tensor: ...
 def _foreach_abs(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_abs_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_abs(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.abs` to each Tensor of the input list.
+    """
+
+def _foreach_abs_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_abs_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.abs` to each Tensor of the input list.
+    """
+
 def _foreach_acos(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_acos_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_acos(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.acos` to each Tensor of the input list.
+    """
+
+def _foreach_acos_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_acos_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.acos` to each Tensor of the input list.
+    """
+
 @overload
 def _foreach_add(
     self: tuple[Tensor, ...] | list[Tensor],
@@ -1630,26 +1635,26 @@ def _foreach_add(
 def _foreach_add_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalars: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_add_(
     self: tuple[Tensor, ...] | list[Tensor],
     other: tuple[Tensor, ...] | list[Tensor],
     *,
     alpha: Number | _complex | PySymType = 1,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_add_(
     self: tuple[Tensor, ...] | list[Tensor],
     other: Tensor,
     *,
     alpha: Number | _complex | PySymType = 1,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_add_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalar: Number | _complex | PySymType,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_addcdiv(
     self: tuple[Tensor, ...] | list[Tensor],
@@ -1677,21 +1682,21 @@ def _foreach_addcdiv_(
     tensor1: tuple[Tensor, ...] | list[Tensor],
     tensor2: tuple[Tensor, ...] | list[Tensor],
     scalars: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_addcdiv_(
     self: tuple[Tensor, ...] | list[Tensor],
     tensor1: tuple[Tensor, ...] | list[Tensor],
     tensor2: tuple[Tensor, ...] | list[Tensor],
     scalars: Tensor,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_addcdiv_(
     self: tuple[Tensor, ...] | list[Tensor],
     tensor1: tuple[Tensor, ...] | list[Tensor],
     tensor2: tuple[Tensor, ...] | list[Tensor],
     value: Number | _complex | PySymType = 1,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_addcmul(
     self: tuple[Tensor, ...] | list[Tensor],
@@ -1719,33 +1724,69 @@ def _foreach_addcmul_(
     tensor1: tuple[Tensor, ...] | list[Tensor],
     tensor2: tuple[Tensor, ...] | list[Tensor],
     scalars: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_addcmul_(
     self: tuple[Tensor, ...] | list[Tensor],
     tensor1: tuple[Tensor, ...] | list[Tensor],
     tensor2: tuple[Tensor, ...] | list[Tensor],
     scalars: Tensor,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_addcmul_(
     self: tuple[Tensor, ...] | list[Tensor],
     tensor1: tuple[Tensor, ...] | list[Tensor],
     tensor2: tuple[Tensor, ...] | list[Tensor],
     value: Number | _complex | PySymType = 1,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 def _foreach_asin(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_asin_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_asin(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.asin` to each Tensor of the input list.
+    """
+
+def _foreach_asin_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_asin_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.asin` to each Tensor of the input list.
+    """
+
 def _foreach_atan(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_atan_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_atan(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.atan` to each Tensor of the input list.
+    """
+
+def _foreach_atan_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_atan_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.atan` to each Tensor of the input list.
+    """
+
 def _foreach_ceil(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_ceil_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_ceil(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.ceil` to each Tensor of the input list.
+    """
+
+def _foreach_ceil_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_ceil_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.ceil` to each Tensor of the input list.
+    """
+
 @overload
 def _foreach_clamp_max(
     self: tuple[Tensor, ...] | list[Tensor],
@@ -1765,17 +1806,17 @@ def _foreach_clamp_max(
 def _foreach_clamp_max_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalars: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_clamp_max_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalar: Number | _complex | PySymType,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_clamp_max_(
     self: tuple[Tensor, ...] | list[Tensor],
     other: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_clamp_min(
     self: tuple[Tensor, ...] | list[Tensor],
@@ -1795,17 +1836,17 @@ def _foreach_clamp_min(
 def _foreach_clamp_min_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalars: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_clamp_min_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalar: Number | _complex | PySymType,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_clamp_min_(
     self: tuple[Tensor, ...] | list[Tensor],
     other: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 def _foreach_clone(
     self: tuple[Tensor, ...] | list[Tensor],
     *,
@@ -1815,15 +1856,39 @@ def _foreach_copy_(
     self: tuple[Tensor, ...] | list[Tensor],
     src: tuple[Tensor, ...] | list[Tensor],
     non_blocking: _bool = False,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 def _foreach_cos(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_cos_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_cos(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.cos` to each Tensor of the input list.
+    """
+
+def _foreach_cos_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_cos_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.cos` to each Tensor of the input list.
+    """
+
 def _foreach_cosh(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_cosh_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_cosh(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.cosh` to each Tensor of the input list.
+    """
+
+def _foreach_cosh_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_cosh_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.cosh` to each Tensor of the input list.
+    """
+
 @overload
 def _foreach_div(
     self: tuple[Tensor, ...] | list[Tensor],
@@ -1848,46 +1913,118 @@ def _foreach_div(
 def _foreach_div_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalars: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_div_(
     self: tuple[Tensor, ...] | list[Tensor],
     other: Tensor,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_div_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalar: Number | _complex | PySymType,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_div_(
     self: tuple[Tensor, ...] | list[Tensor],
     other: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 def _foreach_erf(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_erf_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_erf(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.erf` to each Tensor of the input list.
+    """
+
+def _foreach_erf_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_erf_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.erf` to each Tensor of the input list.
+    """
+
 def _foreach_erfc(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_erfc_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_erfc(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.erfc` to each Tensor of the input list.
+    """
+
+def _foreach_erfc_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_erfc_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.erfc` to each Tensor of the input list.
+    """
+
 def _foreach_exp(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_exp_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_exp(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.exp` to each Tensor of the input list.
+    """
+
+def _foreach_exp_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_exp_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.exp` to each Tensor of the input list.
+    """
+
 def _foreach_expm1(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_expm1_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_expm1(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.expm1` to each Tensor of the input list.
+    """
+
+def _foreach_expm1_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_expm1_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.expm1` to each Tensor of the input list.
+    """
+
 def _foreach_floor(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_floor_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_floor(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.floor` to each Tensor of the input list.
+    """
+
+def _foreach_floor_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_floor_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.floor` to each Tensor of the input list.
+    """
+
 def _foreach_frac(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_frac_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_frac(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.frac` to each Tensor of the input list.
+    """
+
+def _foreach_frac_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_frac_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.frac` to each Tensor of the input list.
+    """
+
 @overload
 def _foreach_lerp(
     self: tuple[Tensor, ...] | list[Tensor],
@@ -1911,39 +2048,99 @@ def _foreach_lerp_(
     self: tuple[Tensor, ...] | list[Tensor],
     tensors1: tuple[Tensor, ...] | list[Tensor],
     weight: Number | _complex | PySymType,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_lerp_(
     self: tuple[Tensor, ...] | list[Tensor],
     tensors1: tuple[Tensor, ...] | list[Tensor],
     weight: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_lerp_(
     self: tuple[Tensor, ...] | list[Tensor],
     tensors1: tuple[Tensor, ...] | list[Tensor],
     weights: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 def _foreach_lgamma(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_lgamma_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_lgamma(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.lgamma` to each Tensor of the input list.
+    """
+
+def _foreach_lgamma_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_lgamma_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.lgamma` to each Tensor of the input list.
+    """
+
 def _foreach_log(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_log(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.log` to each Tensor of the input list.
+    """
+
 def _foreach_log10(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_log10_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_log10(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.log10` to each Tensor of the input list.
+    """
+
+def _foreach_log10_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_log10_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.log10` to each Tensor of the input list.
+    """
+
 def _foreach_log1p(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_log1p_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_log1p(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.log1p` to each Tensor of the input list.
+    """
+
+def _foreach_log1p_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_log1p_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.log1p` to each Tensor of the input list.
+    """
+
 def _foreach_log2(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_log2_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
-def _foreach_log_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_log2(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.log2` to each Tensor of the input list.
+    """
+
+def _foreach_log2_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_log2_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.log2` to each Tensor of the input list.
+    """
+
+def _foreach_log_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_log_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.log` to each Tensor of the input list.
+    """
+
 def _foreach_max(
     self: tuple[Tensor, ...] | list[Tensor],
 ) -> tuple[Tensor, ...]: ...
@@ -1966,17 +2163,17 @@ def _foreach_maximum(
 def _foreach_maximum_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalars: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_maximum_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalar: Number | _complex | PySymType,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_maximum_(
     self: tuple[Tensor, ...] | list[Tensor],
     other: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_minimum(
     self: tuple[Tensor, ...] | list[Tensor],
@@ -1996,17 +2193,17 @@ def _foreach_minimum(
 def _foreach_minimum_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalars: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_minimum_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalar: Number | _complex | PySymType,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_minimum_(
     self: tuple[Tensor, ...] | list[Tensor],
     other: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 def _foreach_mm(
     self: tuple[Tensor, ...] | list[Tensor],
     mat2: tuple[Tensor, ...] | list[Tensor],
@@ -2035,26 +2232,38 @@ def _foreach_mul(
 def _foreach_mul_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalars: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_mul_(
     self: tuple[Tensor, ...] | list[Tensor],
     other: Tensor,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_mul_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalar: Number | _complex | PySymType,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_mul_(
     self: tuple[Tensor, ...] | list[Tensor],
     other: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 def _foreach_neg(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_neg_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_neg(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.neg` to each Tensor of the input list.
+    """
+
+def _foreach_neg_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_neg_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.neg` to each Tensor of the input list.
+    """
+
 def _foreach_norm(
     self: tuple[Tensor, ...] | list[Tensor],
     ord: Number | _complex | PySymType = 2,
@@ -2084,17 +2293,17 @@ def _foreach_pow(
 def _foreach_pow_(
     self: tuple[Tensor, ...] | list[Tensor],
     exponent: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_pow_(
     self: tuple[Tensor, ...] | list[Tensor],
     exponent: Number | _complex | PySymType,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_pow_(
     self: tuple[Tensor, ...] | list[Tensor],
     exponent: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 def _foreach_powsum(
     self: tuple[Tensor, ...] | list[Tensor],
     ord: Number | _complex | PySymType = 2,
@@ -2102,36 +2311,108 @@ def _foreach_powsum(
 ) -> tuple[Tensor, ...]: ...
 def _foreach_reciprocal(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_reciprocal_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_reciprocal(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.reciprocal` to each Tensor of the input list.
+    """
+
+def _foreach_reciprocal_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_reciprocal_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.reciprocal` to each Tensor of the input list.
+    """
+
 def _foreach_round(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_round_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_round(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.round` to each Tensor of the input list.
+    """
+
+def _foreach_round_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_round_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.round` to each Tensor of the input list.
+    """
+
 def _foreach_rsqrt(
     self: tuple[Tensor, ...] | list[Tensor],
 ) -> tuple[Tensor, ...]: ...
-def _foreach_rsqrt_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+def _foreach_rsqrt_(self: tuple[Tensor, ...] | list[Tensor]) -> None: ...
 def _foreach_sigmoid(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_sigmoid_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_sigmoid(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.sigmoid` to each Tensor of the input list.
+    """
+
+def _foreach_sigmoid_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_sigmoid_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.sigmoid` to each Tensor of the input list.
+    """
+
 def _foreach_sign(
     self: tuple[Tensor, ...] | list[Tensor],
 ) -> tuple[Tensor, ...]: ...
-def _foreach_sign_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+def _foreach_sign_(self: tuple[Tensor, ...] | list[Tensor]) -> None: ...
 def _foreach_sin(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_sin_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_sin(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.sin` to each Tensor of the input list.
+    """
+
+def _foreach_sin_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_sin_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.sin` to each Tensor of the input list.
+    """
+
 def _foreach_sinh(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_sinh_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_sinh(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.sinh` to each Tensor of the input list.
+    """
+
+def _foreach_sinh_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_sinh_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.sinh` to each Tensor of the input list.
+    """
+
 def _foreach_sqrt(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_sqrt_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_sqrt(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.sqrt` to each Tensor of the input list.
+    """
+
+def _foreach_sqrt_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_sqrt_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.sqrt` to each Tensor of the input list.
+    """
+
 @overload
 def _foreach_sub(
     self: tuple[Tensor, ...] | list[Tensor],
@@ -2153,32 +2434,74 @@ def _foreach_sub(
 def _foreach_sub_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalars: Sequence[Number | _complex | PySymType],
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_sub_(
     self: tuple[Tensor, ...] | list[Tensor],
     other: tuple[Tensor, ...] | list[Tensor],
     *,
     alpha: Number | _complex | PySymType = 1,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 @overload
 def _foreach_sub_(
     self: tuple[Tensor, ...] | list[Tensor],
     scalar: Number | _complex | PySymType,
-) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> None: ...
 def _foreach_tan(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_tan_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_tan(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.tan` to each Tensor of the input list.
+    """
+
+def _foreach_tan_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_tan_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.tan` to each Tensor of the input list.
+    """
+
 def _foreach_tanh(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_tanh_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_tanh(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.tanh` to each Tensor of the input list.
+    """
+
+def _foreach_tanh_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_tanh_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.tanh` to each Tensor of the input list.
+    """
+
 def _foreach_trunc(
     self: tuple[Tensor, ...] | list[Tensor],
-) -> tuple[Tensor, ...]: ...
-def _foreach_trunc_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
-def _foreach_zero_(self: tuple[Tensor, ...] | list[Tensor]) -> tuple[Tensor, ...] | list[Tensor]: ...
+) -> tuple[Tensor, ...]:
+    r"""
+    _foreach_trunc(self: List[Tensor]) -> List[Tensor]
+
+    Apply :func:`torch.trunc` to each Tensor of the input list.
+    """
+
+def _foreach_trunc_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_trunc_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.trunc` to each Tensor of the input list.
+    """
+
+def _foreach_zero_(self: tuple[Tensor, ...] | list[Tensor]) -> None:
+    r"""
+    _foreach_zero_(self: List[Tensor]) -> None
+
+    Apply :func:`torch.zero` to each Tensor of the input list.
+    """
+
 def _from_functional_tensor(t: Tensor) -> Tensor: ...
 def _functional_assert_async(
     input: Tensor,
@@ -2769,12 +3092,6 @@ def _philox_normal_(
     mean: _float = 0,
     std: _float = 1,
 ) -> Tensor: ...
-def _philox_randint_(
-    input: Tensor,
-    key: Tensor,
-    low: _int | None = None,
-    high: _int | None = None,
-) -> Tensor: ...
 def _philox_uniform_(
     input: Tensor,
     key: Tensor,
@@ -2822,39 +3139,6 @@ def _sample_dirichlet(
     generator: Generator | None = None,
 ) -> Tensor: ...
 def _saturate_weight_to_fp16(weight: Tensor) -> Tensor: ...
-def _scaled_addmm(
-    input: Tensor,
-    mat1: Tensor,
-    mat2: Tensor,
-    scale_a: tuple[Tensor, ...] | list[Tensor],
-    recipe_a: _size,
-    swizzle_a: _size,
-    scale_b: tuple[Tensor, ...] | list[Tensor],
-    recipe_b: _size,
-    swizzle_b: _size,
-    contraction_dim: _size = (),
-    *,
-    beta: Number | _complex | PySymType = 1,
-    alpha: Number | _complex | PySymType = 1,
-    use_fast_accum: _bool = False,
-    out: Tensor | None = None,
-) -> Tensor: ...
-def _scaled_addmm_(
-    input: Tensor,
-    mat1: Tensor,
-    mat2: Tensor,
-    scale_a: tuple[Tensor, ...] | list[Tensor],
-    recipe_a: _size,
-    swizzle_a: _size,
-    scale_b: tuple[Tensor, ...] | list[Tensor],
-    recipe_b: _size,
-    swizzle_b: _size,
-    contraction_dim: _size = (),
-    *,
-    beta: Number | _complex | PySymType = 1,
-    alpha: Number | _complex | PySymType = 1,
-    use_fast_accum: _bool = False,
-) -> Tensor: ...
 def _scaled_dot_product_attention_math(
     query: Tensor,
     key: Tensor,
@@ -6945,11 +7229,10 @@ def asarray(
 
     When :attr:`obj` is not a tensor, NumPy array, or DLPack capsule but implements Python's
     buffer protocol then the buffer is interpreted as an array of bytes grouped according to
-    the size of the datatype passed to the :attr:`dtype` keyword argument. If no :attr:`dtype`
-    is passed then it is inferred from the buffer's format, and an error is raised if the
-    format cannot be mapped to a PyTorch datatype, in which case :attr:`dtype` must be passed
-    explicitly. The returned tensor will have the specified (or inferred) datatype and, by
-    default, be on the CPU device and share memory with the buffer.
+    the size of the datatype passed to the :attr:`dtype` keyword argument. (If no datatype is
+    passed then the default floating point datatype is used, instead.) The returned tensor
+    will have the specified datatype (or default floating point datatype if none is specified)
+    and, by default, be on the CPU device and share memory with the buffer.
 
     When :attr:`obj` is a NumPy scalar, the returned tensor will be a 0-dimensional tensor on
     the CPU and that doesn't share its memory (i.e. ``copy=True``). By default datatype will
@@ -11435,15 +11718,6 @@ def empty(
         Floating point and complex tensors are filled with NaN, and integer tensors
         are filled with the maximum value.
 
-    .. warning::
-        For ``dtype=torch.bool``, the uninitialized bytes may hold values other
-        than ``0`` (``False``) and ``1`` (``True``), which are not valid booleans.
-        The behavior of operations that read such values is undefined: they may be
-        preserved as-is or normalized to ``1`` depending on the operation, device
-        and memory layout. Write to the tensor (e.g. with :meth:`~Tensor.fill_` or
-        :meth:`~Tensor.copy_`) before reading from it, or use :func:`torch.zeros`
-        instead.
-
     Args:
         size (int...): a sequence of integers defining the shape of the output tensor.
             Can be a variable number of arguments or a collection like a list or tuple.
@@ -11496,15 +11770,6 @@ def empty(
         nondeterministic behavior from using the data as an input to an operation.
         Floating point and complex tensors are filled with NaN, and integer tensors
         are filled with the maximum value.
-
-    .. warning::
-        For ``dtype=torch.bool``, the uninitialized bytes may hold values other
-        than ``0`` (``False``) and ``1`` (``True``), which are not valid booleans.
-        The behavior of operations that read such values is undefined: they may be
-        preserved as-is or normalized to ``1`` depending on the operation, device
-        and memory layout. Write to the tensor (e.g. with :meth:`~Tensor.fill_` or
-        :meth:`~Tensor.copy_`) before reading from it, or use :func:`torch.zeros`
-        instead.
 
     Args:
         size (int...): a sequence of integers defining the shape of the output tensor.
@@ -19228,8 +19493,7 @@ def median(input: Tensor) -> Tensor:
         compute the mean of both medians, use :func:`torch.quantile` with ``q=0.5`` instead.
 
     .. warning::
-        This function spreads the (sub)gradient evenly over every element equal to the
-        median, while ``median(dim=0)`` sends it to the element at the returned index.
+        This function produces deterministic (sub)gradients unlike ``median(dim=0)``
 
     Args:
         input (Tensor): the input tensor.
@@ -19264,9 +19528,9 @@ def median(input: Tensor) -> Tensor:
     .. warning::
         ``indices`` does not necessarily contain the first occurrence of each
         median value found, unless it is unique.
-        The exact implementation details are device-specific: CUDA returns the
-        first occurrence, while other devices may return another one.
-        Do not expect the same indices, or the same gradients, on CPU and GPU.
+        The exact implementation details are device-specific.
+        Do not expect the same result when run on CPU and GPU in general.
+        For the same reason do not expect the gradients to be deterministic.
 
     Args:
         input (Tensor): the input tensor.
@@ -19314,8 +19578,7 @@ def median(
         compute the mean of both medians, use :func:`torch.quantile` with ``q=0.5`` instead.
 
     .. warning::
-        This function spreads the (sub)gradient evenly over every element equal to the
-        median, while ``median(dim=0)`` sends it to the element at the returned index.
+        This function produces deterministic (sub)gradients unlike ``median(dim=0)``
 
     Args:
         input (Tensor): the input tensor.
@@ -19350,9 +19613,9 @@ def median(
     .. warning::
         ``indices`` does not necessarily contain the first occurrence of each
         median value found, unless it is unique.
-        The exact implementation details are device-specific: CUDA returns the
-        first occurrence, while other devices may return another one.
-        Do not expect the same indices, or the same gradients, on CPU and GPU.
+        The exact implementation details are device-specific.
+        Do not expect the same result when run on CPU and GPU in general.
+        For the same reason do not expect the gradients to be deterministic.
 
     Args:
         input (Tensor): the input tensor.

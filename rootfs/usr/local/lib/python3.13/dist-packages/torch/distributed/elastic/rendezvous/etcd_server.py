@@ -53,16 +53,14 @@ def find_free_port():
 
     for addr in addrs:
         family, type, proto, _, _ = addr
-        s = None
         try:
             s = socket.socket(family, type, proto)
             s.bind(("localhost", 0))
             s.listen(0)
             return s
         except OSError as e:
-            if s is not None:
-                s.close()
-            logger.warning("Socket creation attempt failed: %s", e)
+            s.close()  # type: ignore[possibly-undefined]
+            print(f"Socket creation attempt failed: {e}")
     raise RuntimeError("Failed to create a socket")
 
 
@@ -99,16 +97,14 @@ class EtcdServer:
     Usage
     ::
 
-     server = EtcdServer()
+     server = EtcdServer("/usr/bin/etcd", 2379, "/tmp/default.etcd")
      server.start()
      client = server.get_client()
      # use client
      server.stop()
 
     Args:
-        data_dir: directory for the etcd server data. If not provided, a
-            temporary directory is created with ``tempfile.mkdtemp()`` and
-            deleted when the server stops (or on process exit).
+        etcd_binary_path: path of etcd server binary (see above for fallback path)
     """
 
     def __init__(self, data_dir: str | None = None):
@@ -176,9 +172,7 @@ class EtcdServer:
             try:
                 data_dir = os.path.join(self._base_data_dir, str(curr_retries))
                 os.makedirs(data_dir, exist_ok=True)
-                self._start(data_dir, timeout, stderr)
-                atexit.register(stop_etcd, self._etcd_proc, self._base_data_dir)
-                return
+                return self._start(data_dir, timeout, stderr)
             except Exception as e:
                 curr_retries += 1
                 stop_etcd(self._etcd_proc)
@@ -188,6 +182,7 @@ class EtcdServer:
                 if curr_retries >= num_retries:
                     shutil.rmtree(self._base_data_dir, ignore_errors=True)
                     raise
+        atexit.register(stop_etcd, self._etcd_proc, self._base_data_dir)
 
     def _start(
         self, data_dir: str, timeout: int = 60, stderr: int | TextIO | None = None

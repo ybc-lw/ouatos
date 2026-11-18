@@ -106,11 +106,8 @@ class SymPyOps:
         value: TypedExpr,
         dtype: torch.dtype,
         src_dtype: torch.dtype | None = None,
-        use_compute_types: bool = True,
+        use_compute_types: bool = False,
     ) -> TypedExpr:
-        if not use_compute_types and dtype in (torch.float16, torch.bfloat16):
-            # Keep explicit rounding instead of folding it into a compute-type expression.
-            return NotImplemented
         return TypedExpr(value.expr, dtype)
 
     @staticmethod
@@ -361,7 +358,7 @@ class IndexPropagation(DefaultHandler):
         if isinstance(index, IndexPropVar) and index.is_symbolic:
             # If we find something we can convert into a direct indexing we do so
             # We still need to (perhaps) wrap the expression and add bound checks
-            # We want to do this "constant folding", as we don't allow fusing
+            # We want to do this "constant folding", as we don't allow to fuse
             # kernels into indirect indexing
 
             expr = sympy.sympify(index.value.expr)

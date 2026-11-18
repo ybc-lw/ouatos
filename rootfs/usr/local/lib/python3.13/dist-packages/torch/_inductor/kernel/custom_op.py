@@ -3,9 +3,9 @@
 import contextlib
 import functools
 import logging
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, cast, Protocol, TypeAlias
+from typing import Any, cast, Protocol
 from typing_extensions import NotRequired, TypedDict
 
 import torch
@@ -15,9 +15,7 @@ from torch._inductor.ir import (
     Buffer,
     FixedLayout,
     ir_node_to_tensor,
-    IRNode,
     Layout,
-    Operation,
     StorageBox,
     TensorBox,
 )
@@ -33,8 +31,6 @@ from torch._inductor.virtualized import V
 log = logging.getLogger(__name__)
 
 DEFAULT_RANGE_UPPER_BOUND = 65536
-
-_TensorInput: TypeAlias = TensorBox | Buffer | StorageBox
 
 
 class DispatchOnConfig(TypedDict):
@@ -231,10 +227,10 @@ __all__ = [
 
 
 def _extract_tensor_inputs(
-    args: tuple[object, ...],
-    kwargs: Mapping[str, object],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
     op_overload: torch._ops.OpOverload,
-) -> tuple[list[_TensorInput], dict[str, object]]:
+) -> tuple[list[Any], dict[str, Any]]:
     """Extract tensor inputs from mixed args/kwargs.
     Separates tensors (for autotuning input_nodes) from non-tensor parameters.
 
@@ -246,8 +242,8 @@ def _extract_tensor_inputs(
     Returns:
         Tuple of (tensor_inputs_list, non_tensor_kwargs)
     """
-    tensor_inputs: list[_TensorInput] = []
-    non_tensor_kwargs: dict[str, object] = {}
+    tensor_inputs = []
+    non_tensor_kwargs = {}
 
     # Get schema names and extend with fallback names for any extra args
     schema_names = [arg.name for arg in op_overload._schema.arguments]
@@ -256,13 +252,13 @@ def _extract_tensor_inputs(
     ]
 
     for i, arg in enumerate(args):
-        if isinstance(arg, _TensorInput):
+        if isinstance(arg, (TensorBox, Buffer, StorageBox)):
             tensor_inputs.append(arg)
         else:
             non_tensor_kwargs[param_names[i]] = arg
 
     for key, value in kwargs.items():
-        if isinstance(value, _TensorInput):
+        if isinstance(value, (TensorBox, Buffer, StorageBox)):
             tensor_inputs.append(value)
         else:
             non_tensor_kwargs[key] = value
@@ -271,9 +267,9 @@ def _extract_tensor_inputs(
 
 
 def _merge_config_and_runtime_kwargs(
-    config_params: Mapping[str, object],
-    runtime_kwargs: Mapping[str, object],
-) -> dict[str, object]:
+    config_params: dict[str, Any],
+    runtime_kwargs: dict[str, Any],
+) -> dict[str, Any]:
     """Merge config parameters with runtime kwargs. Config params take precedence,
     since they represent the values being autotuned.
 
@@ -284,16 +280,16 @@ def _merge_config_and_runtime_kwargs(
     Returns:
         Merged kwargs dictionary with config values taking precedence
     """
-    merged_kwargs = dict(runtime_kwargs)
+    merged_kwargs = runtime_kwargs.copy()
     merged_kwargs.update(config_params)
     return merged_kwargs
 
 
 def _adapt_user_input_gen_fns(
-    inputs: Sequence[object],
+    inputs: list[Any],
     op_overload: torch._ops.OpOverload,
-    user_input_gen_fns: Mapping[str, Callable[[torch.Tensor], torch.Tensor]],
-) -> dict[int, Callable[[IRNode], torch.Tensor]]:
+    user_input_gen_fns: dict[str, Callable[[torch.Tensor], torch.Tensor]],
+) -> dict[int, Callable[[Any], torch.Tensor]]:
     """Convert user input generators from name-based to index-based format.
     Inductor autotune's input_gen_fns expects index of arg_names as key.
     """
@@ -312,11 +308,11 @@ def _adapt_user_input_gen_fns(
 
     def create_internal_input_gen_fn(
         user_function: Callable[[torch.Tensor], torch.Tensor], arg_name: str
-    ) -> Callable[[IRNode], torch.Tensor]:
-        """Create internal input generator that converts an IR node to a fake tensor."""
+    ) -> Callable[[Any], torch.Tensor]:
+        """Create internal input generator that converts IR buffer to user's fake tensor."""
 
-        def internal_input_gen_fn(ir_node: IRNode) -> torch.Tensor:
-            fake_tensor = ir_node_to_tensor(ir_node, replace_symbols_with_hints=True)
+        def internal_input_gen_fn(ir_buffer: Any) -> torch.Tensor:
+            fake_tensor = ir_node_to_tensor(ir_buffer, replace_symbols_with_hints=True)
             if fake_tensor is None:
                 raise AssertionError("ir_node_to_tensor returned None")
             return user_function(fake_tensor)
@@ -476,7 +472,6 @@ def autotune_custom_op(
     config_patches_list: list[dict[str, Any]] | None = None,
     min_speedup_threshold: float = 1.0,
     benchmark_with_cudagraphs: bool = False,
-    include_fallback: bool = True,
 ) -> tuple[TensorBox, _AutotuneChoice]:
     """Autotune custom operations by comparing multiple decomposition implementations.
 
@@ -496,7 +491,6 @@ def autotune_custom_op(
         user_input_gen_fns: Optional custom input generators for benchmarking.
                            Maps input indices to functions that take fake tensors
                            and return real tensors for performance measurement.
-        include_fallback: Include the custom op itself as an external fallback choice.
 
     Returns:
         Tuple of (IR node representing the optimized operation result, winning choice)
@@ -520,7 +514,7 @@ def autotune_custom_op(
         )
 
     # Convert user input generation functions BEFORE creating choices
-    input_gen_fns: dict[int, Callable[[IRNode], torch.Tensor]] = {}
+    input_gen_fns: dict[int, Callable[[Any], torch.Tensor]] = {}
     if user_input_gen_fns:
         input_gen_fns = _adapt_user_input_gen_fns(
             inputs, op_overload, user_input_gen_fns
@@ -537,33 +531,32 @@ def autotune_custom_op(
         config_patches_list=config_patches_list,
     )
 
+    # Add fallback choice that calls the op eagerly (not through inductor lowering)
+    # This provides a baseline to compare decompositions against
     from torch._inductor import config
 
-    if include_fallback:
-        # Add the custom op itself as an external choice. This provides a
-        # baseline for ordinary custom-op users.
-        fallback_kwargs = non_tensor_args[0] if non_tensor_args else {}
+    fallback_kwargs = non_tensor_args[0] if non_tensor_args else {}
 
-        with V.fake_mode:
-            # pyrefly: ignore [no-matching-overload]
-            fake_inputs = [ir_node_to_tensor(inp) for inp in inputs]
-            fake_output = op_overload(*fake_inputs, **fallback_kwargs)
+    with V.fake_mode:
+        # pyrefly: ignore [no-matching-overload]
+        fake_inputs = [ir_node_to_tensor(inp) for inp in inputs]
+        fake_output = op_overload(*fake_inputs, **fallback_kwargs)
 
-        output_size = tuple(convert_symint_to_expr(s) for s in fake_output.shape)
-        output_stride = tuple(convert_symint_to_expr(s) for s in fake_output.stride())
+    output_size = tuple(convert_symint_to_expr(s) for s in fake_output.shape)
+    output_stride = tuple(convert_symint_to_expr(s) for s in fake_output.stride())
 
-        fallback_choice = _create_fallback_choice(op_overload)
-        fallback_choice.maybe_append_choice(
-            choices=choices,
-            input_nodes=list(inputs),
-            layout=FixedLayout(
-                device=fake_output.device,
-                dtype=fake_output.dtype,
-                size=output_size,
-                stride=output_stride,
-            ),
-            **fallback_kwargs,
-        )
+    fallback_choice = _create_fallback_choice(op_overload)
+    fallback_choice.maybe_append_choice(
+        choices=choices,
+        input_nodes=list(inputs),
+        layout=FixedLayout(
+            device=fake_output.device,
+            dtype=fake_output.dtype,
+            size=output_size,
+            stride=output_stride,
+        ),
+        **fallback_kwargs,
+    )
 
     if not choices:
         raise RuntimeError(f"No valid choices generated for {name}")
@@ -638,7 +631,7 @@ def autotune_custom_op(
 
 
 def _generate_dynamic_configs(
-    tensor_inputs: Sequence[_TensorInput],
+    tensor_inputs: list[Buffer],
     config_generator: Callable[[dict[str, torch.Tensor]], list[CustomOpConfig]],
     op_overload: torch._ops.OpOverload,
     operation_name: str,
@@ -673,12 +666,12 @@ def _generate_dynamic_configs(
 def _prepare_configs_and_decompositions(
     processed_configs: list[CustomOpConfig] | None,
     config_generator: Callable[[dict[str, torch.Tensor]], list[CustomOpConfig]] | None,
-    tensor_inputs: Sequence[_TensorInput],
+    tensor_inputs: list[Any],
     default_impl: Callable[..., Any],
     op_overload: torch._ops.OpOverload,
-    runtime_kwargs: Mapping[str, object],
+    runtime_kwargs: dict[str, Any],
     name: str,
-) -> tuple[list[Callable[..., Any]], list[dict[str, object]], list[dict[str, object]]]:
+) -> tuple[list[Callable], list[dict[str, Any]], list[dict[str, Any]]]:
     """Prepare decompositions and merged kwargs from configs.
 
     Handles both static configs and dynamic config generation.
@@ -697,7 +690,7 @@ def _prepare_configs_and_decompositions(
     # Prepare decompositions and kwargs for autotuning
     decompositions = []
     non_tensor_args = []
-    config_patches_list: list[dict[str, object]] = []
+    config_patches_list = []
 
     for cfg in configs_to_use:
         decomp = cfg.get_decomposition(default_impl=default_impl)
@@ -719,14 +712,13 @@ def _standard_lowering_fn(
     name: str,
     op_overload: torch._ops.OpOverload,
     input_gen_fns: dict[str, Callable[[torch.Tensor], torch.Tensor]] | None,
-    tensor_inputs: Sequence[_TensorInput],
-    runtime_kwargs: Mapping[str, object],
+    tensor_inputs: list[Any],
+    runtime_kwargs: dict[str, Any],
     config_generator: Callable[[dict[str, torch.Tensor]], list[CustomOpConfig]]
     | None = None,
     min_speedup_threshold: float = 1.0,
     benchmark_with_cudagraphs: bool = False,
-    include_fallback: bool = True,
-) -> TensorBox | None:
+) -> Any:
     """Standard autotuning lowering function.
 
     Returns None if no configs/decompositions available, signaling caller to
@@ -751,14 +743,13 @@ def _standard_lowering_fn(
     result, _ = autotune_custom_op(
         name=name,
         decompositions=decompositions,
-        inputs=cast(list[torch.fx.Node], list(tensor_inputs)),
+        inputs=tensor_inputs,
         non_tensor_args=non_tensor_args,
         config_patches_list=config_patches_list,
         op_overload=op_overload,
         user_input_gen_fns=input_gen_fns,
         min_speedup_threshold=min_speedup_threshold,
         benchmark_with_cudagraphs=benchmark_with_cudagraphs,
-        include_fallback=include_fallback,
     )
 
     validate_ir(result)
@@ -766,15 +757,13 @@ def _standard_lowering_fn(
 
 
 def _apply_config_patches_recursive(
-    operations: Sequence[Operation],
-    config_patches: Mapping[str, object],
+    operations: list,
+    config_patches: dict[str, Any],
 ) -> None:
     """Apply config_patches to operations, including those inside subgraphs."""
     for op in operations:
-        if not isinstance(op, IRNode):
-            raise AssertionError(f"Expected IRNode operation, got {type(op)}")
         if hasattr(op, "set_config_patches"):
-            op.set_config_patches(dict(config_patches))
+            op.set_config_patches(config_patches.copy())
 
         # Recurse into any subgraphs (Switch, WhileLoop, InvokeSubgraph, etc.)
         for subgraph in op.get_subgraphs():
@@ -786,12 +775,12 @@ def _apply_config_patches_recursive(
 
 def _lower_single_impl(
     impl: Callable[..., Any],
-    impl_kwargs: Mapping[str, object],
-    runtime_kwargs: Mapping[str, object],
-    tensor_inputs: Sequence[_TensorInput],
+    impl_kwargs: dict[str, Any],
+    runtime_kwargs: dict[str, Any],
+    tensor_inputs: list[Any],
     name: str,
-    config_patches: Mapping[str, object] | None = None,
-) -> TensorBox | None:
+    config_patches: dict[str, Any] | None = None,
+) -> Any:
     """Lower a single implementation by tracing and inlining it.
 
     Uses error_on_new_guards() during tracing to detect if the impl adds guards.
@@ -805,7 +794,7 @@ def _lower_single_impl(
 
     merged_kwargs = _merge_config_and_runtime_kwargs(impl_kwargs, runtime_kwargs)
 
-    def impl_wrapper(*tensors: torch.Tensor) -> Any:
+    def impl_wrapper(*tensors):
         return impl(*tensors, **merged_kwargs)
 
     shape_env = V.fake_mode.shape_env
@@ -842,9 +831,7 @@ def _lower_single_impl(
 
     log.info("Inlining implementation: %s", impl.__name__)
     ops_before = len(V.graph.operations)
-    result = inline_subgraph_to_ir_nodes(impl_gm, list(tensor_inputs), name)
-    if not isinstance(result, TensorBox):
-        raise AssertionError(f"Expected TensorBox, got {type(result)}")
+    result = inline_subgraph_to_ir_nodes(impl_gm, tensor_inputs, name)
 
     if config_patches:
         _apply_config_patches_recursive(V.graph.operations[ops_before:], config_patches)
@@ -862,15 +849,14 @@ def _range_based_lowering_fn(
     tensor_name: str,
     dim_index: int,
     ranges: list[tuple[int, int | float]],
-    tensor_inputs: Sequence[_TensorInput],
-    runtime_kwargs: Mapping[str, object],
+    tensor_inputs: list[Any],
+    runtime_kwargs: dict[str, Any],
     range_upper_bound: int,
     config_generator: Callable[[dict[str, torch.Tensor]], list[CustomOpConfig]]
     | None = None,
     min_speedup_threshold: float = 1.0,
     benchmark_with_cudagraphs: bool = False,
-    include_fallback: bool = True,
-) -> TensorBox | None:
+) -> Any:
     """Range-based autotuning lowering function."""
     from torch._inductor.codegen.subgraph import inline_subgraph_to_ir_nodes
     from torch.fx.experimental.proxy_tensor import make_fx
@@ -912,14 +898,13 @@ def _range_based_lowering_fn(
         autotuned_result, winning_choice = autotune_custom_op(
             name=range_name,
             decompositions=decompositions,
-            inputs=cast(list[torch.fx.Node], list(tensor_inputs)),
+            inputs=tensor_inputs,
             non_tensor_args=non_tensor_args,
             op_overload=op_overload,
             user_input_gen_fns=range_input_gen_fns,
             min_speedup_threshold=min_speedup_threshold,
             benchmark_with_cudagraphs=benchmark_with_cudagraphs,
             config_patches_list=config_patches_list,
-            include_fallback=include_fallback,
         )
 
         if winning_choice.decomposition is not None:
@@ -975,7 +960,7 @@ def _range_based_lowering_fn(
             config_patches=group.config_patches,
         )
 
-    def dispatch_fn(*fake_tensors: torch.Tensor) -> Any:
+    def dispatch_fn(*fake_tensors):
         """Build nested torch.cond dispatch: cond(pred1, impl1, cond(pred2, impl2, ...))."""
         num_impl_groups = len(impl_groups)
         if num_impl_groups < 2:
@@ -999,7 +984,7 @@ def _range_based_lowering_fn(
                 result = result | pred
             return result  # pyrefly: ignore [bad-return]
 
-        def build_nested_cond(idx: int) -> Callable[..., Any]:
+        def build_nested_cond(idx: int):
             if idx >= num_impl_groups:
                 raise RuntimeError(f"Invalid impl group index: {idx}")
 
@@ -1009,7 +994,7 @@ def _range_based_lowering_fn(
             )
 
             @torch._dynamo.dont_skip_tracing
-            def group_fn(*ops: torch.Tensor) -> Any:
+            def group_fn(*ops):
                 return group.impl_func(*ops, **merged_kwargs)
 
             if idx == num_impl_groups - 1:
@@ -1018,9 +1003,7 @@ def _range_based_lowering_fn(
             next_fn = build_nested_cond(idx + 1)
 
             @torch._dynamo.dont_skip_tracing
-            def cond_wrapper(
-                *ops: torch.Tensor, _ranges: list[RangeBounds] = group.ranges
-            ) -> Any:
+            def cond_wrapper(*ops, _ranges=group.ranges):
                 return torch.cond(
                     pred=build_range_predicate(_ranges),
                     true_fn=group_fn,
@@ -1071,15 +1054,11 @@ def _range_based_lowering_fn(
             raise
 
     ops_before = len(V.graph.operations)
-    result = inline_subgraph_to_ir_nodes(
-        dispatch_gm, list(tensor_inputs), f"{name}_dispatch"
-    )
-    if not isinstance(result, TensorBox):
-        raise AssertionError(f"Expected TensorBox, got {type(result)}")
+    result = inline_subgraph_to_ir_nodes(dispatch_gm, tensor_inputs, f"{name}_dispatch")
 
     # Apply config_patches from all impl groups to inlined operations
     # TODO - consider conflicting patches
-    merged_patches: dict[str, object] = {}
+    merged_patches: dict[str, Any] = {}
     for group in impl_groups:
         merged_patches.update(group.config_patches)
     if merged_patches:
@@ -1107,7 +1086,6 @@ def _create_autotuning_lowering(
     split_points: list[int] | None = None,
     min_speedup_threshold: float = 1.0,
     benchmark_with_cudagraphs: bool = False,
-    include_fallback: bool = True,
 ) -> Callable[..., Any]:
     """Create the lowering function for autotuning."""
     if not is_range_based:
@@ -1128,7 +1106,6 @@ def _create_autotuning_lowering(
                 config_generator=config_generator,
                 min_speedup_threshold=min_speedup_threshold,
                 benchmark_with_cudagraphs=benchmark_with_cudagraphs,
-                include_fallback=include_fallback,
             )
 
         return standard_lowering_wrapper
@@ -1159,7 +1136,6 @@ def _create_autotuning_lowering(
             config_generator=config_generator,
             min_speedup_threshold=min_speedup_threshold,
             benchmark_with_cudagraphs=benchmark_with_cudagraphs,
-            include_fallback=include_fallback,
         )
 
     return range_based_lowering_wrapper
@@ -1176,7 +1152,6 @@ def register_custom_op_autotuning(
     split_points: list[int] | None = None,
     min_speedup_threshold: float = 1.0,
     benchmark_with_cudagraphs: bool = False,
-    include_fallback: bool = True,
 ) -> None:
     """Register custom op for autotuning with custom_op configs where each config
     specifies a decomposition implementation function with its parameter values.
@@ -1204,8 +1179,6 @@ def register_custom_op_autotuning(
             to require 10% speedup over fallback.
         benchmark_with_cudagraphs: If True, benchmark the fallback kernel using CUDA graph
             capture and replay for fair comparison with compiled kernels. Default is False.
-        include_fallback: Include the custom op itself as an external fallback
-            choice. Default is True.
 
     The default/fallback implementation is automatically derived:
     - For CustomOpDef: Uses the decorated function
@@ -1367,7 +1340,6 @@ def register_custom_op_autotuning(
         range_upper_bound=range_upper_bound,
         min_speedup_threshold=min_speedup_threshold,
         benchmark_with_cudagraphs=benchmark_with_cudagraphs,
-        include_fallback=include_fallback,
     )
 
     # Register in user_lowerings which takes priority over built-in lowerings

@@ -92,14 +92,14 @@ if(0)
   endif()
 endif()
 
-if(0)
+if(OFF)
   # Add current directory to module path so we pick up FindSYCLToolkit.cmake
   set(old_CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}")
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
   include("${CMAKE_CURRENT_LIST_DIR}/public/xpu.cmake")
   set(CMAKE_MODULE_PATH "${old_CMAKE_MODULE_PATH}")
 
-  if(0 AND NOT PYTORCH_FOUND_XPU)
+  if(OFF AND NOT PYTORCH_FOUND_XPU)
     message(FATAL_ERROR
       "Your installed Caffe2 version uses XPU but I cannot find the XPU runtime"
       "libraries. Please set the proper oneAPI paths and / or install "

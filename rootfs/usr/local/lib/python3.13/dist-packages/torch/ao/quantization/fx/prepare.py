@@ -4,7 +4,7 @@ import warnings
 from typing import Any
 
 import torch
-from torch._subclasses.fake_tensor import is_fake_tensor
+from torch._subclasses import FakeTensor
 from torch.ao.quantization import (
     ObserverBase,
     ObserverOrFakeQuantize,
@@ -1646,9 +1646,8 @@ def insert_observers_for_model(
 
             this_node_dtype_info = node.meta["target_dtype_info"]
             if "val" in node.meta:
-                output_is_a_tensor = (
-                    this_node_dtype_info is not None
-                    and is_fake_tensor(node.meta["val"])
+                output_is_a_tensor = this_node_dtype_info is not None and isinstance(
+                    node.meta["val"], FakeTensor
                 )
             else:
                 output_is_a_tensor = this_node_dtype_info is not None

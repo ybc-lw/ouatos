@@ -11,7 +11,6 @@ from torch.fx.experimental.symbolic_shapes import (
 
 from .. import config
 from ..pattern_matcher import Arg, CallFunction, Match, register_graph_pattern
-from ..utils import is_bf16x9_matmul
 from .split_cat import construct_pattern_matcher_pass
 
 
@@ -65,11 +64,7 @@ def should_decompose_bmm(mat1, mat2) -> bool:
         mat2 = mat2.meta["val"]
     else:
         return False
-    if (
-        len(mat1.shape) != 3
-        or len(mat2.shape) != 3
-        or is_bf16x9_matmul(mat1.device.type, mat1.dtype)
-    ):
+    if len(mat1.shape) != 3 or len(mat2.shape) != 3:
         return False
     if check_device(mat1, mat2, device="cuda") or check_device(
         mat1, mat2, device="xpu"
@@ -87,20 +82,6 @@ def should_decompose_bmm(mat1, mat2) -> bool:
             return False
         return True
     elif check_device(mat1, mat2, device="cpu"):
-        if config.post_grad_fusion_options["decompose_mm_pass"].get(
-            "bmm_skip_dynamic_shape_dim_check", False
-        ):
-            return (
-                statically_known_true(
-                    mat1.shape[1] <= cpu_max_other_dimension_decomposition
-                )
-                and statically_known_true(
-                    mat1.shape[2] <= cpu_max_other_dimension_decomposition
-                )
-                and statically_known_true(
-                    mat2.shape[2] <= cpu_max_other_dimension_decomposition
-                )
-            )
         if (
             mat1.shape[0] <= cpu_max_first_dimension_decomposition
             and mat2.shape[0] <= cpu_max_first_dimension_decomposition
@@ -144,11 +125,7 @@ def should_decompose_mm(mat1, mat2) -> bool:
         mat2 = mat2.meta["val"]
     else:
         return False
-    if (
-        len(mat1.shape) != 2
-        or len(mat2.shape) != 2
-        or is_bf16x9_matmul(mat1.device.type, mat1.dtype)
-    ):
+    if len(mat1.shape) != 2 or len(mat2.shape) != 2:
         return False
     # case 1: we skip decompose mm if the input is dynamic shape
     if not config.post_grad_fusion_options["decompose_mm_pass"].get(
@@ -264,8 +241,7 @@ def decompose_bmm(match: Match, mat1: torch.fx.Node, mat2: torch.fx.Node):
 
 
 @register_graph_pattern(
-    # The matcher drops kwargs a pattern doesn't declare; pin beta/alpha to what repl computes
-    CallFunction(aten.addmm, Arg(), Arg(), Arg(), beta=1, alpha=1),
+    CallFunction(aten.addmm, Arg(), Arg(), Arg()),
     pass_dict=construct_pattern_matcher_pass("decompose_mm_pass"),
 )
 def decompose_addmm(

@@ -20,7 +20,7 @@ endif()
 # Finalize the setting as a CACHE variable so it appears in cache files
 set(XPU_SYCL_COMPILER "${XPU_SYCL_COMPILER}" CACHE STRING "SYCL compiler to use")
 
-set(XPU_HOST_CXX_DEFINITIONS)
+set(XPU_HOST_CXX_FLAGS)
 
 # Find SYCL library.
 find_package(SYCLToolkit REQUIRED)
@@ -33,7 +33,7 @@ if(NOT SYCL_FOUND)
       "If you want to build without XPU, please set USE_XPU=0.")
   endif()
   set(PYTORCH_FOUND_XPU FALSE)
-  # Exit early to avoid populating XPU_HOST_CXX_DEFINITIONS.
+  # Exit early to avoid populating XPU_HOST_CXX_FLAGS.
   return()
 endif()
 set(PYTORCH_FOUND_XPU TRUE)
@@ -68,8 +68,8 @@ set(TORCH_XPU_ARCH_LIST ${XPU_ARCH_FLAGS})
 list(APPEND SYCL_FLAGS -std=c++20)
 
 # Ensure USE_XPU is enabled.
-list(APPEND XPU_HOST_CXX_DEFINITIONS "USE_XPU")
-list(APPEND XPU_HOST_CXX_DEFINITIONS "SYCL_COMPILER_VERSION=${SYCL_COMPILER_VERSION}")
+string(APPEND XPU_HOST_CXX_FLAGS " -DUSE_XPU")
+string(APPEND XPU_HOST_CXX_FLAGS " -DSYCL_COMPILER_VERSION=${SYCL_COMPILER_VERSION}")
 
 if(DEFINED ENV{XPU_ENABLE_KINETO})
   set(XPU_ENABLE_KINETO $ENV{XPU_ENABLE_KINETO})

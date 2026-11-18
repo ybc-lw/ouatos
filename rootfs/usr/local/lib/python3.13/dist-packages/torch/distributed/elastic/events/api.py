@@ -49,7 +49,6 @@ class Event:
 
     @staticmethod
     def deserialize(data: Union[str, "Event"]) -> "Event":
-        """Return a ``Event`` from a JSON string; ``Event`` inputs are returned as is."""
         if isinstance(data, Event):
             return data
         if isinstance(data, str):
@@ -59,7 +58,6 @@ class Event:
         return Event(**data_dict)
 
     def serialize(self) -> str:
-        """Return the event as a JSON string."""
         return json.dumps(asdict(self))
 
 
@@ -106,7 +104,6 @@ class RdzvEvent:
 
     @staticmethod
     def deserialize(data: Union[str, "RdzvEvent"]) -> "RdzvEvent":
-        """Return a ``RdzvEvent`` from a JSON string; ``RdzvEvent`` inputs are returned as is."""
         if isinstance(data, RdzvEvent):
             return data
         if isinstance(data, str):
@@ -116,5 +113,4 @@ class RdzvEvent:
         return RdzvEvent(**data_dict)
 
     def serialize(self) -> str:
-        """Return the event as a JSON string."""
         return json.dumps(asdict(self))

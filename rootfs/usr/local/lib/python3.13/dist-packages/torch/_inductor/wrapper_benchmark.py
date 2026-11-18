@@ -1,9 +1,7 @@
 import argparse
 import datetime
-import os
 import tempfile
 from collections import defaultdict
-from collections.abc import Sequence
 from dataclasses import dataclass
 from types import ModuleType
 from typing import Any, Protocol
@@ -33,7 +31,7 @@ _kernel_category_choices = [
 def get_kernel_category_by_source_code(src_code: str) -> str:
     """
     Similar to get_kernel_category but use the source code. Call this API
-    if we have not compiled the src_code to module yet.
+    if we have not compile the src_code to module yet.
     """
     choices = [
         ch for ch in _kernel_category_choices if f"@triton_heuristics.{ch}" in src_code
@@ -78,9 +76,7 @@ def get_triton_kernel(mod: ModuleType):  # type: ignore[no-untyped-def]
 
 
 def benchmark_all_kernels(
-    benchmark_name: str,
-    benchmark_all_configs: dict[Any, Any] | None,
-    kernel_modules: Sequence[str] = (),
+    benchmark_name: str, benchmark_all_configs: dict[Any, Any] | None
 ) -> None:
     """
     An experimental API used only when config.benchmark_kernel is true.
@@ -91,19 +87,7 @@ def benchmark_all_kernels(
     Put this method here rather than codegen it for convenience since its implementation
     does not change based on different graph modules being compiled.
     """
-    from torch._inductor.codecache import get_path, PyCodeCache
-
-    # The cache keys of the modules a module-level kernel's harness stays in, which
-    # nothing else loads when the wrapper runs as a script. Loaded by async_compile, they
-    # would be precompiled, which benchmark_all_configs needs for its launchers.
-    for key in kernel_modules:
-        path = get_path(key, "py")[2]
-        # e.g. an FX graph cache hit served from TritonBundler writes no kernel module.
-        if not os.path.exists(path):
-            print(f"Skipping kernel module {key}: {path} is not in this cache dir")
-            continue
-        mod = PyCodeCache.load_by_key_path(key, path)
-        get_triton_kernel(mod).precompile()
+    from torch._inductor.codecache import PyCodeCache
 
     nfound = 0
     for kernel_mod in PyCodeCache.modules:
@@ -128,12 +112,12 @@ def benchmark_all_kernels(
 
         def get_info_str(
             ms: float,
-            n_regs: int | None,
-            n_spills: int | None,
-            shared: int | None,
+            n_regs: Any | None,
+            n_spills: Any | None,
+            shared: Any | None,
             prefix: str = "",
         ) -> str:
-            if n_regs is not None and n_spills is not None and shared is not None:
+            if not any(x is None for x in [n_regs, n_spills, shared]):
                 kernel_detail_str = (
                     f"  {n_regs:3} regs  {n_spills:3} spills  {shared:8} shared mem"
                 )
@@ -434,9 +418,7 @@ def collect_memory_snapshot(
 # Dynamo from reentering
 @torch.compiler.disable  # type: ignore[misc]
 def compiled_module_main(
-    benchmark_name: str,
-    benchmark_compiled_module_fn: BenchmarkCallableType,
-    kernel_modules: Sequence[str] = (),
+    benchmark_name: str, benchmark_compiled_module_fn: BenchmarkCallableType
 ) -> None:
     """
     This is the function called in __main__ block of a compiled module.
@@ -511,8 +493,7 @@ def compiled_module_main(
     args = parser.parse_args()
 
     if args.benchmark_kernels:
-        all_configs = args.benchmark_all_configs
-        benchmark_all_kernels(benchmark_name, all_configs, kernel_modules)
+        benchmark_all_kernels(benchmark_name, args.benchmark_all_configs)
     else:
         times = args.times
         repeat = args.repeat

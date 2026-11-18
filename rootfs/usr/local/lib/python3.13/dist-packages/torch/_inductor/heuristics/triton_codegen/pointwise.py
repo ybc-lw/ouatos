@@ -202,7 +202,7 @@ class XPUPointwiseHeuristic(PointwiseHeuristic):
         )
         if len(configs) > 1:
             configs.append(
-                # intel-xpu-backend-for-triton #5124
+                # intel-xpu-backend-for-triton #5133
                 triton_config_fn(size_hints, 32)
             )
         return configs

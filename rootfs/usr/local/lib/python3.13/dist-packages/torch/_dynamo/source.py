@@ -128,7 +128,7 @@ def _get_source_debug_name(source: Source | None) -> str:
             return "<unknown source>"
 
 
-def _esc_str(s: object, apply_repr: bool = False) -> str:
+def _esc_str(s: Any, apply_repr: bool = False) -> str:
     """
     Escapes curly brackets for format strings.
     e.g. "frozenset({0})" becomes "frozenset({{0}})".
@@ -152,7 +152,7 @@ class LocalSource(Source):
 
     # Whether we know this input is dynamic (based on example_inputs)
     # For non tensors, we simply look at the first index of the tuple
-    dynamism: frozenset[tuple[str, tuple[bool, ...]]] | None = None
+    dynamism: frozenset[str] | None = None
 
     # Whether the item at this source is the _content_ of a cell that is
     # dereferenced from the root frame, i.e., it's a part of the `co_cellvars`
@@ -393,22 +393,6 @@ class TypeDictSource(ChainedSource):
         # forcefully pass a dict object to ensure that the GuardManager
         # registers that it's working on a dict object.
         return "dict({0}.__dict__)"
-
-
-# The mapping wrapped by a types.MappingProxyType. Python exposes it only
-# through the GC: a mappingproxy's single referent is its mapping.
-@dataclass_with_cached_hash(frozen=True)
-class MappingProxyMappingSource(ChainedSource):
-    def reconstruct(self, codegen: "PyCodegen") -> None:
-        codegen.add_push_null(lambda: codegen.load_import_from("gc", "get_referents"))
-        codegen(self.base)
-        codegen.extend_output(create_call_function(1, False))
-        codegen.append_output(codegen.create_load_const(0))
-        codegen.append_output(create_binary_subscr())
-
-    @property
-    def _name_template(self) -> str:
-        return "__import__('gc').get_referents({0})[0]"
 
 
 # Represents obj.__mro__ where object is type object
@@ -745,32 +729,6 @@ class DefaultsSource(ChainedSource):
         codegen.append_output(codegen.create_load_const(self.idx_key))
         codegen.append_output(create_binary_subscr())
 
-    def get_value(
-        self,
-        globals: dict[str, Any],
-        locals: dict[str, Any],
-        cache: dict[Source, Any],
-        *,
-        on_error: Callable[[Source, Any, Exception], None] | None = None,
-    ) -> Any:
-        if self in cache:
-            return cache[self]
-        base_value = self.base.get_value(globals, locals, cache, on_error=on_error)
-        try:
-            defaults = getattr(base_value, self.field)
-        except AttributeError as error:
-            if on_error is not None:
-                on_error(self, base_value, error)
-            raise
-        try:
-            value = defaults[self.idx_key]
-        except Exception as error:
-            if on_error is not None:
-                on_error(self, defaults, error)
-            raise
-        cache[self] = value
-        return value
-
     @functools.cached_property
     def _name_template(self) -> str:
         return self._name
@@ -778,7 +736,7 @@ class DefaultsSource(ChainedSource):
 
 @dataclass_with_cached_hash(frozen=True)
 class GetItemSource(ChainedSource):
-    index: object
+    index: Any
     index_is_slice: bool = False
 
     def __post_init__(self) -> None:
@@ -800,13 +758,6 @@ class GetItemSource(ChainedSource):
     def unpack_slice(self) -> slice:
         if not self.index_is_slice:
             raise AssertionError("unpack_slice called but index is not a slice")
-        if not (
-            isinstance(self.index, tuple)
-            and len(self.index) == 2
-            and self.index[0] is slice
-            and isinstance(self.index[1], tuple)
-        ):
-            raise AssertionError(f"Expected an encoded slice, got {self.index!r}")
         slice_class, slice_args = self.index
         return slice_class(*slice_args)
 
@@ -827,7 +778,7 @@ class GetItemSource(ChainedSource):
 
 @dataclass_with_cached_hash(frozen=True)
 class ConstDictKeySource(ChainedSource):
-    index: int
+    index: Any
 
     def reconstruct(self, codegen: "PyCodegen") -> None:
         codegen.add_push_null(
@@ -871,18 +822,12 @@ class NonSerializableSetGetItemSource(ChainedSource):
         globals: dict[str, Any],
         locals: dict[str, Any],
         cache: dict[Source, Any],
-        *,
-        on_error: Callable[[Source, Any, Exception], None] | None = None,
     ) -> Any:
         if self in cache:
             return cache[self]
-        base_value = self.base.get_value(globals, locals, cache, on_error=on_error)
-        try:
-            value = utils.set_getitem(base_value, self.index)
-        except Exception as error:
-            if on_error is not None:
-                on_error(self, base_value, error)
-            raise
+        value = utils.set_getitem(
+            self.base.get_value(globals, locals, cache), self.index
+        )
         cache[self] = value
         return value
 
@@ -901,7 +846,7 @@ class DictGetItemSource(ChainedSource):
     # Key to access in the dictionary. It can be one of the following types
     # 1) ConstDictKeySource
     # 2) constant - like string, integer
-    index: object
+    index: Any
 
     def __post_init__(self) -> None:
         from .variables import ConstantVariable
@@ -932,31 +877,6 @@ class DictGetItemSource(ChainedSource):
             index = repr(self.index)
         return f"{base}[{index}]"
 
-    def get_value(
-        self,
-        globals: dict[str, Any],
-        locals: dict[str, Any],
-        cache: dict[Source, Any],
-        *,
-        on_error: Callable[[Source, Any, Exception], None] | None = None,
-    ) -> Any:
-        if self in cache:
-            return cache[self]
-        base_value = self.base.get_value(globals, locals, cache, on_error=on_error)
-        index = (
-            self.index.get_value(globals, locals, cache, on_error=on_error)
-            if isinstance(self.index, Source)
-            else self.index
-        )
-        try:
-            value = base_value[index]
-        except Exception as error:
-            if on_error is not None:
-                on_error(self, base_value, error)
-            raise
-        cache[self] = value
-        return value
-
     @functools.cached_property
     def _name_template(self) -> str:
         if isinstance(self.index, ConstDictKeySource):
@@ -972,7 +892,7 @@ class DictSubclassGetItemSource(ChainedSource):
     # Key to access in the dictionary. It can be one of the following types
     # 1) ConstDictKeySource
     # 2) constant - like string, integer
-    index: object
+    index: Any
 
     def __post_init__(self) -> None:
         from .variables import ConstantVariable
@@ -1002,34 +922,6 @@ class DictSubclassGetItemSource(ChainedSource):
             codegen.append_output(codegen.create_load_const(self.index))
 
         codegen.extend_output(create_call_function(2, False))
-
-    def get_value(
-        self,
-        globals: dict[str, Any],
-        locals: dict[str, Any],
-        cache: dict[Source, Any],
-        *,
-        on_error: Callable[[Source, Any, Exception], None] | None = None,
-    ) -> Any:
-        if self in cache:
-            return cache[self]
-        base_value = self.base.get_value(globals, locals, cache, on_error=on_error)
-        index = (
-            self.index.get_value(globals, locals, cache, on_error=on_error)
-            if isinstance(self.index, Source)
-            else self.index
-        )
-        try:
-            if isinstance(self.index, ConstDictKeySource):
-                value = dict.__getitem__(base_value, index)
-            else:
-                value = base_value[index]
-        except Exception as error:
-            if on_error is not None:
-                on_error(self, base_value, error)
-            raise
-        cache[self] = value
-        return value
 
     @functools.cached_property
     def _name_template(self) -> str:
@@ -1099,22 +991,6 @@ class TupleIteratorGetItemSource(GetItemSource):
         return (
             f"___tuple_iterator_getitem({{0}}, {_esc_str(self.index, apply_repr=True)})"
         )
-
-
-@dataclass_with_cached_hash(frozen=True)
-class ListReverseIteratorBackingListSource(ChainedSource):
-    def reconstruct(self, codegen: "PyCodegen") -> None:
-        codegen.add_push_null(
-            lambda: codegen.load_import_from(
-                utils.__name__, "list_reverseiterator_backing_list"
-            )
-        )
-        codegen(self.base)
-        codegen.extend_output(create_call_function(1, False))
-
-    @functools.cached_property
-    def _name_template(self) -> str:
-        return "___list_reverseiterator_backing_list({0})"
 
 
 @dataclass_with_cached_hash(frozen=True)
@@ -1347,7 +1223,7 @@ class CallMethodItemSource(ChainedSource):
 @dataclass_with_cached_hash(frozen=True)
 class ContextVarGetSource(ChainedSource):
     has_default: bool = False
-    default_value: object = None
+    default_value: Any = None
 
     def reconstruct(self, codegen: "PyCodegen") -> None:
         def load_get_method():
@@ -1477,15 +1353,6 @@ def is_from_source(source: Source, target: Source) -> bool:
         return True
     if isinstance(source, ChainedSource):
         return is_from_source(source.base, target)
-    return False
-
-
-@functools.lru_cache
-def is_from_attr_proxy_source(source: Source) -> bool:
-    if isinstance(source, AttrProxySource):
-        return True
-    if isinstance(source, ChainedSource):
-        return is_from_attr_proxy_source(source.base)
     return False
 
 

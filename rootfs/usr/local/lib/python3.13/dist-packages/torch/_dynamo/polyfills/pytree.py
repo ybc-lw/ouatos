@@ -34,7 +34,7 @@ from ..decorators import substitute_in_graph
 if TYPE_CHECKING:
     import builtins
     from collections.abc import Callable, Iterable, Mapping
-    from typing_extensions import TypeIs
+    from typing_extensions import Self, TypeIs
 
     from torch.utils._cxx_pytree import PyTree
 
@@ -163,14 +163,18 @@ def tree_leaves(
     )
 
 
-class _ReprNoQuotes(str):
+class _Asterisk(str):
     __slots__ = ()
 
+    def __new__(cls) -> Self:
+        return super().__new__(cls, "*")
+
     def __repr__(self) -> str:
-        return str(self)  # no quotes inside containers
+        return "*"  # no quotes
 
 
-_asterisk = _ReprNoQuotes("*")
+_asterisk = _Asterisk()
+del _Asterisk
 
 
 @dataclass(frozen=True, repr=False, eq=False, unsafe_hash=False, slots=True)
@@ -219,7 +223,7 @@ class PyTreeSpec:
         object.__setattr__(self, "num_children", num_children)
 
     def __repr__(self, /) -> str:
-        def helper(treespec: PyTreeSpec) -> _ReprNoQuotes:
+        def helper(treespec: PyTreeSpec) -> str:
             if treespec.is_leaf():
                 if treespec.type is not None:
                     raise AssertionError("Leaf treespec must have type None")
@@ -227,8 +231,7 @@ class PyTreeSpec:
 
             if treespec.type is None:
                 raise AssertionError("Non-leaf treespec must have a type")
-            unflatten_func = treespec._unflatten_func
-            if not callable(unflatten_func):
+            if not callable(treespec._unflatten_func):
                 raise AssertionError(
                     "Non-leaf treespec must have a callable unflatten_func"
                 )
@@ -241,16 +244,17 @@ class PyTreeSpec:
                 or optree.is_namedtuple_class(treespec.type)
                 or optree.is_structseq_class(treespec.type)
             ):
-                return _ReprNoQuotes(
-                    repr(unflatten_func(treespec._metadata, children_representations))
+                return treespec._unflatten_func(
+                    treespec._metadata,
+                    children_representations,
                 )
-            return _ReprNoQuotes(
+            return (
                 f"CustomTreeNode({treespec.type.__name__}[{treespec._metadata!r}], "
                 f"[{', '.join(children_representations)}])"
             )
 
         inner = [
-            helper(self),
+            str(helper(self)),
             *(["NoneIsLeaf"] if self.none_is_leaf else []),
             f"namespace={self.namespace!r}",
         ]
@@ -259,7 +263,7 @@ class PyTreeSpec:
     def __len__(self, /) -> int:
         return self.num_leaves
 
-    def __eq__(self, other: object, /) -> bool:
+    def __eq__(self, other: Any, /) -> bool:
         if not isinstance(other, PyTreeSpec):
             return NotImplemented
         if (
@@ -489,9 +493,7 @@ class PyTreeSpec:
         return self._unflatten_func(self._metadata, subtrees)
 
 
-def _is_pytreespec_instance(
-    obj: object, /
-) -> TypeIs[PyTreeSpec | python_pytree.TreeSpec]:
+def _is_pytreespec_instance(obj: Any, /) -> TypeIs[PyTreeSpec | python_pytree.TreeSpec]:
     return isinstance(obj, (PyTreeSpec, python_pytree.TreeSpec))
 
 
