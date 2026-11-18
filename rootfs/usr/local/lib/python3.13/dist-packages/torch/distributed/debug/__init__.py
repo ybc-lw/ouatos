@@ -103,7 +103,6 @@ def start_debug_server(
                 "stacks",
                 "fr_trace",
                 "torchcomms_health_check",
-                "c10d_health_check",
             }
 
         main_kwargs = {

@@ -9,6 +9,7 @@ import numpy as np
 import numpy.typing as npt
 
 import torch
+from torch.testing._internal.common_cuda import TEST_CUDA
 from torch.testing._internal.common_dtype import (
     _dispatch_dtypes,
     all_types,
@@ -25,10 +26,7 @@ from torch.testing._internal.common_dtype import (
     integral_types,
     integral_types_and,
 )
-from torch.testing._internal.common_utils import (
-    TEST_ACCELERATOR,
-    torch_to_numpy_dtype_dict,
-)
+from torch.testing._internal.common_utils import torch_to_numpy_dtype_dict
 
 
 COMPLETE_DTYPES_DISPATCH = (
@@ -50,6 +48,9 @@ EXTENSIBLE_DTYPE_DISPATCH = (
     all_types_and,
 )
 
+# Better way to acquire devices?
+DEVICES = ["cpu"] + (["cuda"] if TEST_CUDA else [])
+
 
 class _dynamic_dispatch_dtypes(_dispatch_dtypes):
     # Class to tag the dynamically generated types.
@@ -58,13 +59,13 @@ class _dynamic_dispatch_dtypes(_dispatch_dtypes):
 
 def get_supported_dtypes(op, sample_inputs_fn, device_type):
     # Returns the supported dtypes for the given operator and device_type pair.
-    if device_type not in ["cpu", "cuda", "xpu"]:
+    if device_type not in ["cpu", "cuda"]:
         raise AssertionError(
-            f"Expected device_type in ['cpu', 'cuda', 'xpu'], got {device_type!r}"
+            f"Expected device_type in ['cpu', 'cuda'], got {device_type!r}"
         )
-    if not TEST_ACCELERATOR and device_type in ("cuda", "xpu"):
+    if not TEST_CUDA and device_type == "cuda":
         warnings.warn(
-            "WARNING: Accelerator is not available, empty_dtypes dispatch will be returned!",
+            "WARNING: CUDA is not available, empty_dtypes dispatch will be returned!",
             stacklevel=2,
         )
         return _dynamic_dispatch_dtypes(())
@@ -73,7 +74,7 @@ def get_supported_dtypes(op, sample_inputs_fn, device_type):
     for dtype in all_types_and_complex_and(torch.bool, torch.bfloat16, torch.half):
         try:
             samples = sample_inputs_fn(op, device_type, dtype, False)
-        except (RuntimeError, TypeError):
+        except RuntimeError:
             # If `sample_inputs_fn` doesn't support sampling for a given
             # `dtype`, we assume that the `dtype` is not supported.
             # We raise a warning, so that user knows that this was the case
@@ -90,9 +91,7 @@ def get_supported_dtypes(op, sample_inputs_fn, device_type):
         for sample in samples:
             try:
                 op(sample.input, *sample.args, **sample.kwargs)
-            # TODO: Replace RuntimeError with NotImplementedError once unsupported
-            # dtypes consistently use it.
-            except (RuntimeError, TypeError):
+            except RuntimeError:
                 # dtype is not supported
                 supported = False
                 break

@@ -176,30 +176,12 @@ class DSLController:
 
     @contextmanager
     def disabled(self):
-        """Context manager to temporarily disable DSL.
-
-        Also masks the native-AOT kernel stubs (kernels AOT-compiled
-        from this DSL and embedded in the aten kernels themselves) so
-        code inside the block sees stock aten behavior, e.g. for
-        reference computations in tests.
-
-        Two things stay active by design, because for them the override IS
-        the implementation and masking would change results rather than
-        performance: overrides registered with
-        `unconditional_override=True`, and ops whose AOT declaration sets
-        UNCONDITIONAL. A reference computation that must bypass those too
-        has to nest torch._native._unconditional_masked().
-        """
-        from torch import _native
-
+        """Context manager to temporarily disable DSL."""
         original_state = self.enabled
-        original_aot = _native.aot_enabled()
         try:
             self.disable()
-            _native.set_aot_enabled(False)
             yield
         finally:
-            _native.set_aot_enabled(original_aot)
             if original_state:
                 self.enable()
 
@@ -229,18 +211,14 @@ class PythonNativeModule(PropModule):
         result = registry.list_all_dsls()
         return list(result) if not isinstance(result, list) else result
 
-    def get_dsl_operations(self, dsl_name: str, lib_symbol: str = "aten") -> list[str]:
-        """Get list of operations registered by a specific DSL in one namespace.
+    def get_dsl_operations(self, dsl_name: str) -> list[str]:
+        """Get list of operations registered by a specific DSL.
 
         Args:
             dsl_name (str): Name of the DSL to query (e.g., 'triton', 'cutedsl').
-            lib_symbol (str): Namespace to report on, ``"aten"`` by default.
-                One namespace per call: op symbols are unique within a
-                namespace but not across them.
 
         Returns:
-            list[str]: Sorted list of op symbols the DSL registered on
-            ``lib_symbol``.
+            list[str]: Sorted list of operation names registered by the DSL.
 
         Example::
 
@@ -249,7 +227,7 @@ class PythonNativeModule(PropModule):
         """
         from torch._native.registry import get_dsl_operations
 
-        return get_dsl_operations(dsl_name, lib_symbol)
+        return get_dsl_operations(dsl_name)
 
     def disable_operations(self, *op_symbols: str):
         """Disable specific operations across all DSLs.

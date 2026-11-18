@@ -641,12 +641,7 @@ class CUTLASSTemplateCaller(ChoiceCaller):
     def benchmark(self, *args, out) -> float:
         if self.bmreq is None:
             raise AssertionError("expected self.bmreq to not be None")
-        self.bmreq.benchmark_with_cudagraphs = self._benchmark_with_cudagraphs
-        if (
-            config.profile_bandwidth_with_do_bench_using_profiling
-            and not self._benchmark_with_cudagraphs
-            and not self.bmreq.config_cudagraph_benchmarking
-        ):
+        if config.profile_bandwidth_with_do_bench_using_profiling:
             algo = self.bmreq.make_run_fn(*args, out=out)
             return do_bench_using_profiling(algo)
         return self.bmreq.benchmark(*args, out=out)

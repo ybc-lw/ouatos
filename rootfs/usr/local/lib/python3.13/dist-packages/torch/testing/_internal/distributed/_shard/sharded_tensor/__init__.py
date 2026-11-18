@@ -21,14 +21,8 @@ class ShardedTensorTestBase(MultiProcessTestCase):
     def world_size(self):
         return TEST_GPU_NUM
 
-    def backend(self, device) -> str:
-        return dist.get_default_backend_for_device(device)
-
     def init_pg(self, backend="nccl"):
-        # Ask the distributed framework rather than matching a fixed list, so a
-        # backend registered by an out-of-tree device is accepted the same way
-        # the built-in ones are.
-        if not dist.is_backend_available(backend):
+        if backend not in ["nccl", "gloo", "mpi", "hccl", "xccl"]:
             raise RuntimeError(f"Backend {backend} not supported!")
 
         dist.init_process_group(
@@ -38,10 +32,8 @@ class ShardedTensorTestBase(MultiProcessTestCase):
             init_method=f"file://{self.file_name}",
         )
 
-        # Bind the per-rank device for accelerator backends. gloo is excluded: it
-        # is the default backend for cpu and mps, which have no per-rank
-        # accelerator device index.
-        if torch.accelerator.is_available() and backend != dist.Backend.GLOO:
+        # set device for nccl pg for collectives
+        if backend == "nccl" or backend == "xccl":
             torch.accelerator.set_device_index(self.rank)
 
     def init_rpc(self):
@@ -67,14 +59,11 @@ class ShardedTensorTestBase(MultiProcessTestCase):
         self.init_pg(backend=backend)
 
     def destroy_comms(self, destroy_rpc=True):
-        # Shut down RPC before the barrier: graceful shutdown waits for in-flight
-        # RPCs on all workers, while a pending NCCL barrier kernel can block
-        # TensorPipe's CUDA channel (cudaDeviceSynchronize) from serving them.
+        # Wait for all ranks to reach here before starting shutdown.
+        dist.barrier()
+
         if destroy_rpc:
             rpc.shutdown()
-
-        # Wait for all ranks to reach here before destroying the process group.
-        dist.barrier()
         dist.destroy_process_group()
 
     def setUp(self) -> None:
@@ -106,16 +95,15 @@ def with_comms(func=None, init_rpc=True, backend="nccl"):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         # Skip test if backend requires accelerator but not enough devices available
-        device_type = getattr(self, "device_type", None)
-        # Avoid shadowing the outer backend parameter used by legacy callers.
-        backend_name = self.backend(device_type) if device_type is not None else backend
-        if backend_name != dist.Backend.GLOO:
+        acc = torch.accelerator.current_accelerator()
+        if backend in ["nccl", "xccl", "hccl"]:
             if (
-                not torch.accelerator.is_available()
+                acc is None
+                or backend != dist.get_default_backend_for_device(acc)
                 or torch.accelerator.device_count() < self.world_size
             ):
-                sys.exit(TEST_SKIPS[f"multi-device-{self.world_size}"].exit_code)
-        self.init_comms(init_rpc=init_rpc, backend=backend_name)
+                sys.exit(TEST_SKIPS[f"multi-gpu-{self.world_size}"].exit_code)
+        self.init_comms(init_rpc=init_rpc, backend=backend)
         func(self, *args, **kwargs)
         self.destroy_comms(destroy_rpc=init_rpc)
 

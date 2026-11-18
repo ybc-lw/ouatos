@@ -1,8 +1,8 @@
-../../../bin/gguf-convert-endian,sha256=ENUpITR5Z5hDGocNnvcf5u6uMcRkkgqsCJsOIonOOF0,231
-../../../bin/gguf-dump,sha256=DU6yvFKlZxB6vvZc1zKSqHTfiQxO0t7a5GDwIfDLjG4,221
-../../../bin/gguf-editor-gui,sha256=7SCQBZ5dOd7ML52dVrsWSMsDYEeFgcIpeRZFC3F70NM,227
-../../../bin/gguf-new-metadata,sha256=tgcANT2mKsyEojOsVLNWzmeHZF4J44NwiZLnHIAT9Oo,229
-../../../bin/gguf-set-metadata,sha256=IrUdScN7qQrD922QzY7O4Q39LBW66pkhZrOZcFs7Dio,229
+../../../bin/gguf-convert-endian,sha256=V95lvVwF5GW9wIEmomgTL26md73TLUeEgABaldQFlRA,179
+../../../bin/gguf-dump,sha256=igeT1lkUufmhELpVuyNxpE1de3l7JkY-rgi0pRG338Q,169
+../../../bin/gguf-editor-gui,sha256=6VpyOoZ_VcX0bxSvaZ1Y2B5dfK3rcCJ8BV40Sg3gkoI,175
+../../../bin/gguf-new-metadata,sha256=GSDKLBQHN59aOe8GKaXSSXOqKdxyN2k7xCBGtuIuQ6s,177
+../../../bin/gguf-set-metadata,sha256=4LtsOQeUNwUtddiFp7r0O5BSbHXo5e4EtpObSJxGNqo,177
 gguf-0.19.0.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
 gguf-0.19.0.dist-info/METADATA,sha256=xu1uTU27S0bzKFW0GJWZxWjVYXoBI0WqkkmzrPcgSgM,4100
 gguf-0.19.0.dist-info/RECORD,,

@@ -7,7 +7,6 @@ from ._fsdp_api import (
 from ._fully_shard import (
     FSDPModule,
     fully_shard,
-    GradientReductionHandle,
     register_fsdp_forward_method,
     share_comm_ctx,
     UnshardHandle,
@@ -19,7 +18,6 @@ __all__ = [
     "DataParallelMeshDims",
     "FSDPModule",
     "fully_shard",
-    "GradientReductionHandle",
     "MixedPrecisionPolicy",
     "OffloadPolicy",
     "register_fsdp_forward_method",

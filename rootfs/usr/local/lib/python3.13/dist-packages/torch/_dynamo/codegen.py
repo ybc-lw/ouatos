@@ -27,9 +27,10 @@ from . import config, graph_break_hints, utils
 from .bytecode_transformation import (
     add_push_null,
     add_push_null_call_function_ex,
-    bytecode_from_template,
     create_binary_subscr,
+    create_build_tuple,
     create_call_function,
+    create_call_function_ex,
     create_call_method,
     create_dup_top,
     create_instruction,
@@ -40,7 +41,7 @@ from .bytecode_transformation import (
 )
 from .exc import unimplemented
 from .source import AttrSource, ChainedSource, DictGetItemSource, Source
-from .utils import is_safe_constant
+from .utils import is_safe_constant, rot_n_helper
 from .variables.base import ValueMutationExisting, VariableTracker
 from .variables.functions import (
     ContextlibContextManagerLocalGeneratorObjectVariable,
@@ -62,25 +63,6 @@ if TYPE_CHECKING:
     from torch._dynamo.variables.builder import GraphArg
 
     from .symbolic_convert import InstructionTranslatorBase
-
-
-# Templates for the runtime-gated pregraph profiler marker (see
-# PyCodegen.make_call_generated_code). Emitted via bytecode_from_template so the
-# `if` compiles to the correct per-Python-version jump opcodes. The values
-# (profiler flag, marker fns) are pre-loaded into the mapped locals by the caller.
-def _pregraph_marker_enter_template(is_profiler_enabled, utils_module):
-    # `cm` is remapped to the caller's shared cm var and read by the exit
-    # template, so it is not "unused" despite what a local static check sees.
-    # The marker fn is looked up on utils_module INSIDE the branch so its attr
-    # load only runs when a profiler is active.
-    cm = None
-    if is_profiler_enabled:
-        cm = utils_module.record_pregraph_bytecode_enter()  # noqa: F841
-
-
-def _pregraph_marker_exit_template(cm, utils_module):
-    if cm is not None:
-        utils_module.record_pregraph_bytecode_exit(cm)
 
 
 @dataclasses.dataclass
@@ -598,7 +580,7 @@ class PyCodegen:
     ) -> list[Instruction]:
         """Load the global fn_name on the stack num_on_stack down"""
         output = []
-        if push_null:
+        if push_null and sys.version_info >= (3, 11):
             output.extend(add_push_null(self.create_load_global(fn_name, add=True)))
             if num_on_stack > 0:
                 output.extend(
@@ -617,11 +599,23 @@ class PyCodegen:
         return output
 
     def rot_n(self, n: int) -> list[Instruction]:
-        return create_rot_n(n)
+        try:
+            return create_rot_n(n)
+        except AttributeError:
+            # desired rotate bytecode doesn't exist, generate equivalent bytecode
+            return [
+                create_build_tuple(n),
+                self.create_load_const_unchecked(rot_n_helper(n)),
+                *create_rot_n(2),
+                *create_call_function_ex(False, False),
+                create_instruction("UNPACK_SEQUENCE", arg=n),
+            ]
 
     def pop_null(self) -> list[Instruction]:
         # POP_TOP doesn't work for null, so we pop nulls by pushing in a
         # nop function, calling it (which consumes the null), and popping the result.
+        if sys.version_info < (3, 11):
+            raise AssertionError("pop_null requires Python 3.11+")
         return [
             self.create_load_const_unchecked(lambda: None),
             # 3.13 swapped NULL and callable
@@ -666,6 +660,8 @@ class PyCodegen:
         output = self._output
 
         output.append(self.create_load_const(code))
+        if sys.version_info < (3, 11):
+            output.append(self.create_load_const(fn_name))
         if sys.version_info >= (3, 13):
             output.extend(
                 [
@@ -735,55 +731,16 @@ class PyCodegen:
         )
 
         cm_var = None
-        marker_module_var = None
         if config.record_runtime_overhead:
-            # Runtime profiler gate for the "Pregraph bytecode" marker: emit it
-            # into the compiled bytecode but only call it when a profiler is
-            # actually attached, so a non-profiled call pays ~nothing. The `if` is
-            # emitted via bytecode_from_template so its jump opcodes are correct
-            # on every supported Python version.
-            #   cm = None
-            #   if torch.autograd.profiler._is_profiler_enabled:
-            #       cm = record_pregraph_bytecode_enter()
-            #   <reconstruct graph args>
-            #   if cm is not None:
-            #       record_pregraph_bytecode_exit(cm)
+            # Record the pregraph bytecode start
+            self.add_push_null(
+                lambda: self.load_import_from(
+                    utils.__name__, "record_pregraph_bytecode_enter"
+                )
+            )
+            self.extend_output(create_call_function(0, False))
             cm_var = self.new_var()
-            marker_module_var = self.new_var()
-            enter_map = {
-                "is_profiler_enabled": self.new_var(),
-                "utils_module": marker_module_var,
-                "cm": cm_var,
-            }
-            # Pre-load the template's locals: the profiler flag and the
-            # torch._dynamo.utils module (the marker fns are looked up on it
-            # inside the gated branch, so their attr loads only run when
-            # profiling). Reconstruct inline (not via load_import_from, whose CSE
-            # temp would get an unconditional DELETE_FAST from clear_tempvars()).
-            self(
-                AttrSource(
-                    self.tx.import_source("torch.autograd.profiler"),
-                    "_is_profiler_enabled",
-                )
-            )
-            self.extend_output(
-                [
-                    create_instruction(
-                        "STORE_FAST", argval=enter_map["is_profiler_enabled"]
-                    )
-                ]
-            )
-            self(self.tx.import_source(utils.__name__))
-            self.extend_output(
-                [create_instruction("STORE_FAST", argval=marker_module_var)]
-            )
-            self.extend_output(
-                bytecode_from_template(
-                    _pregraph_marker_enter_template, varname_map=enter_map
-                )
-            )
-            # noreturn leaves the template's implicit `return None` on the stack.
-            self.pop_top()
+            self.store(cm_var)
 
         arg_varnames = []
         for i, arg in enumerate(graphargs):
@@ -806,18 +763,16 @@ class PyCodegen:
                 self.add_pycode(f"{arg_varname} = {{}}", arg)
 
         if config.record_runtime_overhead:
-            # Record the pregraph bytecode end, matched to the gated start above:
-            #   if cm is not None: record_pregraph_bytecode_exit(cm)
-            # Reuses cm and the utils module the enter block already loaded.
-            if cm_var is None or marker_module_var is None:
-                raise AssertionError("enter block must set cm_var / marker_module_var")
-            exit_map = {"cm": cm_var, "utils_module": marker_module_var}
-            self.extend_output(
-                bytecode_from_template(
-                    _pregraph_marker_exit_template, varname_map=exit_map
+            # Record the pregraph bytecode end
+            self.add_push_null(
+                lambda: self.load_import_from(
+                    utils.__name__, "record_pregraph_bytecode_exit"
                 )
             )
-            # noreturn leaves the template's implicit `return None` on the stack.
+            if cm_var is None:
+                raise AssertionError("cm_var must not be None")
+            self.extend_output([self.create_load(cm_var)])
+            self.extend_output(create_call_function(1, False))
             self.pop_top()
 
         self.extend_output(create_call_function(len(graphargs), False))
@@ -849,21 +804,26 @@ class PyCodegen:
             output.insert(-1, self.create_load_const(kw_names))
             output[-1] = create_instruction("CALL_KW", arg=nargs)
             return output
-        output = create_call_function(nargs, push_null)
-        if sys.version_info >= (3, 12):
-            idx = -1
-            expected_inst = "CALL"
-        else:
-            idx = -2
-            expected_inst = "PRECALL"
-        if output[idx].opname != expected_inst:
-            raise AssertionError(
-                f"expected instruction at index {idx} to be {expected_inst}, "
-                f"got {output[idx].opname}"
-            )
-        kw_names_inst = create_instruction("KW_NAMES", argval=kw_names)
-        output.insert(idx, kw_names_inst)
-        return output
+        elif sys.version_info >= (3, 11):
+            output = create_call_function(nargs, push_null)
+            if sys.version_info >= (3, 12):
+                idx = -1
+                expected_inst = "CALL"
+            else:
+                idx = -2
+                expected_inst = "PRECALL"
+            if output[idx].opname != expected_inst:
+                raise AssertionError(
+                    f"expected instruction at index {idx} to be {expected_inst}, "
+                    f"got {output[idx].opname}"
+                )
+            kw_names_inst = create_instruction("KW_NAMES", argval=kw_names)
+            output.insert(idx, kw_names_inst)
+            return output
+        return [
+            self.create_load_const(kw_names),
+            create_instruction("CALL_FUNCTION_KW", arg=nargs),
+        ]
 
     def create_delete(self, value: object) -> Instruction:
         return create_instruction("DELETE_FAST", argval=value)

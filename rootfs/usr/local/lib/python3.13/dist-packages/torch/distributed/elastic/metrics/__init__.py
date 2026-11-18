@@ -49,8 +49,8 @@ The example below measures the latency for the ``calculate()`` function.
   import torch.distributed.elastic.metrics as metrics
 
   # makes all metrics other than the one from "my_module" to go /dev/null
-  metrics.configure(metrics.NullMetricHandler())
-  metrics.configure(metrics.ConsoleMetricHandler(), "my_module")
+  metrics.configure(metrics.NullMetricsHandler())
+  metrics.configure(metrics.ConsoleMetricsHandler(), "my_module")
 
 
   def my_method():
@@ -59,9 +59,8 @@ The example below measures the latency for the ``calculate()`` function.
       end = time.time()
       metrics.put_metric("calculate_latency", int(end - start), "my_module")
 
-You may also use the :func:`torch.distributed.elastic.metrics.prof` decorator
-to conveniently and succinctly profile functions. Its metrics go to the
-``torchelastic`` group unless ``group`` is passed.
+You may also use the torch.distributed.elastic.metrics.prof` decorator
+to conveniently and succinctly profile functions
 
 ::
 
@@ -69,17 +68,18 @@ to conveniently and succinctly profile functions. Its metrics go to the
 
   import torch.distributed.elastic.metrics as metrics
 
-  metrics.configure(metrics.ConsoleMetricHandler(), "foobar")
+  metrics.configure(metrics.ConsoleMetricsHandler(), "foobar")
+  metrics.configure(metrics.ConsoleMetricsHandler(), "Bar")
 
 
-  @metrics.prof(group="foobar")
+  @metrics.prof
   def foo():
       pass
 
 
   class Bar:
-      @metrics.prof(group="foobar")
-      def baz(self):
+      @metrics.prof
+      def baz():
           pass
 
 ``@metrics.prof`` will publish the following metrics

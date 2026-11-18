@@ -1,5 +1,5 @@
 __pycache__/
-*.pyc
+*.py[cod]
 node_modules/
 !rootfs/usr/local/lib/node_modules/
 .cache/
@@ -25,6 +25,7 @@ rootfs/usr/share/info/
 rootfs/etc/machine-id
 *.patch
 *.rej
+third_party/
 LICENSE
 !/LICENSE
 rootfs/var/log

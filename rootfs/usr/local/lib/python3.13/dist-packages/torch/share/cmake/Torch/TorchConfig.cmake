@@ -69,7 +69,7 @@ else()
   if(0)
     append_wholearchive_lib_if_found(torch_cuda c10_cuda)
   endif()
-  if(0)
+  if(OFF)
     append_wholearchive_lib_if_found(torch_xpu c10_xpu)
   endif()
 
@@ -82,7 +82,7 @@ else()
     append_torchlib_if_found(nnpack)
   endif()
 
-  if(0)
+  if(ON)
     append_torchlib_if_found(pytorch_qnnpack)
   endif()
 
@@ -137,7 +137,7 @@ if(0)
   list(APPEND TORCH_LIBRARIES ${TORCH_CUDA_LIBRARIES})
 endif()
 
-if(0 AND ON)
+if(OFF AND ON)
     append_torchlib_if_found(c10_xpu torch_xpu)
 endif()
 
@@ -155,25 +155,10 @@ if(NOT ON)
 endif()
 set_target_properties(torch PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${TORCH_INCLUDE_DIRS}"
+    CXX_STANDARD 20
 )
-
-# CMake only reports compile features after CXX has been enabled.
-if(CMAKE_CXX_COMPILER_LOADED)
-  # The feature can be absent because CMake does not recognize it or the compiler does not support the standard.
-  if("cxx_std_20" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
-    # Compile features specify a minimum and preserve a newer standard selected by the consumer.
-    target_compile_features(torch INTERFACE cxx_std_20)
-  else()
-    message(STATUS "TorchConfig: The CXX compiler does not report cxx_std_20 support; forcing C++20. If the compiler does not support C++20, compilation will fail.")
-    if(MSVC)
-      set_property(TARGET torch APPEND PROPERTY INTERFACE_COMPILE_OPTIONS "$<$<COMPILE_LANGUAGE:CXX>:/std:c++20>")
-    else()
-      set_property(TARGET torch APPEND PROPERTY INTERFACE_COMPILE_OPTIONS "$<$<COMPILE_LANGUAGE:CXX>:-std=c++20>")
-    endif()
-  endif()
-endif()
 if(TORCH_CXX_FLAGS)
-  set_property(TARGET torch APPEND PROPERTY INTERFACE_COMPILE_OPTIONS "${TORCH_CXX_FLAGS}")
+  set_property(TARGET torch PROPERTY INTERFACE_COMPILE_OPTIONS "${TORCH_CXX_FLAGS}")
 endif()
 
 find_package_handle_standard_args(Torch DEFAULT_MSG TORCH_LIBRARY TORCH_INCLUDE_DIRS)

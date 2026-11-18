@@ -1,4 +1,5 @@
 import inspect
+from typing import Any
 
 
 def _signature_metadata(
@@ -25,7 +26,7 @@ def _signature_metadata(
 
 
 def _fast_bind(
-    sig: inspect.Signature, *args: object, **kwargs: object
+    sig: inspect.Signature, *args: Any, **kwargs: Any
 ) -> inspect.BoundArguments:
     """
     Fast path for inspect.Signature.bind() for signatures without
@@ -45,7 +46,7 @@ def _fast_bind(
             f"Too many positional arguments: expected max {max_positional}, got {len_args}"
         )
 
-    arguments: dict[str, object] = {}
+    arguments: dict[str, Any] = {}
     arg_i = 0
 
     for p in params:

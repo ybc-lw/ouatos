@@ -501,14 +501,14 @@ class VecAVX2(VecISA):
 
 @dataclasses.dataclass
 class VecZVECTOR(VecISA):
-    _bit_width = 128
+    _bit_width = 256
     _macro = [
         "CPU_CAPABILITY_ZVECTOR",
         "CPU_CAPABILITY=ZVECTOR",
         "HAVE_ZVECTOR_CPU_DEFINITION",
     ]
     _arch_flags = "-mvx -mzvector"
-    _dtype_nelements = {torch.float: 4, torch.bfloat16: 8, torch.float16: 8}
+    _dtype_nelements = {torch.float: 8, torch.bfloat16: 16, torch.float16: 16}
 
     def __str__(self) -> str:
         return "zvector"
@@ -647,9 +647,10 @@ def valid_vec_isa_list() -> list[VecISA]:
         if (caps.get("sve2", False) or caps.get("sve", False)) and caps.get(
             "bf16", False
         ):
-            isa = VecSVE(128 if caps.get("sve_max_length") == 128 else 256)
-            if isa:
-                isa_list.append(isa)
+            if caps.get("sve_max_length") == 128:
+                isa_list.append(VecSVE(128))
+            else:
+                isa_list.append(VecSVE(256))
         else:
             isa_list.append(VecNEON())
 

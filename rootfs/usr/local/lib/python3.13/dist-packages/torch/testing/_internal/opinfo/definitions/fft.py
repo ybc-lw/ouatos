@@ -103,17 +103,6 @@ def sample_inputs_fft_with_min(
     a = make_tensor(min_size, dtype=dtype, device=device, requires_grad=requires_grad)
     yield SampleInput(a)
 
-    # Empty batch dimension with non-empty transform dims
-    # https://github.com/pytorch/pytorch/issues/190011
-    min_shape = min_size if isinstance(min_size, tuple) else (min_size,)
-    empty = make_tensor(
-        (0, *min_shape), dtype=dtype, device=device, requires_grad=requires_grad
-    )
-    if op_info.ndimensional == SpectralFuncType.OneD:
-        yield SampleInput(empty, dim=-1)
-    else:
-        yield SampleInput(empty, dim=tuple(range(-len(min_shape), 0)))
-
 
 def sample_inputs_fftshift(op_info, device, dtype, requires_grad, **kwargs):
     def mt(shape, **kwargs):
@@ -179,6 +168,20 @@ op_db: list[OpInfo] = [
                 dtypes=[torch.complex32],
                 active_if=TEST_WITH_ROCM,
             ),
+            # RuntimeError: [srcBuf length] > 0 INTERNAL ASSERT FAILED
+            DecorateInfo(
+                unittest.expectedFailure,
+                "TestCommon",
+                "test_out",
+                device_type="mps",
+            ),
+            # AssertionError: The values for attribute 'shape' do not match: torch.Size([5, 3, 10]) != torch.Size([5, 3, 11]).
+            DecorateInfo(
+                unittest.expectedFailure,
+                "TestCommon",
+                "test_out_warning",
+                device_type="mps",
+            ),
         ),
     ),
     SpectralFuncInfo(
@@ -204,6 +207,22 @@ op_db: list[OpInfo] = [
         # See https://github.com/pytorch/pytorch/pull/78358
         check_batched_forward_grad=False,
         decorators=[precisionOverride({torch.float: 1e-4, torch.cfloat: 1e-4})],
+        skips=(
+            # RuntimeError: [srcBuf length] > 0 INTERNAL ASSERT FAILED
+            DecorateInfo(
+                unittest.expectedFailure,
+                "TestCommon",
+                "test_out",
+                device_type="mps",
+            ),
+            # AssertionError: The values for attribute 'shape' do not match: torch.Size([5, 3, 10]) != torch.Size([5, 3, 11]).
+            DecorateInfo(
+                unittest.expectedFailure,
+                "TestCommon",
+                "test_out_warning",
+                device_type="mps",
+            ),
+        ),
     ),
     SpectralFuncInfo(
         "fft.hfft",
@@ -426,6 +445,22 @@ op_db: list[OpInfo] = [
                 "test_reference_nd",
             )
         ],
+        skips=(
+            # RuntimeError: [srcBuf length] > 0 INTERNAL ASSERT FAILED
+            DecorateInfo(
+                unittest.expectedFailure,
+                "TestCommon",
+                "test_out",
+                device_type="mps",
+            ),
+            # AssertionError: The values for attribute 'shape' do not match: torch.Size([5, 3, 10]) != torch.Size([5, 3, 11]).
+            DecorateInfo(
+                unittest.expectedFailure,
+                "TestCommon",
+                "test_out_warning",
+                device_type="mps",
+            ),
+        ),
     ),
     SpectralFuncInfo(
         "fft.ifftn",
@@ -456,6 +491,19 @@ op_db: list[OpInfo] = [
                 "test_reference_nd",
             )
         ],
+        skips=(
+            # RuntimeError: [srcBuf length] > 0 INTERNAL ASSERT FAILED
+            DecorateInfo(
+                unittest.expectedFailure, "TestCommon", "test_out", device_type="mps"
+            ),
+            # AssertionError: The values for attribute 'shape' do not match: torch.Size([5, 3, 10]) != torch.Size([5, 3, 11]).
+            DecorateInfo(
+                unittest.expectedFailure,
+                "TestCommon",
+                "test_out_warning",
+                device_type="mps",
+            ),
+        ),
     ),
     SpectralFuncInfo(
         "fft.ihfft",
@@ -519,7 +567,7 @@ op_db: list[OpInfo] = [
         # See https://github.com/pytorch/pytorch/pull/78358
         check_batched_forward_grad=False,
         dtypes=all_types_and(torch.bool),
-        # CUDA supports Half/ComplexHalf Precision FFT only on SM53 or later archs
+        # CUDA supports Half/ComplexHalf Precision FFT only on SM53 or later archss
         dtypesIfCUDA=all_types_and(torch.bool, torch.half, torch.bfloat16),
         check_batched_grad=False,
         check_batched_gradgrad=False,
@@ -724,16 +772,6 @@ python_ref_db: list[OpInfo] = [
                 dtypes=(torch.float16,),
                 device_type="cuda",
             ),
-            # AssertionError: Reference result was farther from the precise
-            # computation than the torch result was.
-            # See https://github.com/intel/torch-xpu-ops/issues/5271 for more details.
-            DecorateInfo(
-                unittest.skip("Skipped!"),
-                "TestCommon",
-                "test_python_ref_torch_fallback",
-                dtypes=(torch.float16,),
-                device_type="xpu",
-            ),
             # AssertionError: Reference result was farther (0.10395266714717796) from the precise
             # computation than the torch result was (0.10251794906889385)
             # See https://github.com/pytorch/pytorch/pull/170856 for more details.
@@ -743,16 +781,6 @@ python_ref_db: list[OpInfo] = [
                 "test_python_ref",
                 dtypes=(torch.float16,),
                 device_type="cuda",
-            ),
-            # AssertionError: Reference result was farther from the precise
-            # computation than the torch result was.
-            # See https://github.com/intel/torch-xpu-ops/issues/5271 for more details.
-            DecorateInfo(
-                unittest.skip("Skipped!"),
-                "TestCommon",
-                "test_python_ref",
-                dtypes=(torch.float16,),
-                device_type="xpu",
             ),
             # AssertionError: Reference result was farther (0.0953431016138116) from the precise
             # computation than the torch result was (0.09305490684430734)
@@ -833,16 +861,6 @@ python_ref_db: list[OpInfo] = [
                 "test_python_ref",
                 dtypes=(torch.float16,),
                 device_type="cuda",
-            ),
-            # AssertionError: Reference result was farther from the precise
-            # computation than the torch result was.
-            # See https://github.com/intel/torch-xpu-ops/issues/5271 for more details.
-            DecorateInfo(
-                unittest.skip("Skipped!"),
-                "TestCommon",
-                "test_python_ref",
-                dtypes=(torch.float16,),
-                device_type="xpu",
             ),
         ],
     ),

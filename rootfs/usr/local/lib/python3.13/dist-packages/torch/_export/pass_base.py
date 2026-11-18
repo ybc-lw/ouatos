@@ -109,7 +109,7 @@ class _ExportPassBaseDeprecatedDoNotUse(PassBase):
             def make_val(
                 x: Argument,
             ) -> (
-                torch.Tensor
+                FakeTensor
                 | torch.SymInt
                 | torch.SymFloat
                 | torch.SymBool
@@ -119,7 +119,7 @@ class _ExportPassBaseDeprecatedDoNotUse(PassBase):
                 | str
                 | None
             ):
-                if is_fake_tensor(x):
+                if isinstance(x, FakeTensor):  # noqa: ISINSTANCE_FAKE_TENSOR
                     return x
                 elif isinstance(x, torch.Tensor):
                     if x.is_quantized:
@@ -336,16 +336,11 @@ class _ExportPassBaseDeprecatedDoNotUse(PassBase):
         if (args := graph_module.meta.get("args", None)) is not None:
             return list(args)
 
-        def extract_input(node: torch.fx.Node) -> torch.Tensor | None:
+        def extract_input(node: torch.fx.Node) -> FakeTensor | None:
             if "val" in node.meta:
                 fake = node.meta["val"]
-                # SymInt, SymFloat and SymBool have a constant property too
-                if is_fake_tensor(fake):
-                    constant = maybe_get_fake_constant(fake)
-                else:
-                    constant = getattr(fake, "constant", None)
-                if constant is not None:
-                    return constant
+                if hasattr(fake, "constant") and fake.constant is not None:
+                    return fake.constant
                 return fake
             elif tensor_meta := node.meta.get("tensor_meta"):
                 if self.fake_tensor_mode is None:

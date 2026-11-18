@@ -452,14 +452,14 @@ op_db: list[OpInfo] = [
         skips=(
             DecorateInfo(
                 unittest.skip("Failing on some jobs"),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_reference_masked",
                 dtypes=(torch.bool, torch.int8, torch.int16, torch.int32),
             ),
             # FIXME: improve precision
             DecorateInfo(
                 unittest.skip("Skipped!"),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_reference_masked",
                 dtypes=(torch.float16,),
             ),
@@ -469,17 +469,28 @@ op_db: list[OpInfo] = [
                 "test_normalize_operator_exhaustive",
             ),
             # FIXME: sum reduces all dimensions when dim=[]
+            DecorateInfo(unittest.expectedFailure, "TestReductions", "test_dim_empty"),
             DecorateInfo(
-                unittest.expectedFailure, "TestReductionsDevice", "test_dim_empty"
-            ),
-            DecorateInfo(
-                unittest.expectedFailure,
-                "TestReductionsDevice",
-                "test_dim_empty_keepdim",
+                unittest.expectedFailure, "TestReductions", "test_dim_empty_keepdim"
             ),
             # RuntimeError: undefined value tensor
             DecorateInfo(
                 unittest.expectedFailure, "TestJit", "test_variant_consistency_jit"
+            ),
+            # Driver issue of XPU, see https://github.com/intel/torch-xpu-ops/issues/2295
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_ref_small_input",
+                device_type="xpu",
+                dtypes=[torch.complex128],
+            ),
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_reference_masked",
+                device_type="xpu",
+                dtypes=[torch.complex128],
             ),
         ),
         decorators=[
@@ -490,12 +501,12 @@ op_db: list[OpInfo] = [
                         torch.float16: tol(atol=1e-03, rtol=5e-3),
                     }
                 ),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_reference_masked",
             ),
             DecorateInfo(
                 toleranceOverride({torch.float16: tol(atol=1e-02, rtol=1e-03)}),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_ref_small_input",
             ),
             DecorateInfo(
@@ -539,9 +550,14 @@ op_db: list[OpInfo] = [
             ),
             DecorateInfo(
                 unittest.skip("Failing on some jobs"),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_reference_masked",
                 dtypes=(torch.bool, torch.int8, torch.int16, torch.int32),
+            ),
+            DecorateInfo(
+                "TestReductions",
+                "test_ref_small_input",
+                dtypes=(torch.int8, torch.int16, torch.int32),
             ),
             # FIXME: "cuda_scatter_gather_base_kernel_func" not implemented for ... (used for sparse_coo inputs)
             DecorateInfo(
@@ -551,29 +567,42 @@ op_db: list[OpInfo] = [
                 device_type="cuda",
                 dtypes=(torch.bool, *integral_types(), *complex_types()),
             ),
-            # FIXME: scatter_gather_base_kernel_func not implemented for ComplexFloat/ComplexDouble on XPU (sparse_coo inputs)
+            # Driver issue of XPU, see https://github.com/intel/torch-xpu-ops/issues/2295
             DecorateInfo(
                 unittest.skip("Skipped!"),
-                "TestMasked",
-                "test_mask_layout",
+                "TestReductions",
+                "test_reference_masked",
                 device_type="xpu",
-                dtypes=(torch.complex64, torch.complex128),
+                dtypes=(torch.complex128, torch.int64, torch.uint8),
+            ),
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_ref_small_input",
+                device_type="xpu",
+                dtypes=(
+                    torch.int64,
+                    torch.int32,
+                    torch.int16,
+                    torch.int8,
+                    torch.complex128,
+                ),
             ),
         ),
         decorators=[
             DecorateInfo(
                 toleranceOverride({torch.float16: tol(atol=1e-03, rtol=1e-02)}),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_reference_masked",
             ),
             DecorateInfo(
                 toleranceOverride({torch.float16: tol(atol=1e-03, rtol=1e-03)}),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_ref_duplicate_values",
             ),
             DecorateInfo(
                 toleranceOverride({torch.float16: tol(atol=1e-03, rtol=1e-03)}),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_ref_small_input",
             ),
             DecorateInfo(
@@ -584,7 +613,7 @@ op_db: list[OpInfo] = [
             ),
             DecorateInfo(
                 toleranceOverride({torch.float32: tol(atol=1e-05, rtol=1e-05)}),
-                "TestOperatorsDevice",
+                "TestOperators",
                 "test_jvp",
                 device_type="cuda",
             ),
@@ -679,13 +708,9 @@ op_db: list[OpInfo] = [
                 "test_normalize_operator_exhaustive",
             ),
             # FIXME: amax reduces all dimensions when dim=[]
+            DecorateInfo(unittest.expectedFailure, "TestReductions", "test_dim_empty"),
             DecorateInfo(
-                unittest.expectedFailure, "TestReductionsDevice", "test_dim_empty"
-            ),
-            DecorateInfo(
-                unittest.expectedFailure,
-                "TestReductionsDevice",
-                "test_dim_empty_keepdim",
+                unittest.expectedFailure, "TestReductions", "test_dim_empty_keepdim"
             ),
             # RuntimeError: Unknown builtin op: aten::iinfo
             DecorateInfo(
@@ -698,6 +723,21 @@ op_db: list[OpInfo] = [
                 "TestMasked",
                 "test_mask_layout",
                 dtypes=(torch.bool, *integral_types(), *complex_types()),
+            ),
+            # Driver issue of XPU, see https://github.com/intel/torch-xpu-ops/issues/2295
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_reference_masked",
+                device_type="xpu",
+                dtypes=[torch.int64],
+            ),
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_ref_small_input",
+                device_type="xpu",
+                dtypes=[torch.int64],
             ),
         ),
         sample_inputs_func=sample_inputs_masked_reduction,
@@ -722,13 +762,9 @@ op_db: list[OpInfo] = [
                 "test_normalize_operator_exhaustive",
             ),
             # FIXME: amax reduces all dimensions when dim=[]
+            DecorateInfo(unittest.expectedFailure, "TestReductions", "test_dim_empty"),
             DecorateInfo(
-                unittest.expectedFailure, "TestReductionsDevice", "test_dim_empty"
-            ),
-            DecorateInfo(
-                unittest.expectedFailure,
-                "TestReductionsDevice",
-                "test_dim_empty_keepdim",
+                unittest.expectedFailure, "TestReductions", "test_dim_empty_keepdim"
             ),
             # RuntimeError: Unknown builtin op: aten::iinfo
             DecorateInfo(
@@ -741,6 +777,21 @@ op_db: list[OpInfo] = [
                 "TestMasked",
                 "test_mask_layout",
                 dtypes=(torch.bool, *integral_types(), *complex_types()),
+            ),
+            # Driver issue of XPU, see https://github.com/intel/torch-xpu-ops/issues/2295
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_reference_masked",
+                device_type="xpu",
+                dtypes=[torch.int64],
+            ),
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_ref_small_input",
+                device_type="xpu",
+                dtypes=[torch.int64],
             ),
         ),
         sample_inputs_func=sample_inputs_masked_reduction,
@@ -763,13 +814,21 @@ op_db: list[OpInfo] = [
             ),
             # initial is not a keyword for argmax
             DecorateInfo(
-                unittest.expectedFailure,
-                "TestReductionsDevice",
-                "test_reference_masked",
+                unittest.expectedFailure, "TestReductions", "test_reference_masked"
             ),
             # NotSupportedError: Compiled functions can't ... use keyword-only arguments with defaults
             DecorateInfo(
                 unittest.expectedFailure, "TestJit", "test_variant_consistency_jit"
+            ),
+            # Driver issue of XPU, see https://github.com/intel/torch-xpu-ops/issues/2295
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_ref_small_input",
+                device_type="xpu",
+                dtypes=floating_types_and(
+                    torch.int8, torch.int16, torch.int32, torch.int64, torch.float16
+                ),
             ),
         ),
         sample_inputs_func=sample_inputs_masked_reduction,
@@ -790,13 +849,21 @@ op_db: list[OpInfo] = [
             ),
             # initial is not a keyword for argmin
             DecorateInfo(
-                unittest.expectedFailure,
-                "TestReductionsDevice",
-                "test_reference_masked",
+                unittest.expectedFailure, "TestReductions", "test_reference_masked"
             ),
             # NotSupportedError: Compiled functions can't ... use keyword-only arguments with defaults
             DecorateInfo(
                 unittest.expectedFailure, "TestJit", "test_variant_consistency_jit"
+            ),
+            # Driver issue of XPU, see https://github.com/intel/torch-xpu-ops/issues/2295
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_ref_small_input",
+                device_type="xpu",
+                dtypes=floating_types_and(
+                    torch.int8, torch.int16, torch.int32, torch.int64, torch.float16
+                ),
             ),
         ),
         sample_inputs_func=sample_inputs_masked_reduction,
@@ -822,13 +889,9 @@ op_db: list[OpInfo] = [
                 "test_normalize_operator_exhaustive",
             ),
             # FIXME: sum reduces all dimensions when dim=[]
+            DecorateInfo(unittest.expectedFailure, "TestReductions", "test_dim_empty"),
             DecorateInfo(
-                unittest.expectedFailure, "TestReductionsDevice", "test_dim_empty"
-            ),
-            DecorateInfo(
-                unittest.expectedFailure,
-                "TestReductionsDevice",
-                "test_dim_empty_keepdim",
+                unittest.expectedFailure, "TestReductions", "test_dim_empty_keepdim"
             ),
             # RuntimeError: undefined value tensor
             DecorateInfo(
@@ -841,6 +904,21 @@ op_db: list[OpInfo] = [
                 "test_mask_layout",
                 dtypes=(torch.bool, *integral_types(), *complex_types()),
             ),
+            # Driver issue of XPU, see https://github.com/intel/torch-xpu-ops/issues/2295
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_ref_small_input",
+                device_type="xpu",
+                dtypes=[torch.complex128],
+            ),
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_reference_masked",
+                device_type="xpu",
+                dtypes=[torch.complex128],
+            ),
         ),
         decorators=[
             DecorateInfo(
@@ -850,12 +928,12 @@ op_db: list[OpInfo] = [
                         torch.float16: tol(atol=1e-03, rtol=1e-03),
                     }
                 ),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_reference_masked",
             ),
             DecorateInfo(
                 toleranceOverride({torch.float16: tol(atol=1e-03, rtol=1e-03)}),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_ref_small_input",
             ),
             DecorateInfo(
@@ -917,13 +995,9 @@ op_db: list[OpInfo] = [
                 "test_normalize_operator_exhaustive",
             ),
             # FIXME: sum reduces all dimensions when dim=[]
+            DecorateInfo(unittest.expectedFailure, "TestReductions", "test_dim_empty"),
             DecorateInfo(
-                unittest.expectedFailure, "TestReductionsDevice", "test_dim_empty"
-            ),
-            DecorateInfo(
-                unittest.expectedFailure,
-                "TestReductionsDevice",
-                "test_dim_empty_keepdim",
+                unittest.expectedFailure, "TestReductions", "test_dim_empty_keepdim"
             ),
             # torch.jit.frontend.NotSupportedError: Compiled functions
             # can't take variable number of arguments or use
@@ -965,17 +1039,28 @@ op_db: list[OpInfo] = [
                 "test_normalize_operator_exhaustive",
             ),
             # FIXME: sum reduces all dimensions when dim=[]
+            DecorateInfo(unittest.expectedFailure, "TestReductions", "test_dim_empty"),
             DecorateInfo(
-                unittest.expectedFailure, "TestReductionsDevice", "test_dim_empty"
-            ),
-            DecorateInfo(
-                unittest.expectedFailure,
-                "TestReductionsDevice",
-                "test_dim_empty_keepdim",
+                unittest.expectedFailure, "TestReductions", "test_dim_empty_keepdim"
             ),
             # RuntimeError: undefined value tensor
             DecorateInfo(
                 unittest.expectedFailure, "TestJit", "test_variant_consistency_jit"
+            ),
+            # Driver issue of XPU, see https://github.com/intel/torch-xpu-ops/issues/2295
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_ref_small_input",
+                device_type="xpu",
+                dtypes=[torch.complex128],
+            ),
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_reference_masked",
+                device_type="xpu",
+                dtypes=[torch.complex128],
             ),
         ),
         decorators=[
@@ -986,12 +1071,12 @@ op_db: list[OpInfo] = [
                         torch.bfloat16: tol(atol=1e-03, rtol=1e-03),
                     }
                 ),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_reference_masked",
             ),
             DecorateInfo(
                 toleranceOverride({torch.float16: tol(atol=1e-02, rtol=1e-02)}),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_ref_small_input",
             ),
             DecorateInfo(
@@ -1054,17 +1139,28 @@ op_db: list[OpInfo] = [
                 "test_normalize_operator_exhaustive",
             ),
             # FIXME: sum reduces all dimensions when dim=[]
+            DecorateInfo(unittest.expectedFailure, "TestReductions", "test_dim_empty"),
             DecorateInfo(
-                unittest.expectedFailure, "TestReductionsDevice", "test_dim_empty"
-            ),
-            DecorateInfo(
-                unittest.expectedFailure,
-                "TestReductionsDevice",
-                "test_dim_empty_keepdim",
+                unittest.expectedFailure, "TestReductions", "test_dim_empty_keepdim"
             ),
             # RuntimeError: undefined value tensor
             DecorateInfo(
                 unittest.expectedFailure, "TestJit", "test_variant_consistency_jit"
+            ),
+            # Driver issue of XPU, see https://github.com/intel/torch-xpu-ops/issues/2295
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_ref_small_input",
+                device_type="xpu",
+                dtypes=[torch.complex128],
+            ),
+            DecorateInfo(
+                unittest.skip("Skipped!"),
+                "TestReductions",
+                "test_reference_masked",
+                device_type="xpu",
+                dtypes=[torch.complex128],
             ),
         ),
         decorators=[
@@ -1075,12 +1171,12 @@ op_db: list[OpInfo] = [
                         torch.float16: tol(atol=1e-02, rtol=1e-02),
                     }
                 ),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_reference_masked",
             ),
             DecorateInfo(
                 toleranceOverride({torch.float16: tol(atol=1e-02, rtol=1e-02)}),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_ref_small_input",
             ),
             DecorateInfo(
@@ -1122,6 +1218,14 @@ op_db: list[OpInfo] = [
         "masked.log_softmax",
         method_variant=None,
         dtypes=floating_types_and(torch.half, torch.bfloat16),
+        dtypesIfMPS=floating_types_and(
+            torch.half,
+            torch.bfloat16,
+            torch.uint8,
+            torch.int32,
+            torch.int16,
+            torch.int8,
+        ),
         sample_inputs_func=sample_inputs_masked_softmax,
         skips=(
             DecorateInfo(
@@ -1177,7 +1281,7 @@ op_db: list[OpInfo] = [
             # Greatest relative difference: nan at index (0,) (up to 0.0001 allowed
             DecorateInfo(
                 unittest.skip("Skipped!"),
-                "TestOperatorsDevice",
+                "TestOperators",
                 "test_vmapvjpvjp",
                 device_type="cpu",
             ),
@@ -1253,18 +1357,14 @@ op_db: list[OpInfo] = [
                 "test_normalize_operator_exhaustive",
             ),
             # FIXME: reduces all dimensions when dim=[]
+            DecorateInfo(unittest.skip("Skipped!"), "TestReductions", "test_dim_empty"),
             DecorateInfo(
-                unittest.skip("Skipped!"), "TestReductionsDevice", "test_dim_empty"
-            ),
-            DecorateInfo(
-                unittest.skip("Skipped!"),
-                "TestReductionsDevice",
-                "test_dim_empty_keepdim",
+                unittest.skip("Skipped!"), "TestReductions", "test_dim_empty_keepdim"
             ),
             # Identity can't be -torch.inf without overflow
             DecorateInfo(
                 unittest.skip("Skipped!"),
-                "TestReductionsDevice",
+                "TestReductions",
                 "test_empty_tensor_empty_slice",
             ),
             # NotSupportedError: Compiled functions can't ... use keyword-only arguments with defaults

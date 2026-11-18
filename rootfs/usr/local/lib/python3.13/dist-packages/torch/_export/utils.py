@@ -1361,7 +1361,7 @@ def _special_op_to_preserve_cia(*args: Any, **kwargs: Any) -> Any:
     return NotImplemented
 
 
-# Our strategy for deciding if we can preserve an op is following:
+# Our strategy for deciding if we can preserve a op is following:
 # 1. The op should be known statically that it is functional
 # 2. If it is maybe aliasing, we decompose because we must know if an op
 #    is mutating or aliasing.
@@ -1511,7 +1511,10 @@ def register_module_as_pytree_input_node(cls: type[torch.nn.Module]) -> None:
     Registers a module as a valid input type for :func:`torch.export.export`.
 
     Args:
-        cls: the module type to register
+        mod: the module instance
+        serialized_type_name: The serialized name for the module. This is
+        required if you want to serialize the pytree TreeSpec containing this
+        module.
 
     Example::
 
@@ -1527,7 +1530,7 @@ def register_module_as_pytree_input_node(cls: type[torch.nn.Module]) -> None:
                 return self.linear(x)
 
 
-        torch._export.utils.register_module_as_pytree_input_node(Module)
+        torch._export.utils.register_module_as_pytree_node(InputDataClass)
 
 
         class Mod(torch.nn.Module):

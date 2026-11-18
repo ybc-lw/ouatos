@@ -4,7 +4,6 @@ from ._fully_shard import (
     DataParallelMeshDims,
     FSDPModule,
     fully_shard,
-    GradientReductionHandle,
     MixedPrecisionPolicy,
     OffloadPolicy,
     register_fsdp_forward_method,
@@ -54,7 +53,6 @@ __all__ = [
     "DataParallelMeshDims",
     "FSDPModule",
     "fully_shard",
-    "GradientReductionHandle",
     "MixedPrecisionPolicy",
     "OffloadPolicy",
     "register_fsdp_forward_method",
@@ -67,7 +65,6 @@ CPUOffloadPolicy.__module__ = "torch.distributed.fsdp"
 DataParallelMeshDims.__module__ = "torch.distributed.fsdp"
 FSDPModule.__module__ = "torch.distributed.fsdp"
 fully_shard.__module__ = "torch.distributed.fsdp"
-GradientReductionHandle.__module__ = "torch.distributed.fsdp"
 MixedPrecisionPolicy.__module__ = "torch.distributed.fsdp"
 OffloadPolicy.__module__ = "torch.distributed.fsdp"
 register_fsdp_forward_method.__module__ = "torch.distributed.fsdp"

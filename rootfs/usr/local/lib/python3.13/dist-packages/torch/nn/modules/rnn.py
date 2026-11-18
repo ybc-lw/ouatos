@@ -509,22 +509,21 @@ class RNN(RNNBase):
             seq_len, batch_size, _ = x.size()
             if hx is None:
                 hx = torch.zeros(rnn.num_layers, batch_size, rnn.hidden_size)
-            h_t_minus_1 = hx
+            h_t_minus_1 = hx.clone()
+            h_t = hx.clone()
             output = []
             for t in range(seq_len):
-                h_t = []
                 for layer in range(rnn.num_layers):
                     input_t = x[t] if layer == 0 else h_t[layer - 1]
-                    h_t.append(torch.tanh(
+                    h_t[layer] = torch.tanh(
                         input_t @ params[f"weight_ih_l{layer}"].T
                         + h_t_minus_1[layer] @ params[f"weight_hh_l{layer}"].T
                         + params[f"bias_hh_l{layer}"]
                         + params[f"bias_ih_l{layer}"]
-                    ))
-                output.append(h_t[-1])
-                h_t_minus_1 = h_t
+                    )
+                output.append(h_t[-1].clone())
+                h_t_minus_1 = h_t.clone()
             output = torch.stack(output)
-            h_t = torch.stack(h_t)
             if batch_first:
                 output = output.transpose(0, 1)
             return output, h_t
@@ -825,7 +824,7 @@ class RNN(RNNBase):
 # More discussion details in https://github.com/pytorch/pytorch/pull/23266
 #
 # TODO: remove the overriding implementations for LSTM and GRU when TorchScript
-# supports expressing these two modules generally.
+# support expressing these two modules generally.
 
 
 class LSTM(RNNBase):
