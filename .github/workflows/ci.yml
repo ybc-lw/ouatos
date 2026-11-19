@@ -3,12 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
-    paths:
-      - 'installer/**'
 
-  pull_request:
-    paths:
-      - 'installer/**'
   workflow_dispatch:
     inputs:
       run_ci:

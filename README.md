@@ -21,7 +21,6 @@ The current system image includes the following software and components:
   - Safetensors
   - GGUF
   - Hugging Face Hub
-  - vLLM
 - **OpenBLAS**
 - **Node.js and pnpm**
 - **llama.cpp**
