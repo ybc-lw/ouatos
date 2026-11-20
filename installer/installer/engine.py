@@ -833,7 +833,7 @@ class Installer:
         self._write('etc/default/grub',
                     '# Written by the %s installer.  Run `grub-mkconfig -o /boot/grub/grub.cfg` after changing it.\n'
                     'GRUB_DEFAULT=0\nGRUB_TIMEOUT=5\nGRUB_DISTRIBUTOR="%s"\n'
-                    'GRUB_CMDLINE_LINUX_DEFAULT="quiet"\nGRUB_CMDLINE_LINUX=""\nGRUB_DISABLE_OS_PROBER=true\n'
+                    'GRUB_CMDLINE_LINUX_DEFAULT="quiet possible_cpus=64"\nGRUB_CMDLINE_LINUX=""\nGRUB_DISABLE_OS_PROBER=true\n'
                     % (BRAND, brand))
         self._write('tmp/ouatos-early.cfg', grub_early_config(root.fs_uuid))
         ch = self.ch
