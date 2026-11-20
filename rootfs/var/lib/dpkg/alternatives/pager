@@ -6,4 +6,7 @@ pager.1.gz
 /bin/more
 50
 /usr/share/man/man1/more.1.gz
+/usr/bin/less
+77
+/usr/share/man/man1/less.1.gz
 

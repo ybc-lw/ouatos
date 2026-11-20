@@ -1107,6 +1107,29 @@ Description: tools for managing Linux kernel modules
  removing kernel modules for Linux.
  It replaces module-init-tools.
 
+Package: less
+Status: install ok unpacked
+Priority: important
+Section: text
+Installed-Size: 376
+Maintainer: Milan Kupcevic <milan@debian.org>
+Architecture: amd64
+Multi-Arch: foreign
+Version: 668-1
+Config-Version: 668-1
+Depends: libc6 (>= 2.34), libtinfo6 (>= 6)
+Description: pager program similar to more
+ This package provides "less", a file pager (that is, a memory-efficient
+ utility for displaying text one screenful at a time). Less has many
+ more features than the basic pager "more". As part of the GNU project,
+ it is widely regarded as the standard pager on UNIX-derived systems.
+ .
+ Also provided are "lessecho", a simple utility for ensuring arguments
+ with spaces are correctly quoted; "lesskey", a tool for modifying the
+ standard (vi-like) keybindings; and "lesspipe", a filter for specific
+ types of input, such as .doc or .txt.gz files.
+Homepage: http://www.greenwoodsoftware.com/less/
+
 Package: libacl1
 Status: install ok installed
 Priority: optional
@@ -3811,7 +3834,7 @@ Description: tools for mounting and manipulating filesystems
 Homepage: https://github.com/util-linux/util-linux
 
 Package: nano
-Status: install ok unpacked
+Status: install ok installed
 Priority: important
 Section: editors
 Installed-Size: 2839
@@ -3824,7 +3847,7 @@ Suggests: hunspell
 Breaks: nano-tiny (<< 2.8.6-2)
 Conflicts: pico
 Conffiles:
- /etc/nanorc newconffile
+ /etc/nanorc b30e7a873df86d742e539d3e3f2a3826
 Description: small, friendly text editor inspired by Pico
  GNU nano is an easy-to-use text editor originally designed as a replacement
  for Pico, the ncurses-based editor from the non-free mailer package Pine
