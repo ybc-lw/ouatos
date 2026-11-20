@@ -34,14 +34,14 @@ export TEXTDOMAINDIR="${datarootdir}/locale"
 CLASS="--class gnu-linux --class gnu --class os"
 
 if [ "x${GRUB_DISTRIBUTOR}" = "x" ] ; then
-  OS=GNU/Linux
+  OS=ouatos GNU/systemd/Linux
 else
   case ${GRUB_DISTRIBUTOR} in
     Ubuntu|Kubuntu|*GNU/Linux)
       OS="${GRUB_DISTRIBUTOR}"
       ;;
     *)
-      OS="${GRUB_DISTRIBUTOR} GNU/Linux"
+      OS="${GRUB_DISTRIBUTOR} GNU/systemd/Linux"
       ;;
   esac
   CLASS="--class $(echo ${GRUB_DISTRIBUTOR} | tr 'A-Z' 'a-z' | cut -d' ' -f1|LC_ALL=C sed 's,[^[:alnum:]_],_,g') ${CLASS}"
