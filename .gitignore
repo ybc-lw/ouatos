@@ -19,6 +19,7 @@ rootfs/etc/.resolv.conf.systemd-resolved.bak
 rootfs/etc/ld.so.cache
 rootfs/var/cache/ldconfig/aux-cache
 rootfs/root/.bash_history
+rootfs/root/.npm
 rootfs/usr/share/doc/
 rootfs/usr/share/man/
 rootfs/usr/share/info/
