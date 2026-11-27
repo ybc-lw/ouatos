@@ -1,0 +1,20 @@
+#!/bin/bash
+
+printf '\n'
+
+date '+%Y-%m-%d %H:%M:%S %Z'
+
+awk '
+/MemTotal/ { total = $2 }
+/MemAvailable/ { available = $2 }
+END {
+    used = total - available
+    printf "%d MB / %d MB (%.1f%%)\n\n",
+        used / 1024,
+        total / 1024,
+        used * 100 / total
+}' /proc/meminfo
+
+echo "Enjoy your day!"
+
+printf '\n'

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+node_modules/
+!assets/usr/local/lib/node_modules/
+*cache/
+.vscode/
+.DS_Store
+._*
+*Zone.Identifier
+*.patch
+*.rej
+*.log
+*.crdownload
+todo*
+/rootfs/
